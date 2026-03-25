@@ -96,5 +96,5 @@ export async function uploadMedia(token, { postId, file }) {
 }
 
 export async function getShareCalendar(token) {
-  return request(`/api/share/${encodeURIComponent(token)}/calendar`);
+  return request("/api/share/calendar", { token });
 }
