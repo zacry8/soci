@@ -1,0 +1,17 @@
+# Secrets and environment
+.env
+
+# Runtime data (lives on VPS, not in repo)
+backend/data/db.json
+backend/data/db.json.tmp
+backend/uploads/
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# macOS
+.DS_Store

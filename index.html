@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Soci Planner</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="left-sidebar">
+        <header class="sidebar-head">
+          <h1>Soci</h1>
+          <button id="collapse-left-sidebar" class="small" type="button">Collapse</button>
+        </header>
+        <div class="sidebar-body">
+          <p class="subtle">Social planning workspace</p>
+          <div class="sidebar-actions">
+            <button id="create-post" class="primary" type="button">+ New Post</button>
+            <button id="new-client" class="small" type="button">+ Client</button>
+            <button id="copy-share-link" class="small" type="button">Share Link</button>
+            <button id="export-csv" class="small" type="button">CSV</button>
+            <button id="export-ics" class="small" type="button">ICS</button>
+          </div>
+          <div class="view-toggles" aria-label="View toggles">
+            <button id="toggle-kanban" data-view="kanban" class="tab active">Workflow</button>
+            <button id="toggle-calendar" data-view="calendar" class="tab active">Schedule</button>
+            <button id="toggle-grid" data-view="grid" class="tab">Preview</button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h2 id="view-title">Planning Workspace</h2>
+            <span class="subtle" id="stats"></span>
+          </div>
+          <div class="workspace-controls">
+            <button id="reopen-left-sidebar" class="small hidden" type="button">☰ Menu</button>
+            <button id="reopen-right-sidebar" class="small hidden" type="button">⇤ Details</button>
+          </div>
+        </header>
+
+        <section class="filterbar" aria-label="Planning filters">
+          <select id="active-client" aria-label="Active client">
+            <option value="">All Clients</option>
+          </select>
+          <input id="filter-query" type="search" placeholder="Search title, caption, tags..." />
+          <select id="filter-platform" aria-label="Filter by platform">
+            <option value="all">All Platforms</option>
+            <option value="Instagram">Instagram</option>
+            <option value="TikTok">TikTok</option>
+            <option value="LinkedIn">LinkedIn</option>
+            <option value="X">X</option>
+          </select>
+          <select id="filter-status" aria-label="Filter by status">
+            <option value="all">All Statuses</option>
+            <option value="idea">Idea</option>
+            <option value="in-progress">In Progress</option>
+            <option value="in-review">In Review</option>
+            <option value="ready">Ready</option>
+          </select>
+          <select id="filter-assignee" aria-label="Filter by assignee">
+            <option value="all">All Assignees</option>
+          </select>
+        </section>
+
+        <section id="workflow-section" class="workspace-section">
+          <header class="section-head">
+            <h3>Workflow</h3>
+            <button id="collapse-workflow" class="small" type="button">Collapse</button>
+          </header>
+          <div class="section-body">
+            <section id="kanban-view" class="view"></section>
+          </div>
+        </section>
+
+        <section id="schedule-section" class="workspace-section">
+          <header class="section-head">
+            <h3>Schedule</h3>
+            <button id="collapse-schedule" class="small" type="button">Collapse</button>
+          </header>
+          <div class="section-body">
+            <section id="calendar-view" class="view"></section>
+          </div>
+        </section>
+
+        <section id="preview-section" class="workspace-section hidden">
+          <header class="section-head">
+            <h3>Profile Preview</h3>
+            <button id="collapse-preview" class="small" type="button">Collapse</button>
+          </header>
+          <div class="section-body">
+            <section id="grid-view" class="view"></section>
+          </div>
+        </section>
+      </main>
+
+      <aside class="inspector" id="inspector-panel">
+        <header class="section-head inspector-head">
+          <h3>Details</h3>
+          <button id="collapse-right-sidebar" class="small" type="button">Collapse</button>
+        </header>
+        <div class="inspector" id="inspector">
+          <div class="empty">Select a post to edit</div>
+        </div>
+      </aside>
+    </div>
+
+    <template id="column-template">
+      <section class="column">
+        <header>
+          <h3></h3>
+          <span class="count"></span>
+        </header>
+        <div class="cards"></div>
+      </section>
+    </template>
+
+    <template id="card-template">
+      <article class="card" draggable="true">
+        <h4></h4>
+        <p class="meta"></p>
+        <p class="excerpt"></p>
+        <div class="card-footer">
+          <span class="card-badge"></span>
+          <span class="card-progress"></span>
+        </div>
+      </article>
+    </template>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
