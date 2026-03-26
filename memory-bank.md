@@ -357,6 +357,21 @@
     - syntax checks pass for `src/render.js` and `src/main.js`
     - source scan confirms no unlabeled `<label>` usage remains in `src/*.js`
 
+### Implementation Snapshot Addendum 11 (2026-03-26)
+- Added production-resilience fixes for API sync failures and stale API base configuration:
+  - `src/api.js`
+    - added API base normalization to prevent malformed persisted base URLs
+    - strips trailing slashes and legacy `/api` suffix in stored `soci.api.base`
+  - `src/store.js`
+    - introduced centralized sync error reporting hook (`setErrorHandler`)
+    - wrapped async server sync operations to report actionable failures (save/delete/share/upload)
+  - `src/main.js`
+    - wired store sync errors to UI toast notifications so failed persistence is no longer silent
+  - Production diagnostics captured:
+    - deployment workflow for commit `d8a1357` succeeded
+    - live frontend serves updated inspector code
+    - live API health and CORS preflight for `/api/admin/media` and `/api/admin/posts` respond correctly
+
 ## 📚 Resources
 
 ### Known Inputs
@@ -396,3 +411,4 @@
 - **By:** Cline
 - **Reason:** Fixed API persistence regression caused by frontend/backend status mismatch and resolved inspector label association accessibility violations; added verification notes.
 - **Reason:** Added inspector sidebar reordering and media flow verification updates; documented accessibility/source-scan validation for final QA pass.
+- **Reason:** Added API-base normalization and explicit frontend sync error surfacing to address production “silent save” failure mode and stale endpoint configuration risks.

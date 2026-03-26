@@ -67,6 +67,10 @@ const shareState = {
   error: ""
 };
 
+store.setErrorHandler((message) => {
+  showToast(message, "error");
+});
+
 // ── Toast system ─────────────────────────────────────────────────────────────
 let toastTimer = null;
 function showToast(message, type = "") {

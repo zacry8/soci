@@ -1,12 +1,21 @@
 const STORAGE_AUTH_TOKEN = "soci.auth.token";
 const STORAGE_API_BASE = "soci.api.base";
 
+function normalizeApiBase(base) {
+  if (!base) return "";
+  let next = String(base).trim();
+  next = next.replace(/\/+$/, "");
+  // Handle legacy saved values like "https://api.domain.com/api"
+  if (next.endsWith("/api")) next = next.slice(0, -4);
+  return next;
+}
+
 function getApiBase() {
   const stored = localStorage.getItem(STORAGE_API_BASE);
-  if (stored) return stored;
+  if (stored) return normalizeApiBase(stored);
   const host = window.location.hostname;
   if (host === "localhost" || host === "127.0.0.1") return "http://localhost:8787";
-  return `https://api.${host}`;
+  return normalizeApiBase(`https://api.${host}`);
 }
 
 

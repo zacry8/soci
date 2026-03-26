@@ -65,7 +65,13 @@ export function createStore() {
   let activePostId = posts[0]?.id ?? null;
   let authToken = "";
   let isBootstrapped = false;
+  let errorHandler = null;
   const listeners = new Set();
+
+  const reportSyncError = (message, error) => {
+    console.error(error);
+    if (typeof errorHandler === "function") errorHandler(message, error);
+  };
 
   const notify = () => {
     for (const listener of listeners) listener(getState());
@@ -95,7 +101,7 @@ export function createStore() {
       isBootstrapped = true;
       notify();
     } catch (error) {
-      console.error(error);
+      reportSyncError("Could not load server state. Using local fallback data.", error);
       clients = makeSeedClients().map(normalizeClient);
       posts = makeSeedPosts(clients).map((post) => normalizePost(post, clients));
       media = [];
@@ -114,7 +120,7 @@ export function createStore() {
       clients = clients.map((c) => (c.id === persisted.id ? persisted : c));
       notify();
     } catch (error) {
-      console.error(error);
+      reportSyncError("Client save failed on server.", error);
     }
   };
 
@@ -126,7 +132,7 @@ export function createStore() {
       posts = posts.map((p) => (p.id === persisted.id ? persisted : p));
       notify();
     } catch (error) {
-      console.error(error);
+      reportSyncError("Post save failed on server.", error);
     }
   };
 
@@ -146,6 +152,9 @@ export function createStore() {
   };
 
   return {
+    setErrorHandler(handler) {
+      errorHandler = typeof handler === "function" ? handler : null;
+    },
     subscribe(listener) {
       listeners.add(listener);
       listener(getState());
@@ -210,7 +219,11 @@ export function createStore() {
       const next = posts.filter((p) => p.id !== id);
       if (activePostId === id) activePostId = next[0]?.id ?? null;
       setPosts(next);
-      if (authToken) void apiDeletePost(authToken, id).catch(console.error);
+      if (authToken) {
+        void apiDeletePost(authToken, id).catch((error) => {
+          reportSyncError("Delete post failed on server.", error);
+        });
+      }
     },
     deleteClient(id) {
       const nextPosts = posts.filter((p) => p.clientId !== id);
@@ -218,7 +231,11 @@ export function createStore() {
       posts = nextPosts;
       media = nextMedia;
       setClients(clients.filter((c) => c.id !== id));
-      if (authToken) void apiDeleteClient(authToken, id).catch(console.error);
+      if (authToken) {
+        void apiDeleteClient(authToken, id).catch((error) => {
+          reportSyncError("Delete client failed on server.", error);
+        });
+      }
     },
     duplicatePost(id) {
       const original = posts.find((p) => p.id === id);
@@ -247,15 +264,38 @@ export function createStore() {
       return clients.find((client) => client.shareSlug === slug && client.sharingEnabled) || null;
     },
     async createClientShareLink(clientId) {
-      if (!authToken) authToken = await ensureAdminToken();
-      return createShareLink(authToken, clientId);
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+        return createShareLink(authToken, clientId);
+      } catch (error) {
+        reportSyncError("Could not create share link.", error);
+        throw error;
+      }
     },
     async loadShareCalendar(token) {
-      return getShareCalendar(token);
+      try {
+        return getShareCalendar(token);
+      } catch (error) {
+        reportSyncError("Could not load shared calendar.", error);
+        throw error;
+      }
     },
     async uploadPostMedia(postId, file) {
-      if (!authToken) authToken = await ensureAdminToken();
-      const result = await uploadMedia(authToken, { postId, file });
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+      } catch (error) {
+        reportSyncError("Media upload auth failed.", error);
+        throw error;
+      }
+
+      let result;
+      try {
+        result = await uploadMedia(authToken, { postId, file });
+      } catch (error) {
+        reportSyncError("Media upload failed on server.", error);
+        throw error;
+      }
+
       const mediaRecord = result.media;
       if (mediaRecord) {
         media = [mediaRecord, ...media.filter((m) => m.id !== mediaRecord.id)];
