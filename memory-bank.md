@@ -332,6 +332,31 @@
   - Ops validation:
     - backup script executable bit set for `scripts/backup.sh`
 
+### Implementation Snapshot Addendum 9 (2026-03-26)
+- Fixed persistence regression and accessibility labeling issues discovered during API-backed editing:
+  - Persistence fix:
+    - aligned backend post status validation with frontend workflow statuses
+    - `backend/server.js` now accepts `in-progress` and `in-review` statuses (while retaining legacy values for compatibility)
+  - Accessibility fix:
+    - updated inspector form labels in `src/render.js` so form controls use explicit `label for` ↔ `id` associations
+    - converted non-form-heading labels (platform section headings) to non-label text elements to avoid false violations
+  - Verification:
+    - syntax checks pass for edited files
+    - direct API post upsert with status `in-progress` now persists successfully
+
+### Implementation Snapshot Addendum 10 (2026-03-26)
+- Refined inspector information hierarchy and validated media flow reliability:
+  - Inspector sidebar/order update in `src/render.js`:
+    - reordered content to: `Title` → `Media Upload` → `Caption` → `Platform Captions` → `Settings & Specifics`
+    - moved platform toggles and tags into `Settings & Specifics` grouping for clearer progressive editing flow
+  - Media UX/compatibility update:
+    - expanded upload input accept list to include `application/pdf` to match backend-allowed media types
+  - Verification:
+    - API-level upload test confirms media is created and linked to post (`upload_ok: true`, `linked_ok: true`)
+    - returned upload path is valid (`/uploads/...`)
+    - syntax checks pass for `src/render.js` and `src/main.js`
+    - source scan confirms no unlabeled `<label>` usage remains in `src/*.js`
+
 ## 📚 Resources
 
 ### Known Inputs
@@ -367,6 +392,7 @@
 ---
 
 ## Last Memory Update
-- **Updated:** 2026-03-25 (latest)
+- **Updated:** 2026-03-26 (latest)
 - **By:** Cline
-- **Reason:** Added MVP deploy runbook and production hardening (CORS allowlist + payload limits), environment template, executable backup rotation script, and validation notes for launch readiness.
+- **Reason:** Fixed API persistence regression caused by frontend/backend status mismatch and resolved inspector label association accessibility violations; added verification notes.
+- **Reason:** Added inspector sidebar reordering and media flow verification updates; documented accessibility/source-scan validation for final QA pass.

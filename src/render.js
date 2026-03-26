@@ -169,45 +169,45 @@ export function renderInspector(root, post, handlers) {
     </section>
 
     <p class="section-title">Caption &amp; Content</p>
-    <div class="field"><label>Title</label><input id="f-title" value="${escapeHtml(post.title)}" /></div>
-    <div class="field"><label>Caption</label><textarea id="f-caption">${escapeHtml(post.caption)}</textarea></div>
+    <div class="field"><label for="f-title">Title</label><input id="f-title" value="${escapeHtml(post.title)}" /></div>
     <div class="field">
-      <label>Tags</label>
-      <input id="f-tags" value="${escapeHtml(post.tags.join(", "))}" placeholder="e.g. branding, portfolio" />
-      <span class="field-hint">Separate tags with commas</span>
+      <label for="f-media-file">Media Upload</label>
+      <input id="f-media-file" type="file" accept="image/*,video/*,application/pdf" />
+      <div id="f-media-status" class="subtle" style="font-size:12px"></div>
+      ${mediaListHtml}
     </div>
-    <div class="field"><label>Platforms</label>
+    <div class="field"><label for="f-caption">Caption</label><textarea id="f-caption">${escapeHtml(post.caption)}</textarea></div>
+    <div class="field">
+      <span class="variant-field-label">Platform Captions</span>
+      <div class="variant-fields">${variantFieldsHtml || '<div class="subtle" style="font-size:12px">Select platforms above to add per-platform captions.</div>'}</div>
+    </div>
+
+    <hr>
+    <p class="section-title">Settings &amp; Specifics</p>
+    <div class="field"><span class="variant-field-label">Platforms</span>
       <div class="platform-toggles">
         ${PLATFORM_OPTIONS.map((p) => `<button type="button" class="platform-toggle${post.platforms.includes(p) ? " active" : ""}" data-platform="${escapeHtml(p)}">${escapeHtml(p)}</button>`).join("")}
       </div>
     </div>
     <div class="field">
-      <label>Platform Captions</label>
-      <div class="variant-fields">${variantFieldsHtml || '<div class="subtle" style="font-size:12px">Select platforms above to add per-platform captions.</div>'}</div>
+      <label for="f-tags">Tags</label>
+      <input id="f-tags" value="${escapeHtml(post.tags.join(", "))}" placeholder="e.g. branding, portfolio" />
+      <span class="field-hint">Separate tags with commas</span>
     </div>
-    <div class="field">
-      <label>Media Upload</label>
-      <input id="f-media-file" type="file" accept="image/*,video/*" />
-      <div id="f-media-status" class="subtle" style="font-size:12px"></div>
-      ${mediaListHtml}
-    </div>
-
-    <hr>
-    <p class="section-title">Settings &amp; Specifics</p>
     <div class="row">
-      <div class="field"><label>Status</label>
+      <div class="field"><label for="f-status">Status</label>
         <select id="f-status">${STATUSES.map((s) => `<option value="${s}" ${post.status === s ? "selected" : ""}>${STATUS_LABELS[s]}</option>`).join("")}</select>
       </div>
-      <div class="field"><label>Schedule Date</label><input id="f-date" type="date" value="${post.scheduleDate || ""}" /></div>
+      <div class="field"><label for="f-date">Schedule Date</label><input id="f-date" type="date" value="${post.scheduleDate || ""}" /></div>
     </div>
     <div class="row">
-      <div class="field"><label>Client</label>
+      <div class="field"><label for="f-client-id">Client</label>
         <select id="f-client-id">
           <option value="">Unassigned</option>
           ${clients.map((client) => `<option value="${client.id}" ${post.clientId === client.id ? "selected" : ""}>${escapeHtml(client.name)}</option>`).join("")}
         </select>
       </div>
-      <div class="field"><label>Visibility</label>
+      <div class="field"><label for="f-visibility">Visibility</label>
         <select id="f-visibility">
           <option value="client-shareable" ${post.visibility === "client-shareable" ? "selected" : ""}>Client Shareable</option>
           <option value="internal" ${post.visibility === "internal" ? "selected" : ""}>Internal Only</option>
@@ -215,18 +215,18 @@ export function renderInspector(root, post, handlers) {
       </div>
     </div>
     <div class="row">
-      <div class="field"><label>Publish State</label>
+      <div class="field"><label for="f-publish-state">Publish State</label>
         <select id="f-publish-state">
           <option value="draft" ${post.publishState === "draft" ? "selected" : ""}>Draft</option>
           <option value="scheduled" ${post.publishState === "scheduled" ? "selected" : ""}>Scheduled</option>
           <option value="published" ${post.publishState === "published" ? "selected" : ""}>Published</option>
         </select>
       </div>
-      <div class="field"><label>Published At</label><input id="f-published-at" type="datetime-local" value="${post.publishedAt ? post.publishedAt.slice(0, 16) : ""}" /></div>
+      <div class="field"><label for="f-published-at">Published At</label><input id="f-published-at" type="datetime-local" value="${post.publishedAt ? post.publishedAt.slice(0, 16) : ""}" /></div>
     </div>
     <div class="row">
-      <div class="field"><label>Scheduled At</label><input id="f-scheduled-at" type="datetime-local" value="${post.scheduledAt ? post.scheduledAt.slice(0, 16) : ""}" /></div>
-      <div class="field"><label>Post Type</label>
+      <div class="field"><label for="f-scheduled-at">Scheduled At</label><input id="f-scheduled-at" type="datetime-local" value="${post.scheduledAt ? post.scheduledAt.slice(0, 16) : ""}" /></div>
+      <div class="field"><label for="f-post-type">Post Type</label>
         <select id="f-post-type">
           <option value="static" ${post.postType === "static" ? "selected" : ""}>Static</option>
           <option value="reel" ${post.postType === "reel" ? "selected" : ""}>Reel</option>
@@ -239,8 +239,8 @@ export function renderInspector(root, post, handlers) {
     <hr>
     <p class="section-title">Collaboration</p>
     <div class="row">
-      <div class="field"><label>Assignee</label><input id="f-assignee" value="${escapeHtml(post.assignee || "")}" /></div>
-      <div class="field"><label>Reviewer</label><input id="f-reviewer" value="${escapeHtml(post.reviewer || "")}" /></div>
+      <div class="field"><label for="f-assignee">Assignee</label><input id="f-assignee" value="${escapeHtml(post.assignee || "")}" /></div>
+      <div class="field"><label for="f-reviewer">Reviewer</label><input id="f-reviewer" value="${escapeHtml(post.reviewer || "")}" /></div>
     </div>
 
     <hr>
@@ -254,8 +254,8 @@ export function renderInspector(root, post, handlers) {
     ${commentHtml || `<div class="subtle">No comments yet.</div>`}
     <div id="comment-error" class="comment-error hidden"></div>
     <div class="row" style="margin-top:8px">
-      <div class="field"><label>Author</label><input id="c-author" placeholder="Name" /></div>
-      <div class="field"><label>Comment</label><input id="c-text" placeholder="Write a comment" /></div>
+      <div class="field"><label for="c-author">Author</label><input id="c-author" placeholder="Name" /></div>
+      <div class="field"><label for="c-text">Comment</label><input id="c-text" placeholder="Write a comment" /></div>
     </div>
     <button class="add-btn" id="add-comment">Add Comment</button>
 

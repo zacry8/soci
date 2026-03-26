@@ -73,7 +73,16 @@ function validateClient(body) {
   return null;
 }
 
-const VALID_STATUSES = new Set(["idea", "draft", "ready", "scheduled", "published"]);
+const VALID_STATUSES = new Set([
+  "idea",
+  "in-progress",
+  "in-review",
+  "ready",
+  // legacy/back-compat values
+  "draft",
+  "scheduled",
+  "published"
+]);
 const VALID_VISIBILITIES = new Set(["client-shareable", "internal"]);
 
 function validatePost(body) {
