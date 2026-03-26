@@ -28,6 +28,8 @@ const VALID_STATUSES = new Set([
   "published"
 ]);
 const VALID_VISIBILITIES = new Set(["client-shareable", "internal"]);
+const VALID_USER_ROLES = new Set(["owner_admin", "admin", "helper_staff", "client_user"]);
+const VALID_MEMBERSHIP_PERMISSIONS = new Set(["view", "comment", "edit", "manage"]);
 
 export function validatePost(body) {
   if (!body.id && !body.clientId) return "clientId is required";
@@ -47,5 +49,46 @@ export function validatePost(body) {
     return `status must be one of: ${[...VALID_STATUSES].join(", ")}`;
   if (body.visibility !== undefined && !VALID_VISIBILITIES.has(body.visibility))
     return `visibility must be one of: ${[...VALID_VISIBILITIES].join(", ")}`;
+  return null;
+}
+
+export function validateUser(body) {
+  if (!body.id && (!body.email || typeof body.email !== "string")) return "email is required";
+  if (body.email !== undefined) {
+    const email = String(body.email).trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
+      return "email must be a valid email up to 200 characters";
+    }
+  }
+  if (body.name !== undefined && (typeof body.name !== "string" || body.name.length > 100)) {
+    return "name must be a string up to 100 characters";
+  }
+  if (body.role !== undefined && !VALID_USER_ROLES.has(body.role)) {
+    return `role must be one of: ${[...VALID_USER_ROLES].join(", ")}`;
+  }
+  if (!body.id && !body.password) return "password is required when creating a user";
+  if (body.password !== undefined && (typeof body.password !== "string" || body.password.length < 8 || body.password.length > 200)) {
+    return "password must be a string between 8 and 200 characters";
+  }
+  return null;
+}
+
+export function validateMembership(body) {
+  if (!body?.userId) return "userId is required";
+  if (!body?.clientId) return "clientId is required";
+  if (body.permissions !== undefined) {
+    if (!Array.isArray(body.permissions) || !body.permissions.length) {
+      return "permissions must be a non-empty array";
+    }
+    const invalid = body.permissions.find((value) => !VALID_MEMBERSHIP_PERMISSIONS.has(value));
+    if (invalid) return `invalid permission: ${invalid}`;
+  }
+  return null;
+}
+
+export function validateComment(body) {
+  const text = String(body?.text || "").trim();
+  if (!text) return "text is required";
+  if (text.length > 2000) return "text must be 2000 characters or less";
   return null;
 }

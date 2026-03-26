@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { config } from "./config.js";
+import { hashPassword } from "./auth.js";
 import { id, now } from "./utils.js";
 
 const initialState = () => ({
@@ -8,8 +9,37 @@ const initialState = () => ({
   posts: [],
   media: [],
   shareLinks: [],
+  users: [],
+  memberships: [],
+  activity: [],
   updatedAt: now()
 });
+
+function ensureStateShape(value) {
+  const state = { ...initialState(), ...(value || {}) };
+  if (!Array.isArray(state.clients)) state.clients = [];
+  if (!Array.isArray(state.posts)) state.posts = [];
+  if (!Array.isArray(state.media)) state.media = [];
+  if (!Array.isArray(state.shareLinks)) state.shareLinks = [];
+  if (!Array.isArray(state.users)) state.users = [];
+  if (!Array.isArray(state.memberships)) state.memberships = [];
+  if (!Array.isArray(state.activity)) state.activity = [];
+
+  if (!state.users.length) {
+    state.users = [{
+      id: "owner-admin",
+      email: config.adminEmail,
+      name: "Owner",
+      role: "owner_admin",
+      passwordHash: hashPassword(config.adminPassword),
+      disabledAt: "",
+      createdAt: now(),
+      updatedAt: now()
+    }];
+  }
+
+  return state;
+}
 
 async function ensureDataFile() {
   await fs.mkdir(path.dirname(config.dataFile), { recursive: true });
@@ -24,9 +54,9 @@ export async function loadState() {
   await ensureDataFile();
   try {
     const raw = await fs.readFile(config.dataFile, "utf8");
-    return { ...initialState(), ...JSON.parse(raw) };
+    return ensureStateShape(JSON.parse(raw));
   } catch {
-    return initialState();
+    return ensureStateShape(initialState());
   }
 }
 
@@ -41,7 +71,7 @@ function enqueue(fn) {
 }
 
 async function saveState(state) {
-  const next = { ...state, updatedAt: now() };
+  const next = { ...ensureStateShape(state), updatedAt: now() };
   const tmp = config.dataFile + ".tmp";
   await fs.writeFile(tmp, JSON.stringify(next, null, 2));
   await fs.rename(tmp, config.dataFile); // atomic on Linux (same filesystem)
@@ -174,5 +204,91 @@ export function createShareLink(clientId, token, expiresAt = "") {
     state.shareLinks = [link, ...state.shareLinks];
     await saveState(state);
     return link;
+  });
+}
+
+export async function findUserByEmail(email) {
+  const normalized = String(email || "").trim().toLowerCase();
+  if (!normalized) return null;
+  const state = await loadState();
+  return state.users.find((user) => String(user.email || "").trim().toLowerCase() === normalized) || null;
+}
+
+export function upsertUser(patch) {
+  return enqueue(async () => {
+    const state = await loadState();
+    const existing = state.users.find((u) => u.id === patch.id);
+    const user = existing
+      ? {
+          ...existing,
+          ...patch,
+          email: String(patch.email || existing.email || "").trim().toLowerCase(),
+          updatedAt: now()
+        }
+      : {
+          id: patch.id || id(),
+          email: String(patch.email || "").trim().toLowerCase(),
+          name: String(patch.name || "").trim() || "User",
+          role: patch.role || "client_user",
+          passwordHash: patch.passwordHash || "",
+          disabledAt: patch.disabledAt || "",
+          createdAt: now(),
+          updatedAt: now()
+        };
+    state.users = existing ? state.users.map((u) => (u.id === user.id ? user : u)) : [user, ...state.users];
+    await saveState(state);
+    return user;
+  });
+}
+
+export function upsertMembership(patch) {
+  return enqueue(async () => {
+    const state = await loadState();
+    const existing = state.memberships.find(
+      (m) => m.userId === patch.userId && m.clientId === patch.clientId
+    );
+    const nextPermissions = Array.isArray(patch.permissions) ? [...new Set(patch.permissions)] : ["view"];
+    const membership = existing
+      ? { ...existing, permissions: nextPermissions, updatedAt: now() }
+      : {
+          id: patch.id || id(),
+          userId: patch.userId,
+          clientId: patch.clientId,
+          permissions: nextPermissions,
+          createdAt: now(),
+          updatedAt: now()
+        };
+    state.memberships = existing
+      ? state.memberships.map((m) => (m.id === membership.id ? membership : m))
+      : [membership, ...state.memberships];
+    await saveState(state);
+    return membership;
+  });
+}
+
+export function addPostComment(postId, comment) {
+  return enqueue(async () => {
+    const state = await loadState();
+    let updated = null;
+    state.posts = state.posts.map((post) => {
+      if (post.id !== postId) return post;
+      updated = {
+        ...post,
+        comments: [...(Array.isArray(post.comments) ? post.comments : []), comment],
+        updatedAt: now()
+      };
+      return updated;
+    });
+    if (!updated) return null;
+    state.activity = [{
+      id: id(),
+      type: "post.comment.added",
+      postId,
+      clientId: updated.clientId || "",
+      actorUserId: comment.authorUserId || "",
+      createdAt: now()
+    }, ...state.activity].slice(0, 5000);
+    await saveState(state);
+    return updated;
   });
 }

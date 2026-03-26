@@ -534,7 +534,110 @@
       - drag/drop media affordance and readiness meter visibility
       - no new runtime console errors observed during smoke interactions
 
+### Implementation Snapshot Addendum 18 (2026-03-26)
+- Completed comprehensive theme coverage and manual light/dark control:
+  - `styles.css`
+    - added explicit manual theme token layers via `:root[data-theme="light"]` and `:root[data-theme="dark"]`
+    - preserved system fallback with `@media (prefers-color-scheme: dark)` only when no manual `data-theme` override is set
+    - replaced remaining hardcoded light surfaces in planning UI with semantic tokens across:
+      - kanban columns/cards/chips
+      - calendar day cells/chips/nav controls
+      - preview/profile panels and tiles
+      - inspector/comment/action secondary surfaces
+  - `index.html`
+    - added topbar theme toggle control (`#theme-toggle`)
+  - `src/main.js`
+    - added persistent theme preference key: `soci.theme.v1`
+    - implemented `applyTheme()` + `toggleTheme()` to set/remove `data-theme` on `<html>`
+    - toggle button label/aria now reflects next mode (`☀️ Light` / `🌙 Dark`)
+  - Validation:
+    - syntax checks pass for `src/main.js` and `src/render.js`
+    - browser verification confirms visible mode switching and non-white kanban/calendar surfaces in dark mode
+
+### Implementation Snapshot Addendum 19 (2026-03-26)
+- Added localhost preview bypass so design work is viewable without auth-blocking login screen:
+  - `src/main.js`
+    - introduced guarded local bypass condition:
+      - enabled only for `localhost` / `127.0.0.1`
+      - disabled for share links (`#share=` still behaves as designed)
+    - app now auto-opens workspace locally for quick visual QA while preserving normal login behavior on non-local hosts
+  - Validation:
+    - browser verification confirms `http://localhost:4174/index.html` loads directly into app shell (no login blocker)
+    - existing theme toggle + kanban/calendar styling remain intact during local preview
+
+### Implementation Snapshot Addendum 20 (2026-03-26)
+- Began non-breaking coworking access rollout with additive multi-user auth and membership controls:
+  - Backend auth/security foundation:
+    - `backend/auth.js`
+      - added password hashing + verification helpers using Node `crypto.scrypt` (`hashPassword`, `verifyPassword`)
+    - `backend/routes/auth.js`
+      - login now supports DB-backed users first (owner/helper/client roles)
+      - retains backward-compatible env-admin fallback login path
+      - normalized login response now includes `user` metadata with role
+  - Data model expansion (additive, backward-compatible):
+    - `backend/db.js`
+      - added collections: `users`, `memberships`, `activity`
+      - added state shape normalization for legacy DB compatibility
+      - seeded default `owner-admin` user from env credentials when no users exist
+      - added user/membership helpers: `findUserByEmail`, `upsertUser`, `upsertMembership`
+      - added coworking comment activity write helper: `addPostComment`
+  - Admin API expansion (without removing existing routes):
+    - `backend/routes/admin.js`
+      - broadened admin gate to accept `owner_admin` and legacy `admin`
+      - added `POST /api/admin/users` to create/update helper/client users
+      - added `POST /api/admin/memberships` to assign users to clients with permissions
+  - Coworking scoped endpoints (additive):
+    - new `backend/routes/me.js`
+      - `GET /api/me/state` returns role-scoped state (admin = full, helper/client = membership-filtered)
+      - `POST /api/me/posts/:postId/comments` enforces permission-aware comments (`comment/edit/manage`)
+    - `backend/server.js` now registers `registerMeRoutes`
+  - Validation and input hardening:
+    - `backend/validators.js`
+      - added `validateUser`, `validateMembership`, `validateComment`
+  - Frontend compatibility update:
+    - `src/api.js`
+      - added auth-user persistence key `soci.auth.user`
+      - `login()` now stores returned user profile metadata
+      - `setAuthToken(null)` clears both token and stored auth user
+  - Verification pass:
+    - syntax checks passed for modified backend/frontend modules via `node --check`
+    - end-to-end API smoke test passed for:
+      - owner login (`role=owner_admin`)
+      - client creation + post creation
+      - helper user creation
+      - membership assignment
+      - helper login
+      - scoped `/api/me/state` visibility (`me_clients=1`)
+      - helper comment creation via `/api/me/posts/:postId/comments`
+
+### Implementation Snapshot Addendum 21 (2026-03-26)
+- Added practical in-app user management flow for admin users:
+  - `index.html`
+    - added sidebar action button: `Manage Users`
+  - `src/api.js`
+    - added admin user-management client methods:
+      - `createUser(token, payload)` → `POST /api/admin/users`
+      - `assignMembership(token, payload)` → `POST /api/admin/memberships`
+      - `getMyState(token)` → `GET /api/me/state`
+  - `src/store.js`
+    - role-aware bootstrap:
+      - admin roles use `GET /api/admin/state`
+      - helper/client roles use `GET /api/me/state`
+    - added auth user accessor: `getCurrentUser()`
+    - added admin helpers:
+      - `adminCreateUser(payload)`
+      - `adminAssignMembership(payload)`
+  - `src/main.js`
+    - added admin-only `Manage Users` action visibility (`owner_admin`/`admin` roles)
+    - implemented guided prompt workflow:
+      - create helper/client user (email/name/role/password)
+      - optionally assign membership to a selected client with permissions
+    - integrated toast feedback and existing error handling for safer operation
+  - Verification:
+    - syntax checks pass for `src/main.js`, `src/store.js`, `src/api.js`
+    - browser smoke launch confirms updated app shell loads with new management control path
+
 ## Last Memory Update
 - **Updated:** 2026-03-26 (latest)
 - **By:** Claude Code
-- **Reason:** Logged Gen Z-forward visual refresh: solarized off-white/obsidian palette, topbar toggle hierarchy, inspector tab architecture, media-first dropzone, sticky actions, readiness progress UI, and hashtag suggestion flow.
+- **Reason:** Logged admin user-management UX addition (manage users button + guided creation/assignment flow), role-aware store bootstrap (`/api/admin/state` vs `/api/me/state`), and verification status.

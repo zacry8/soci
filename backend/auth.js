@@ -35,3 +35,21 @@ export function verifyAuthToken(token) {
     return null;
   }
 }
+
+export function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("base64url");
+  const derived = crypto.scryptSync(String(password || ""), salt, 64).toString("base64url");
+  return `scrypt$${salt}$${derived}`;
+}
+
+export function verifyPassword(password, passwordHash) {
+  const value = String(passwordHash || "");
+  const parts = value.split("$");
+  if (parts.length !== 3 || parts[0] !== "scrypt") return false;
+  const [, salt, expected] = parts;
+  const actual = crypto.scryptSync(String(password || ""), salt, 64).toString("base64url");
+  const a = Buffer.from(actual);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}

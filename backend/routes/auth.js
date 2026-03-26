@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { createAuthToken } from "../auth.js";
+import { createAuthToken, verifyPassword } from "../auth.js";
+import { findUserByEmail } from "../db.js";
 import { json, readJsonBody } from "../utils.js";
 
 // Rate limiting: max 10 login attempts per IP per 15 minutes
@@ -30,13 +31,37 @@ export function registerAuthRoutes(router, config) {
       return json(res, body.__error === "Payload too large" ? 413 : 400, { error: body.__error });
     }
 
+    const emailInput = String(body.email || "").trim().toLowerCase();
+    const passwordInput = String(body.password || "");
+
+    // Primary path: DB-backed users (owner/helper/client)
+    const user = await findUserByEmail(emailInput);
+    if (user && !user.disabledAt && verifyPassword(passwordInput, user.passwordHash)) {
+      const token = createAuthToken({
+        role: user.role || "client_user",
+        userId: user.id,
+        email: user.email
+      });
+      return json(res, 200, {
+        token,
+        role: user.role || "client_user",
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name || "",
+          role: user.role || "client_user"
+        }
+      });
+    }
+
+    // Backward-compatible fallback: env-admin credentials
     // Timing-safe comparison to prevent timing attacks
     const emailBuf    = Buffer.alloc(256);
     const passBuf     = Buffer.alloc(256);
     const emailExpBuf = Buffer.alloc(256);
     const passExpBuf  = Buffer.alloc(256);
-    emailBuf.write(String(body.email || "").slice(0, 255));
-    passBuf.write(String(body.password || "").slice(0, 255));
+    emailBuf.write(emailInput.slice(0, 255));
+    passBuf.write(passwordInput.slice(0, 255));
     emailExpBuf.write(config.adminEmail.slice(0, 255));
     passExpBuf.write(config.adminPassword.slice(0, 255));
     const emailOk = crypto.timingSafeEqual(emailBuf, emailExpBuf);
@@ -46,7 +71,16 @@ export function registerAuthRoutes(router, config) {
       return json(res, 401, { error: "Invalid credentials" });
     }
 
-    const token = createAuthToken({ role: "admin", email: config.adminEmail });
-    return json(res, 200, { token, role: "admin" });
+    const token = createAuthToken({ role: "owner_admin", email: config.adminEmail, userId: "owner-admin" });
+    return json(res, 200, {
+      token,
+      role: "owner_admin",
+      user: {
+        id: "owner-admin",
+        email: config.adminEmail,
+        name: "Owner",
+        role: "owner_admin"
+      }
+    });
   });
 }

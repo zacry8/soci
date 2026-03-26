@@ -14,8 +14,40 @@
   --glow: 0 16px 42px rgba(85, 75, 55, 0.11);
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f8f6f1;
+  --bg-2: #f2eee6;
+  --panel: rgba(255, 252, 246, 0.78);
+  --panel-strong: rgba(255, 251, 245, 0.92);
+  --line: rgba(216, 209, 196, 0.7);
+  --text: #1f2430;
+  --subtle: #6a6f79;
+  --brand: #8b5cf6;
+  --brand-2: #f97316;
+  --surface-soft: #f4f1ea;
+  --surface-raised: #fffdfa;
+  --glow: 0 16px 42px rgba(85, 75, 55, 0.11);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0d12;
+  --bg-2: #11141b;
+  --panel: rgba(17, 20, 27, 0.82);
+  --panel-strong: rgba(20, 24, 33, 0.9);
+  --line: rgba(50, 58, 75, 0.8);
+  --text: #e7eaf2;
+  --subtle: #9aa3b8;
+  --brand: #9b8cff;
+  --brand-2: #f97316;
+  --surface-soft: #141923;
+  --surface-raised: #1a202d;
+  --glow: 0 18px 44px rgba(2, 6, 14, 0.48);
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     color-scheme: dark;
     --bg: #0b0d12;
     --bg-2: #11141b;
@@ -224,7 +256,7 @@ body.share-mode .main {
   grid-template-columns: repeat(4, minmax(220px, 1fr));
   gap: 12px;
 }
-.column { background: #f8f9ff; border: 1px solid var(--line); border-radius: 12px; min-height: 320px; }
+.column { background: var(--surface-soft); border: 1px solid var(--line); border-radius: 12px; min-height: 320px; }
 .column header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 10px; border-bottom: 1px solid var(--line);
@@ -249,7 +281,7 @@ body.share-mode .main {
   padding: 8px;
 }
 .day-number { font-size: 12px; color: var(--subtle); }
-.chip { margin-top: 6px; font-size: 11px; background: #eceeff; border-radius: 8px; padding: 4px 6px; cursor: pointer; }
+.chip { margin-top: 6px; font-size: 11px; background: color-mix(in srgb, var(--brand) 16%, var(--surface-raised)); border-radius: 8px; padding: 4px 6px; cursor: pointer; }
 
 .inspector { padding: 14px; overflow: auto; }
 .inspector .empty { color: var(--subtle); padding: 12px; }
@@ -304,7 +336,7 @@ body.share-mode .main {
 .field textarea.auto-grow { min-height: 110px; resize: none; overflow: hidden; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .section-title { font-size: 12px; text-transform: uppercase; color: var(--subtle); margin: 16px 0 8px; }
-.comment-item { font-size: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 6px; margin-bottom: 6px; background: #fafbff; }
+.comment-item { font-size: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 6px; margin-bottom: 6px; background: var(--surface-soft); }
 .checklist { display: grid; gap: 6px; font-size: 12px; }
 
 .inspector-tabs {
@@ -428,8 +460,8 @@ body.share-mode .main {
 
 .preview-card {
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #fff;
+  border-radius: 16px;
+  background: var(--surface-raised);
   overflow: hidden;
 }
 .preview-card header {
@@ -443,7 +475,7 @@ body.share-mode .main {
   margin: 10px;
   border-radius: 10px;
   border: 1px dashed #cfd3e5;
-  background: linear-gradient(135deg, #f8f9ff, #f0f3ff);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--surface-soft) 88%, var(--surface-raised)), color-mix(in srgb, var(--brand) 12%, var(--surface-soft)));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -451,10 +483,10 @@ body.share-mode .main {
 .safe-zone {
   font-size: 11px;
   color: var(--subtle);
-  border: 1px solid #c6cae0;
+  border: 1px solid var(--line);
   padding: 4px 8px;
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface-raised);
 }
 
 .preview-caption, .preview-tags {
@@ -490,9 +522,9 @@ body.share-mode .main {
 
 .mock-profile {
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 12px;
-  background: #fff;
+  background: var(--surface-raised);
 }
 .mock-header {
   display: flex;
@@ -506,7 +538,7 @@ body.share-mode .main {
   border-radius: 10px;
   padding: 10px;
   margin-bottom: 10px;
-  background: #fafbff;
+  background: var(--surface-soft);
 }
 .audit-panel h4 {
   margin: 0 0 8px;
@@ -525,7 +557,7 @@ body.share-mode .main {
   padding: 6px 8px;
   display: grid;
   gap: 2px;
-  background: #fff;
+  background: var(--surface-raised);
 }
 .audit-panel li strong { font-size: 12px; }
 .audit-panel li span { font-size: 11px; color: var(--subtle); }
@@ -555,11 +587,11 @@ body.share-mode .main {
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
-  background: #fff;
+  background: var(--surface-raised);
 }
 .tile-thumb {
   aspect-ratio: 1 / 1;
-  background: linear-gradient(135deg, #f5f7ff, #eef2ff);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--surface-soft) 84%, var(--surface-raised)), color-mix(in srgb, var(--brand) 11%, var(--surface-soft)));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -615,13 +647,13 @@ body.share-mode .main {
   padding: 2px 7px;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: #f3f4f8;
+  background: var(--surface-soft);
   color: var(--subtle);
   white-space: nowrap;
 }
 .card-badge.published { background: #eefaf3; color: #18794e; border-color: #b7ebcb; }
 .card-badge.scheduled { background: #eef3ff; color: #3a52cc; border-color: #c4d0f5; }
-.card-badge.draft { background: #f3f4f8; color: var(--subtle); border-color: var(--line); }
+.card-badge.draft { background: var(--surface-soft); color: var(--subtle); border-color: var(--line); }
 .card-progress {
   font-size: 10px;
   color: var(--subtle);
@@ -649,7 +681,7 @@ body.share-mode .main {
   padding: 5px 12px;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface-raised);
   font-size: 12px;
   cursor: pointer;
   transition: background .12s, color .12s, border-color .12s;
@@ -688,18 +720,18 @@ body.share-mode .main {
 .calendar-nav button {
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface-raised);
   padding: 4px 10px;
   cursor: pointer;
   font-size: 14px;
 }
-.calendar-nav button:hover { background: #f3f4f8; }
+.calendar-nav button:hover { background: color-mix(in srgb, var(--surface-soft) 88%, var(--surface-raised)); }
 
 /* Enriched calendar chips */
 .chip {
   margin-top: 6px;
   font-size: 11px;
-  background: #eceeff;
+  background: color-mix(in srgb, var(--brand) 16%, var(--surface-raised));
   border-radius: 8px;
   padding: 4px 6px;
   cursor: pointer;
@@ -746,7 +778,7 @@ body.share-mode .main {
 .btn-secondary {
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface-raised);
   color: var(--text);
   padding: 8px 12px;
   cursor: pointer;

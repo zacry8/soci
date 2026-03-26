@@ -5,6 +5,7 @@ import { getAuthToken, login, setAuthToken } from "./api.js";
 const store = createStore();
 const STORAGE_UI_VIEWS = "soci.ui.views.v1";
 const STORAGE_UI_SECTIONS = "soci.ui.sections.v1";
+const STORAGE_THEME = "soci.theme.v1";
 
 const el = {
   viewToggles: [...document.querySelectorAll("[data-view]")],
@@ -12,6 +13,7 @@ const el = {
   stats: document.querySelector("#stats"),
   activeClient: document.querySelector("#active-client"),
   newClient: document.querySelector("#new-client"),
+  manageUsers: document.querySelector("#manage-users"),
   copyShareLink: document.querySelector("#copy-share-link"),
   exportCsv: document.querySelector("#export-csv"),
   exportIcs: document.querySelector("#export-ics"),
@@ -36,8 +38,11 @@ const el = {
   grid: document.querySelector("#grid-view"),
   inspector: document.querySelector("#inspector"),
   createBtn: document.querySelector("#create-post"),
-  toast: document.querySelector("#toast")
+  toast: document.querySelector("#toast"),
+  themeToggle: document.querySelector("#theme-toggle")
 };
+
+const ADMIN_ROLES = new Set(["owner_admin", "admin"]);
 
 let profileMode = "instagram";
 let calendarOffset = 0; // months from current
@@ -66,6 +71,10 @@ const shareState = {
   posts: [],
   error: ""
 };
+
+let themeMode = ["light", "dark"].includes(localStorage.getItem(STORAGE_THEME))
+  ? localStorage.getItem(STORAGE_THEME)
+  : "";
 
 store.setErrorHandler((message, error) => {
   if (error?.isAuthError) {
@@ -100,6 +109,28 @@ function persistUiState() {
   localStorage.setItem(STORAGE_UI_VIEWS, JSON.stringify(visibleViews));
   localStorage.setItem(STORAGE_UI_SECTIONS, JSON.stringify(collapsedSections));
 }
+
+function applyTheme() {
+  if (themeMode === "light" || themeMode === "dark") {
+    document.documentElement.setAttribute("data-theme", themeMode);
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+    themeMode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  if (el.themeToggle) {
+    el.themeToggle.textContent = themeMode === "dark" ? "☀️ Light" : "🌙 Dark";
+    el.themeToggle.setAttribute("aria-label", `Switch to ${themeMode === "dark" ? "light" : "dark"} mode`);
+  }
+}
+
+function toggleTheme() {
+  themeMode = themeMode === "dark" ? "light" : "dark";
+  localStorage.setItem(STORAGE_THEME, themeMode);
+  applyTheme();
+}
+
+el.themeToggle?.addEventListener("click", toggleTheme);
+applyTheme();
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function escapeHtml(value = "") {
@@ -288,6 +319,80 @@ function applyUiState() {
   }
 }
 
+function canManageUsers() {
+  const role = store.getCurrentUser()?.role || "";
+  return ADMIN_ROLES.has(role);
+}
+
+function syncRoleActions() {
+  if (!el.manageUsers) return;
+  el.manageUsers.classList.toggle("hidden", !canManageUsers());
+}
+
+async function manageUsersFlow() {
+  if (!canManageUsers()) {
+    showToast("Only admins can manage users.", "warning");
+    return;
+  }
+
+  const email = prompt("New user email:");
+  if (!email?.trim()) return;
+  const name = prompt("Display name:", "") || "";
+  const role = prompt("Role (helper_staff or client_user):", "client_user");
+  if (!role || !["helper_staff", "client_user"].includes(role.trim())) {
+    showToast("Role must be helper_staff or client_user.", "error");
+    return;
+  }
+  const password = prompt("Temporary password (min 8 chars):");
+  if (!password || password.length < 8) {
+    showToast("Password must be at least 8 characters.", "error");
+    return;
+  }
+
+  let created;
+  try {
+    const response = await store.adminCreateUser({
+      email: email.trim().toLowerCase(),
+      name: name.trim(),
+      role: role.trim(),
+      password
+    });
+    created = response.user;
+    showToast(`User created: ${created.email}`, "success");
+  } catch {
+    return;
+  }
+
+  const doAssign = confirm("Assign this user to a client now?");
+  if (!doAssign || !created?.id) return;
+
+  if (!lastState.clients.length) {
+    showToast("No clients available. Create a client first.", "warning");
+    return;
+  }
+
+  const optionsText = lastState.clients.map((client) => `${client.id} — ${client.name}`).join("\n");
+  const clientId = prompt(`Enter client ID for membership:\n\n${optionsText}`);
+  if (!clientId?.trim()) return;
+
+  const permissionsRaw = prompt("Permissions (comma-separated: view,comment,edit,manage)", "view,comment");
+  const permissions = String(permissionsRaw || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (!permissions.length) {
+    showToast("At least one permission is required.", "error");
+    return;
+  }
+
+  try {
+    await store.adminAssignMembership({ userId: created.id, clientId: clientId.trim(), permissions });
+    showToast("Membership assigned.", "success");
+  } catch {
+    // handled by store error handler
+  }
+}
+
 for (const toggle of el.viewToggles) {
   toggle.addEventListener("click", () => {
     const view = toggle.dataset.view;
@@ -319,6 +424,10 @@ el.newClient.addEventListener("click", () => {
   if (!name?.trim()) return;
   store.createClient(name.trim());
   showToast("Client added.", "success");
+});
+
+el.manageUsers?.addEventListener("click", () => {
+  void manageUsersFlow();
 });
 
 el.activeClient.addEventListener("change", () => {
@@ -422,6 +531,7 @@ function paint(state) {
   }
 
   document.body.classList.remove("share-mode");
+  syncRoleActions();
   if (!state.isBootstrapped) {
     el.viewTitle.textContent = "Planning Workspace";
     el.stats.textContent = "Connecting to API...";
@@ -576,16 +686,22 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
 
 document.getElementById("sign-out").addEventListener("click", () => {
   setAuthToken(null);
+  syncRoleActions();
   showLogin();
 });
 
 const isShareMode = location.hash.startsWith("#share=");
-if (isShareMode || getAuthToken()) {
+const isLocalPreviewHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const allowLocalPreviewBypass = isLocalPreviewHost && !isShareMode;
+
+if (isShareMode || getAuthToken() || allowLocalPreviewBypass) {
   showApp();
   initApp();
 } else {
   showLogin();
 }
+
+syncRoleActions();
 
 async function loadSharedCalendarFromHash() {
   const token = getShareToken();

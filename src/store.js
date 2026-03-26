@@ -1,5 +1,20 @@
 import { createEmptyClient, createEmptyPost, makeSeedClients, makeSeedPosts, STATUSES } from "./data.js";
-import { createShareLink, deleteClient as apiDeleteClient, deletePost as apiDeletePost, ensureAdminToken, getAdminState, getShareCalendar, resolveApiUrl, uploadMedia, upsertClient, upsertPost } from "./api.js";
+import {
+  assignMembership,
+  createShareLink,
+  createUser,
+  deleteClient as apiDeleteClient,
+  deletePost as apiDeletePost,
+  ensureAdminToken,
+  getAdminState,
+  getAuthUser,
+  getMyState,
+  getShareCalendar,
+  resolveApiUrl,
+  uploadMedia,
+  upsertClient,
+  upsertPost
+} from "./api.js";
 
 const STORAGE_KEY_ACTIVE_CLIENT = "soci.activeClientId.v1";
 
@@ -71,6 +86,7 @@ export function createStore() {
   let activeClientId = localStorage.getItem(STORAGE_KEY_ACTIVE_CLIENT) || clients[0]?.id || "";
   let activePostId = posts[0]?.id ?? null;
   let authToken = "";
+  let authUser = getAuthUser();
   let isBootstrapped = false;
   let errorHandler = null;
   const listeners = new Set();
@@ -90,11 +106,15 @@ export function createStore() {
     if (isBootstrapped) return;
     try {
       authToken = await ensureAdminToken();
-      const state = await getAdminState(authToken);
+      authUser = getAuthUser();
+      const role = authUser?.role || "owner_admin";
+      const state = ["owner_admin", "admin"].includes(role)
+        ? await getAdminState(authToken)
+        : await getMyState(authToken);
       clients = (state.clients || []).map(normalizeClient);
       posts = (state.posts || []).map((post) => normalizePost(post, clients));
       media = Array.isArray(state.media) ? state.media.map(normalizeMediaRecord) : [];
-      if (!clients.length) {
+      if (!clients.length && ["owner_admin", "admin"].includes(role)) {
         clients = makeSeedClients().map(normalizeClient);
         posts = makeSeedPosts(clients).map((post) => normalizePost(post, clients));
         for (const client of clients) void syncClient(client);
@@ -167,6 +187,9 @@ export function createStore() {
   return {
     setErrorHandler(handler) {
       errorHandler = typeof handler === "function" ? handler : null;
+    },
+    getCurrentUser() {
+      return authUser;
     },
     subscribe(listener) {
       listeners.add(listener);
@@ -321,6 +344,24 @@ export function createStore() {
         notify();
       }
       return result;
+    },
+    async adminCreateUser(payload) {
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+        return await createUser(authToken, payload);
+      } catch (error) {
+        reportSyncError("Could not create user.", error);
+        throw error;
+      }
+    },
+    async adminAssignMembership(payload) {
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+        return await assignMembership(authToken, payload);
+      } catch (error) {
+        reportSyncError("Could not assign membership.", error);
+        throw error;
+      }
     }
   };
 }

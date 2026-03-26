@@ -1,9 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { createAuthToken, verifyAuthToken } from "../auth.js";
-import { addMedia, createShareLink, deleteClient, deletePost, loadState, upsertClient, upsertPost } from "../db.js";
+import { createAuthToken, hashPassword, verifyAuthToken } from "../auth.js";
+import { addMedia, createShareLink, deleteClient, deletePost, loadState, upsertClient, upsertMembership, upsertPost, upsertUser } from "../db.js";
 import { id, json, readJsonBody, sanitizeFileName, validateFilePath } from "../utils.js";
-import { validateClient, validatePost } from "../validators.js";
+import { validateClient, validateMembership, validatePost, validateUser } from "../validators.js";
 
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg", "image/png", "image/gif", "image/webp",
@@ -34,7 +34,7 @@ async function requireAdmin(req, res) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   const claims = verifyAuthToken(token);
-  if (!claims || claims.role !== "admin") {
+  if (!claims || !new Set(["owner_admin", "admin"]).has(claims.role)) {
     json(res, 401, { error: "Unauthorized" });
     return null;
   }
@@ -69,6 +69,55 @@ export function registerAdminRoutes(router, config) {
     if (err) return json(res, 400, { error: err });
     const post = await upsertPost(body);
     return json(res, 200, { post });
+  });
+
+  // POST /api/admin/users — create or update helper/client user
+  router.post("/api/admin/users", async (req, res) => {
+    if (!(await requireAdmin(req, res))) return;
+    const body = await readJsonBody(req, config.maxJsonBytes).catch((e) => ({ __error: e?.message || "Invalid JSON" }));
+    if (body?.__error) return json(res, body.__error === "Payload too large" ? 413 : 400, { error: body.__error });
+    const err = validateUser(body);
+    if (err) return json(res, 400, { error: err });
+
+    const user = await upsertUser({
+      id: body.id,
+      email: body.email,
+      name: body.name,
+      role: body.role,
+      disabledAt: body.disabledAt || "",
+      passwordHash: body.password ? hashPassword(body.password) : body.passwordHash
+    });
+    return json(res, 200, {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        disabledAt: user.disabledAt || ""
+      }
+    });
+  });
+
+  // POST /api/admin/memberships — assign user to client with permissions
+  router.post("/api/admin/memberships", async (req, res) => {
+    if (!(await requireAdmin(req, res))) return;
+    const body = await readJsonBody(req, config.maxJsonBytes).catch((e) => ({ __error: e?.message || "Invalid JSON" }));
+    if (body?.__error) return json(res, body.__error === "Payload too large" ? 413 : 400, { error: body.__error });
+    const err = validateMembership(body);
+    if (err) return json(res, 400, { error: err });
+
+    const state = await loadState();
+    const user = state.users.find((u) => u.id === body.userId && !u.disabledAt);
+    if (!user) return json(res, 404, { error: "User not found" });
+    const client = state.clients.find((c) => c.id === body.clientId);
+    if (!client) return json(res, 404, { error: "Client not found" });
+
+    const membership = await upsertMembership({
+      userId: body.userId,
+      clientId: body.clientId,
+      permissions: body.permissions
+    });
+    return json(res, 200, { membership });
   });
 
   // DELETE /api/admin/posts/:postId

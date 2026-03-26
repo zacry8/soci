@@ -1,4 +1,5 @@
 const STORAGE_AUTH_TOKEN = "soci.auth.token";
+const STORAGE_AUTH_USER = "soci.auth.user";
 const STORAGE_API_BASE = "soci.api.base";
 
 function normalizeApiBase(base) {
@@ -34,8 +35,20 @@ export function getAuthToken() {
 }
 
 export function setAuthToken(token) {
-  if (!token) localStorage.removeItem(STORAGE_AUTH_TOKEN);
-  else localStorage.setItem(STORAGE_AUTH_TOKEN, token);
+  if (!token) {
+    localStorage.removeItem(STORAGE_AUTH_TOKEN);
+    localStorage.removeItem(STORAGE_AUTH_USER);
+  } else {
+    localStorage.setItem(STORAGE_AUTH_TOKEN, token);
+  }
+}
+
+export function getAuthUser() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_AUTH_USER) || "null");
+  } catch {
+    return null;
+  }
 }
 
 async function request(path, { method = "GET", token = "", body } = {}) {
@@ -59,6 +72,11 @@ async function request(path, { method = "GET", token = "", body } = {}) {
 export async function login(email, password) {
   const data = await request("/api/auth/login", { method: "POST", body: { email, password } });
   setAuthToken(data.token || "");
+  if (data.user && typeof data.user === "object") {
+    localStorage.setItem(STORAGE_AUTH_USER, JSON.stringify(data.user));
+  } else {
+    localStorage.removeItem(STORAGE_AUTH_USER);
+  }
   return data;
 }
 
@@ -90,6 +108,18 @@ export async function deleteClient(token, id) {
 
 export async function createShareLink(token, clientId) {
   return request("/api/admin/share-links", { method: "POST", token, body: { clientId } });
+}
+
+export async function createUser(token, payload) {
+  return request("/api/admin/users", { method: "POST", token, body: payload });
+}
+
+export async function assignMembership(token, payload) {
+  return request("/api/admin/memberships", { method: "POST", token, body: payload });
+}
+
+export async function getMyState(token) {
+  return request("/api/me/state", { token });
 }
 
 function toBase64(file) {

@@ -4,6 +4,7 @@ import { createRouter } from "./router.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerAdminRoutes } from "./routes/admin.js";
+import { registerMeRoutes } from "./routes/me.js";
 import { registerShareRoutes } from "./routes/share.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
 import { json, parseUrl, pickCorsOrigin } from "./utils.js";
@@ -21,6 +22,7 @@ const router = createRouter();
 registerHealthRoutes(router);
 registerAuthRoutes(router, config);
 registerAdminRoutes(router, config);
+registerMeRoutes(router, config);
 registerShareRoutes(router);
 registerUploadRoutes(router, config);
 
