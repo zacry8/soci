@@ -654,7 +654,6 @@ function paint(state) {
       onProfileSettingsChange: (patch) => {
         profileSettings = { ...profileSettings, ...patch };
         localStorage.setItem(STORAGE_PROFILE_SETTINGS, JSON.stringify(profileSettings));
-        paintProfileSimulator();
       }
     });
   };
