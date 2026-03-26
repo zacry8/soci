@@ -48,6 +48,23 @@ async function saveState(state) {
   return next;
 }
 
+function mediaFileNameFromUrlPath(urlPath = "") {
+  return path.basename(String(urlPath || "").split("?")[0] || "");
+}
+
+async function cleanupMediaFiles(records = []) {
+  for (const record of records) {
+    const fileName = mediaFileNameFromUrlPath(record?.urlPath);
+    if (!fileName) continue;
+    const absolute = path.resolve(config.uploadDir, fileName);
+    try {
+      await fs.unlink(absolute);
+    } catch {
+      // best-effort cleanup; ignore missing files and continue
+    }
+  }
+}
+
 export function upsertClient(patch) {
   return enqueue(async () => {
     const state = await loadState();
@@ -107,9 +124,11 @@ export function upsertPost(patch) {
 export function deletePost(postId) {
   return enqueue(async () => {
     const state = await loadState();
+    const removedMedia = state.media.filter((m) => m.postId === postId);
     state.posts = state.posts.filter((p) => p.id !== postId);
     state.media = state.media.filter((m) => m.postId !== postId);
     await saveState(state);
+    await cleanupMediaFiles(removedMedia);
   });
 }
 
@@ -117,11 +136,13 @@ export function deleteClient(clientId) {
   return enqueue(async () => {
     const state = await loadState();
     const postIds = new Set(state.posts.filter((p) => p.clientId === clientId).map((p) => p.id));
+    const removedMedia = state.media.filter((m) => postIds.has(m.postId));
     state.clients = state.clients.filter((c) => c.id !== clientId);
     state.posts = state.posts.filter((p) => p.clientId !== clientId);
     state.media = state.media.filter((m) => !postIds.has(m.postId));
     state.shareLinks = state.shareLinks.filter((sl) => sl.clientId !== clientId);
     await saveState(state);
+    await cleanupMediaFiles(removedMedia);
   });
 }
 

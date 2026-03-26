@@ -471,7 +471,40 @@
     - syntax checks pass for `src/render.js`, `backend/routes/admin.js`, `backend/routes/uploads.js`
     - runtime API boot check blocked locally by secure startup guard (missing non-default `AUTH_SECRET`/`ADMIN_PASSWORD` in environment), not by new code changes
 
+### Implementation Snapshot Addendum 15 (2026-03-26)
+- Fixed production media preview 404 caused by relative upload URL resolution on frontend host:
+  - Root cause:
+    - backend stores media links as relative `urlPath` (`/uploads/<uuid>.<ext>`)
+    - frontend rendered that path directly, so browser resolved to `https://soci.hommemade.xyz/uploads/...` instead of API host
+  - `src/api.js`:
+    - added `resolveApiUrl(urlPath)` helper to normalize media paths into absolute API URLs
+    - preserves already-absolute URLs and safely prefixes relative paths with resolved API base
+  - `src/store.js`:
+    - added `normalizeMediaRecord()` to normalize `urlPath`/`publicUrl` at data ingress
+    - applies normalization during bootstrap (`GET /api/admin/state`) and immediate upload merge (`uploadPostMedia`)
+  - Outcome:
+    - existing and newly uploaded media now resolve against API origin consistently, preventing frontend-origin `/uploads` 404s
+    - accessibility behavior remains correct (`<img>` keeps role=image and alt text)
+  - Verification:
+    - syntax checks pass for `src/api.js`, `src/store.js`, `src/render.js`
+
+### Implementation Snapshot Addendum 16 (2026-03-26)
+- Added media delivery/download controls and storage cleanup improvements for MVP stability:
+  - `backend/routes/uploads.js`:
+    - added query-driven original download mode: `?download=1`
+    - inline preview remains default for renderable media (image/video/pdf)
+    - forced attachment with filename when download mode is requested
+    - added long-lived immutable cache header for static uploaded media
+  - `src/render.js`:
+    - added explicit "Download original" links for each media item (uses `?download=1`)
+    - kept inline preview behavior and added image `loading="lazy"` + `decoding="async"` hints for lighter preview bandwidth usage
+  - `backend/db.js` cleanup hardening:
+    - post/client delete operations now perform best-effort disk cleanup for associated media files after DB save
+    - prevents orphaned upload files from accumulating in `UPLOAD_DIR`
+  - Verification:
+    - syntax checks pass for `backend/routes/uploads.js`, `backend/db.js`, `src/render.js`
+
 ## Last Memory Update
 - **Updated:** 2026-03-26 (latest)
 - **By:** Claude Code
-- **Reason:** Logged media upload reliability diagnosis and fixes (frontend pre-validation, inline preview rendering, MIME-aware upload serving headers, and stronger backend signature checks).
+- **Reason:** Logged media delivery/download optimization and cleanup updates (`?download=1`, lazy preview hints, and best-effort orphan file deletion on post/client removal).

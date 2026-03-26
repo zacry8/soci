@@ -1,5 +1,5 @@
 import { createEmptyClient, createEmptyPost, makeSeedClients, makeSeedPosts, STATUSES } from "./data.js";
-import { createShareLink, deleteClient as apiDeleteClient, deletePost as apiDeletePost, ensureAdminToken, getAdminState, getShareCalendar, uploadMedia, upsertClient, upsertPost } from "./api.js";
+import { createShareLink, deleteClient as apiDeleteClient, deletePost as apiDeletePost, ensureAdminToken, getAdminState, getShareCalendar, resolveApiUrl, uploadMedia, upsertClient, upsertPost } from "./api.js";
 
 const STORAGE_KEY_ACTIVE_CLIENT = "soci.activeClientId.v1";
 
@@ -32,6 +32,13 @@ function normalizePost(post, clients) {
     checklist: post.checklist && typeof post.checklist === "object"
       ? post.checklist
       : { copy: false, media: false, tags: false, schedule: false, approval: false }
+  };
+}
+
+function normalizeMediaRecord(record) {
+  return {
+    ...record,
+    urlPath: resolveApiUrl(record?.urlPath || record?.publicUrl || "")
   };
 }
 
@@ -86,7 +93,7 @@ export function createStore() {
       const state = await getAdminState(authToken);
       clients = (state.clients || []).map(normalizeClient);
       posts = (state.posts || []).map((post) => normalizePost(post, clients));
-      media = Array.isArray(state.media) ? state.media : [];
+      media = Array.isArray(state.media) ? state.media.map(normalizeMediaRecord) : [];
       if (!clients.length) {
         clients = makeSeedClients().map(normalizeClient);
         posts = makeSeedPosts(clients).map((post) => normalizePost(post, clients));
@@ -304,10 +311,11 @@ export function createStore() {
 
       const mediaRecord = result.media;
       if (mediaRecord) {
-        media = [mediaRecord, ...media.filter((m) => m.id !== mediaRecord.id)];
+        const normalizedMedia = normalizeMediaRecord(mediaRecord);
+        media = [normalizedMedia, ...media.filter((m) => m.id !== normalizedMedia.id)];
         posts = posts.map((post) =>
           post.id === postId
-            ? { ...post, mediaIds: [...new Set([...(post.mediaIds || []), mediaRecord.id])] }
+            ? { ...post, mediaIds: [...new Set([...(post.mediaIds || []), normalizedMedia.id])] }
             : post
         );
         notify();

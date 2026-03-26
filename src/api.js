@@ -18,6 +18,16 @@ function getApiBase() {
   return normalizeApiBase(`https://api.${host}`);
 }
 
+export function resolveApiUrl(urlPath = "") {
+  const value = String(urlPath || "").trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  const base = getApiBase();
+  if (!base) return value;
+  if (value.startsWith("/")) return `${base}${value}`;
+  return `${base}/${value}`;
+}
+
 
 export function getAuthToken() {
   return localStorage.getItem(STORAGE_AUTH_TOKEN) || "";

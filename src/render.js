@@ -30,13 +30,18 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function withDownloadParam(url = "") {
+  if (!url) return "";
+  return url.includes("?") ? `${url}&download=1` : `${url}?download=1`;
+}
+
 function renderPrimaryMediaPreview(media) {
   if (!media?.urlPath) return `<span class="safe-zone">Media preview</span>`;
   const url = escapeHtml(media.urlPath);
   const name = escapeHtml(media.fileName || "media");
   const mime = String(media.mimeType || "").toLowerCase();
   if (mime.startsWith("image/")) {
-    return `<img src="${url}" alt="${name}" style="max-width:100%;max-height:220px;object-fit:cover;border-radius:10px;display:block"/>`;
+    return `<img src="${url}" alt="${name}" loading="lazy" decoding="async" style="max-width:100%;max-height:220px;object-fit:cover;border-radius:10px;display:block"/>`;
   }
   if (mime.startsWith("video/")) {
     return `<video controls preload="metadata" style="max-width:100%;max-height:220px;border-radius:10px;display:block"><source src="${url}" type="${escapeHtml(mime)}"/>Your browser does not support video preview.</video>`;
@@ -183,7 +188,12 @@ export function renderInspector(root, post, handlers) {
   const primaryMedia = postMedia[0] || null;
   const mediaPreviewHtml = renderPrimaryMediaPreview(primaryMedia);
   const mediaListHtml = postMedia.length
-    ? `<ul>${postMedia.map((item) => `<li><a href="${escapeHtml(item.urlPath || "")}" target="_blank" rel="noreferrer">${escapeHtml(item.fileName || "media")}</a></li>`).join("")}</ul>`
+    ? `<ul>${postMedia.map((item) => {
+      const url = escapeHtml(item.urlPath || "");
+      const downloadUrl = escapeHtml(withDownloadParam(item.urlPath || ""));
+      const fileName = escapeHtml(item.fileName || "media");
+      return `<li><a href="${url}" target="_blank" rel="noreferrer">${fileName}</a> · <a href="${downloadUrl}" target="_blank" rel="noreferrer" download>Download original</a></li>`;
+    }).join("")}</ul>`
     : `<div class="subtle" style="font-size:12px">No media uploaded yet.</div>`;
 
   root.innerHTML = `
