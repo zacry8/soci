@@ -56,6 +56,14 @@ export async function upsertPost(token, payload) {
   return request("/api/admin/posts", { method: "POST", token, body: payload });
 }
 
+export async function deletePost(token, id) {
+  return request(`/api/admin/posts/${id}`, { method: "DELETE", token });
+}
+
+export async function deleteClient(token, id) {
+  return request(`/api/admin/clients/${id}`, { method: "DELETE", token });
+}
+
 export async function createShareLink(token, clientId) {
   return request("/api/admin/share-links", { method: "POST", token, body: { clientId } });
 }

@@ -4,7 +4,7 @@ import path from "node:path";
 import http from "node:http";
 import { config } from "./config.js";
 import { createAuthToken, verifyAuthToken } from "./auth.js";
-import { addMedia, createShareLink, loadState, upsertClient, upsertPost } from "./db.js";
+import { addMedia, createShareLink, deleteClient, deletePost, loadState, upsertClient, upsertPost } from "./db.js";
 import { id, json, now, parseUrl, pickCorsOrigin, readJsonBody, sanitizeFileName } from "./utils.js";
 
 // ── Startup validation ────────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ const server = http.createServer(async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
     res.setHeader("Vary", "Origin");
   }
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   setSecurityHeaders(res);
 
@@ -199,6 +199,24 @@ const server = http.createServer(async (req, res) => {
     if (err) return json(res, 400, { error: err });
     const post = await upsertPost(body);
     return json(res, 200, { post });
+  }
+
+  // ── Admin: delete post ──────────────────────────────────────────────────────
+  if (req.method === "DELETE" && pathname.startsWith("/api/admin/posts/")) {
+    if (!(await requireAdmin(req, res))) return;
+    const postId = pathname.slice("/api/admin/posts/".length);
+    if (!postId) return json(res, 400, { error: "postId required" });
+    await deletePost(postId);
+    return json(res, 200, { ok: true });
+  }
+
+  // ── Admin: delete client ────────────────────────────────────────────────────
+  if (req.method === "DELETE" && pathname.startsWith("/api/admin/clients/")) {
+    if (!(await requireAdmin(req, res))) return;
+    const clientId = pathname.slice("/api/admin/clients/".length);
+    if (!clientId) return json(res, 400, { error: "clientId required" });
+    await deleteClient(clientId);
+    return json(res, 200, { ok: true });
   }
 
   // ── Admin: upload media ─────────────────────────────────────────────────────

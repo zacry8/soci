@@ -86,6 +86,23 @@ export async function upsertPost(patch) {
   return post;
 }
 
+export async function deletePost(postId) {
+  const state = await loadState();
+  state.posts = state.posts.filter((p) => p.id !== postId);
+  state.media = state.media.filter((m) => m.postId !== postId);
+  await saveState(state);
+}
+
+export async function deleteClient(clientId) {
+  const state = await loadState();
+  const postIds = new Set(state.posts.filter((p) => p.clientId === clientId).map((p) => p.id));
+  state.clients = state.clients.filter((c) => c.id !== clientId);
+  state.posts = state.posts.filter((p) => p.clientId !== clientId);
+  state.media = state.media.filter((m) => !postIds.has(m.postId));
+  state.shareLinks = state.shareLinks.filter((sl) => sl.clientId !== clientId);
+  await saveState(state);
+}
+
 export async function addMedia(record) {
   const state = await loadState();
   const media = {

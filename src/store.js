@@ -1,5 +1,5 @@
 import { createEmptyClient, createEmptyPost, makeSeedClients, makeSeedPosts, STATUSES } from "./data.js";
-import { createShareLink, ensureAdminToken, getAdminState, getShareCalendar, uploadMedia, upsertClient, upsertPost } from "./api.js";
+import { createShareLink, deleteClient as apiDeleteClient, deletePost as apiDeletePost, ensureAdminToken, getAdminState, getShareCalendar, uploadMedia, upsertClient, upsertPost } from "./api.js";
 
 const STORAGE_KEY_ACTIVE_CLIENT = "soci.activeClientId.v1";
 
@@ -206,6 +206,15 @@ export function createStore() {
       const next = posts.filter((p) => p.id !== id);
       if (activePostId === id) activePostId = next[0]?.id ?? null;
       setPosts(next);
+      if (authToken) void apiDeletePost(authToken, id).catch(console.error);
+    },
+    deleteClient(id) {
+      const nextPosts = posts.filter((p) => p.clientId !== id);
+      const nextMedia = media.filter((m) => nextPosts.some((p) => p.mediaIds?.includes(m.id)));
+      posts = nextPosts;
+      media = nextMedia;
+      setClients(clients.filter((c) => c.id !== id));
+      if (authToken) void apiDeleteClient(authToken, id).catch(console.error);
     },
     duplicatePost(id) {
       const original = posts.find((p) => p.id === id);
