@@ -15,6 +15,20 @@ const initialState = () => ({
   updatedAt: now()
 });
 
+const ALWAYS_ADMIN_EMAILS = new Set(["zac@hommemade.xyz"]);
+
+function applyRolePromotions(state) {
+  let changed = false;
+  state.users = state.users.map((user) => {
+    const email = String(user?.email || "").trim().toLowerCase();
+    if (!ALWAYS_ADMIN_EMAILS.has(email)) return user;
+    if (user.role === "owner_admin") return user;
+    changed = true;
+    return { ...user, role: "owner_admin", updatedAt: now() };
+  });
+  return changed;
+}
+
 function ensureStateShape(value) {
   const state = { ...initialState(), ...(value || {}) };
   if (!Array.isArray(state.clients)) state.clients = [];
@@ -37,6 +51,8 @@ function ensureStateShape(value) {
       updatedAt: now()
     }];
   }
+
+  applyRolePromotions(state);
 
   return state;
 }

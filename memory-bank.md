@@ -637,7 +637,17 @@
     - syntax checks pass for `src/main.js`, `src/store.js`, `src/api.js`
     - browser smoke launch confirms updated app shell loads with new management control path
 
+### Implementation Snapshot Addendum 22 (2026-03-26)
+- Added explicit admin-role promotion safeguard for `zac@hommemade.xyz`:
+  - `backend/db.js`
+    - introduced `ALWAYS_ADMIN_EMAILS` set including `zac@hommemade.xyz`
+    - added `applyRolePromotions(state)` during state normalization so matching accounts are forced to `owner_admin`
+    - promotion is non-destructive (does not change password), updates only role + `updatedAt`
+  - Verification:
+    - syntax check passes for `backend/db.js`
+    - login test with a pre-existing `helper_staff` record for `zac@hommemade.xyz` confirms role is promoted to `owner_admin` at auth time
+
 ## Last Memory Update
 - **Updated:** 2026-03-26 (latest)
 - **By:** Claude Code
-- **Reason:** Logged admin user-management UX addition (manage users button + guided creation/assignment flow), role-aware store bootstrap (`/api/admin/state` vs `/api/me/state`), and verification status.
+- **Reason:** Logged admin promotion safeguard ensuring `zac@hommemade.xyz` resolves to `owner_admin` without password changes, plus validation outcomes.
