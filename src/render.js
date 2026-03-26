@@ -35,6 +35,10 @@ function withDownloadParam(url = "") {
   return url.includes("?") ? `${url}&download=1` : `${url}?download=1`;
 }
 
+function extractHashtags(caption = "") {
+  return [...String(caption || "").matchAll(/#([a-z0-9_]+)/gi)].map((match) => match[1].toLowerCase());
+}
+
 function renderPrimaryMediaPreview(media) {
   if (!media?.urlPath) return `<span class="safe-zone">Media preview</span>`;
   const url = escapeHtml(media.urlPath);
@@ -187,6 +191,15 @@ export function renderInspector(root, post, handlers) {
   const postMedia = allMedia.filter((item) => (post.mediaIds || []).includes(item.id));
   const primaryMedia = postMedia[0] || null;
   const mediaPreviewHtml = renderPrimaryMediaPreview(primaryMedia);
+  const checklistDone = checklistKeys.filter((key) => post.checklist?.[key]).length;
+  const readinessPercent = Math.round((checklistDone / checklistKeys.length) * 100);
+  const hashSuggestionPool = Array.isArray(handlers?.hashtagSuggestions) ? handlers.hashtagSuggestions : [];
+  const existingTags = new Set((post.tags || []).map((tag) => String(tag || "").trim().toLowerCase()).filter(Boolean));
+  const suggestionHtml = hashSuggestionPool
+    .filter((entry) => entry.tag && !existingTags.has(entry.tag))
+    .slice(0, 6)
+    .map((entry) => `<button type="button" class="hashtag-chip" data-hashtag="${escapeHtml(entry.tag)}">#${escapeHtml(entry.tag)} · ${entry.count}</button>`)
+    .join("");
   const mediaListHtml = postMedia.length
     ? `<ul>${postMedia.map((item) => {
       const url = escapeHtml(item.urlPath || "");
@@ -199,107 +212,134 @@ export function renderInspector(root, post, handlers) {
   root.innerHTML = `
     <div id="form-errors" class="form-errors hidden" role="alert"></div>
 
-    <p class="section-title">Post Preview</p>
-    <section class="post-preview-card">
-      <div class="post-preview-media">
-        ${mediaPreviewHtml}
+    <div class="inspector-tabs" role="tablist" aria-label="Inspector sections">
+      <button type="button" class="inspector-tab active" data-inspector-tab="content">Content</button>
+      <button type="button" class="inspector-tab" data-inspector-tab="settings">Settings</button>
+      <button type="button" class="inspector-tab" data-inspector-tab="collaboration">Collaboration</button>
+    </div>
+
+    <section class="inspector-pane" data-inspector-pane="content">
+      <div class="readiness-wrap">
+        <strong>Post readiness: ${readinessPercent}%</strong>
+        <div class="readiness-meter"><div class="readiness-meter-fill" style="width:${readinessPercent}%"></div></div>
       </div>
-      <div class="post-preview-meta">
-        <strong>${escapeHtml(post.title || "Untitled Post")}</strong>
-        <span class="subtle">${escapeHtml(post.postType || "post")} • ${escapeHtml(post.publishState || "draft")}</span>
+
+      <p class="section-title">Post Preview</p>
+      <section class="post-preview-card">
+        <div class="post-preview-media">
+          ${mediaPreviewHtml}
+        </div>
+        <div class="post-preview-meta">
+          <strong>${escapeHtml(post.title || "Untitled Post")}</strong>
+          <span class="subtle">${escapeHtml(post.postType || "post")} • ${escapeHtml(post.publishState || "draft")}</span>
+          <div class="post-preview-overlay">
+            <span class="social-pill">❤ 2.4k</span>
+            <span class="social-pill">💬 184</span>
+            <span class="social-pill">↗ Share</span>
+          </div>
+        </div>
+      </section>
+
+      <p class="section-title">Caption &amp; Content</p>
+      <div class="field"><label for="f-title">Title</label><input id="f-title" value="${escapeHtml(post.title)}" /></div>
+      <div class="field">
+        <label for="f-media-file">Media Upload</label>
+        <div class="media-dropzone" id="f-media-dropzone" tabindex="0" role="button" aria-label="Upload media">
+          <div>
+            <strong>Drop media here</strong>
+            <div class="subtle">or click to browse image/video/PDF</div>
+          </div>
+        </div>
+        <input id="f-media-file" type="file" hidden accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm,.pdf" />
+        <div id="f-media-status" class="subtle" style="font-size:12px"></div>
+        ${mediaListHtml}
+      </div>
+      <div class="field"><label for="f-caption">Caption</label><textarea id="f-caption" class="auto-grow">${escapeHtml(post.caption)}</textarea></div>
+      ${suggestionHtml ? `<div class="hashtag-suggestions">${suggestionHtml}</div>` : ""}
+      <div class="field">
+        <span class="variant-field-label">Platform Captions</span>
+        <div class="variant-fields">${variantFieldsHtml || '<div class="subtle" style="font-size:12px">Select platforms above to add per-platform captions.</div>'}</div>
       </div>
     </section>
 
-    <p class="section-title">Caption &amp; Content</p>
-    <div class="field"><label for="f-title">Title</label><input id="f-title" value="${escapeHtml(post.title)}" /></div>
-    <div class="field">
-      <label for="f-media-file">Media Upload</label>
-      <input id="f-media-file" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm,.pdf" />
-      <div id="f-media-status" class="subtle" style="font-size:12px"></div>
-      ${mediaListHtml}
-    </div>
-    <div class="field"><label for="f-caption">Caption</label><textarea id="f-caption">${escapeHtml(post.caption)}</textarea></div>
-    <div class="field">
-      <span class="variant-field-label">Platform Captions</span>
-      <div class="variant-fields">${variantFieldsHtml || '<div class="subtle" style="font-size:12px">Select platforms above to add per-platform captions.</div>'}</div>
-    </div>
+    <section class="inspector-pane hidden" data-inspector-pane="settings">
+      <p class="section-title">Settings &amp; Specifics</p>
+      <div class="field"><span class="variant-field-label">Platforms</span>
+        <div class="platform-toggles">
+          ${PLATFORM_OPTIONS.map((p) => `<button type="button" class="platform-toggle${post.platforms.includes(p) ? " active" : ""}" data-platform="${escapeHtml(p)}">${escapeHtml(p)}</button>`).join("")}
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-tags">Tags</label>
+        <input id="f-tags" value="${escapeHtml(post.tags.join(", "))}" placeholder="e.g. branding, portfolio" />
+        <span class="field-hint">Separate tags with commas</span>
+      </div>
+      <div class="row">
+        <div class="field"><label for="f-status">Status</label>
+          <select id="f-status">${STATUSES.map((s) => `<option value="${s}" ${post.status === s ? "selected" : ""}>${STATUS_LABELS[s]}</option>`).join("")}</select>
+        </div>
+        <div class="field"><label for="f-date">Schedule Date</label><input id="f-date" type="date" value="${post.scheduleDate || ""}" /></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="f-client-id">Client</label>
+          <select id="f-client-id">
+            <option value="">Unassigned</option>
+            ${clients.map((client) => `<option value="${client.id}" ${post.clientId === client.id ? "selected" : ""}>${escapeHtml(client.name)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field"><label for="f-visibility">Visibility</label>
+          <select id="f-visibility">
+            <option value="client-shareable" ${post.visibility === "client-shareable" ? "selected" : ""}>Client Shareable</option>
+            <option value="internal" ${post.visibility === "internal" ? "selected" : ""}>Internal Only</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="f-publish-state">Publish State</label>
+          <select id="f-publish-state">
+            <option value="draft" ${post.publishState === "draft" ? "selected" : ""}>Draft</option>
+            <option value="scheduled" ${post.publishState === "scheduled" ? "selected" : ""}>Scheduled</option>
+            <option value="published" ${post.publishState === "published" ? "selected" : ""}>Published</option>
+          </select>
+        </div>
+        <div class="field"><label for="f-published-at">Published At</label><input id="f-published-at" type="datetime-local" value="${post.publishedAt ? post.publishedAt.slice(0, 16) : ""}" /></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="f-scheduled-at">Scheduled At</label><input id="f-scheduled-at" type="datetime-local" value="${post.scheduledAt ? post.scheduledAt.slice(0, 16) : ""}" /></div>
+        <div class="field"><label for="f-post-type">Post Type</label>
+          <select id="f-post-type">
+            <option value="static" ${post.postType === "static" ? "selected" : ""}>Static</option>
+            <option value="reel" ${post.postType === "reel" ? "selected" : ""}>Reel</option>
+            <option value="video" ${post.postType === "video" ? "selected" : ""}>Video</option>
+            <option value="carousel" ${post.postType === "carousel" ? "selected" : ""}>Carousel</option>
+          </select>
+        </div>
+      </div>
+    </section>
 
-    <hr>
-    <p class="section-title">Settings &amp; Specifics</p>
-    <div class="field"><span class="variant-field-label">Platforms</span>
-      <div class="platform-toggles">
-        ${PLATFORM_OPTIONS.map((p) => `<button type="button" class="platform-toggle${post.platforms.includes(p) ? " active" : ""}" data-platform="${escapeHtml(p)}">${escapeHtml(p)}</button>`).join("")}
+    <section class="inspector-pane hidden" data-inspector-pane="collaboration">
+      <p class="section-title">Collaboration</p>
+      <div class="row">
+        <div class="field"><label for="f-assignee">Assignee</label><input id="f-assignee" value="${escapeHtml(post.assignee || "")}" /></div>
+        <div class="field"><label for="f-reviewer">Reviewer</label><input id="f-reviewer" value="${escapeHtml(post.reviewer || "")}" /></div>
       </div>
-    </div>
-    <div class="field">
-      <label for="f-tags">Tags</label>
-      <input id="f-tags" value="${escapeHtml(post.tags.join(", "))}" placeholder="e.g. branding, portfolio" />
-      <span class="field-hint">Separate tags with commas</span>
-    </div>
-    <div class="row">
-      <div class="field"><label for="f-status">Status</label>
-        <select id="f-status">${STATUSES.map((s) => `<option value="${s}" ${post.status === s ? "selected" : ""}>${STATUS_LABELS[s]}</option>`).join("")}</select>
-      </div>
-      <div class="field"><label for="f-date">Schedule Date</label><input id="f-date" type="date" value="${post.scheduleDate || ""}" /></div>
-    </div>
-    <div class="row">
-      <div class="field"><label for="f-client-id">Client</label>
-        <select id="f-client-id">
-          <option value="">Unassigned</option>
-          ${clients.map((client) => `<option value="${client.id}" ${post.clientId === client.id ? "selected" : ""}>${escapeHtml(client.name)}</option>`).join("")}
-        </select>
-      </div>
-      <div class="field"><label for="f-visibility">Visibility</label>
-        <select id="f-visibility">
-          <option value="client-shareable" ${post.visibility === "client-shareable" ? "selected" : ""}>Client Shareable</option>
-          <option value="internal" ${post.visibility === "internal" ? "selected" : ""}>Internal Only</option>
-        </select>
-      </div>
-    </div>
-    <div class="row">
-      <div class="field"><label for="f-publish-state">Publish State</label>
-        <select id="f-publish-state">
-          <option value="draft" ${post.publishState === "draft" ? "selected" : ""}>Draft</option>
-          <option value="scheduled" ${post.publishState === "scheduled" ? "selected" : ""}>Scheduled</option>
-          <option value="published" ${post.publishState === "published" ? "selected" : ""}>Published</option>
-        </select>
-      </div>
-      <div class="field"><label for="f-published-at">Published At</label><input id="f-published-at" type="datetime-local" value="${post.publishedAt ? post.publishedAt.slice(0, 16) : ""}" /></div>
-    </div>
-    <div class="row">
-      <div class="field"><label for="f-scheduled-at">Scheduled At</label><input id="f-scheduled-at" type="datetime-local" value="${post.scheduledAt ? post.scheduledAt.slice(0, 16) : ""}" /></div>
-      <div class="field"><label for="f-post-type">Post Type</label>
-        <select id="f-post-type">
-          <option value="static" ${post.postType === "static" ? "selected" : ""}>Static</option>
-          <option value="reel" ${post.postType === "reel" ? "selected" : ""}>Reel</option>
-          <option value="video" ${post.postType === "video" ? "selected" : ""}>Video</option>
-          <option value="carousel" ${post.postType === "carousel" ? "selected" : ""}>Carousel</option>
-        </select>
-      </div>
-    </div>
 
-    <hr>
-    <p class="section-title">Collaboration</p>
-    <div class="row">
-      <div class="field"><label for="f-assignee">Assignee</label><input id="f-assignee" value="${escapeHtml(post.assignee || "")}" /></div>
-      <div class="field"><label for="f-reviewer">Reviewer</label><input id="f-reviewer" value="${escapeHtml(post.reviewer || "")}" /></div>
-    </div>
+      <hr>
+      <p class="section-title">Publish Readiness</p>
+      <div class="checklist">
+        ${checklistKeys.map((key) => `<label><input type="checkbox" id="c-${key}" ${post.checklist[key] ? "checked" : ""}/> ${CHECKLIST_LABELS[key]}</label>`).join("")}
+      </div>
 
-    <hr>
-    <p class="section-title">Publish Readiness</p>
-    <div class="checklist">
-      ${checklistKeys.map((key) => `<label><input type="checkbox" id="c-${key}" ${post.checklist[key] ? "checked" : ""}/> ${CHECKLIST_LABELS[key]}</label>`).join("")}
-    </div>
-
-    <hr>
-    <p class="section-title">Comments</p>
-    ${commentHtml || `<div class="subtle">No comments yet.</div>`}
-    <div id="comment-error" class="comment-error hidden"></div>
-    <div class="row" style="margin-top:8px">
-      <div class="field"><label for="c-author">Author</label><input id="c-author" placeholder="Name" /></div>
-      <div class="field"><label for="c-text">Comment</label><input id="c-text" placeholder="Write a comment" /></div>
-    </div>
-    <button class="add-btn" id="add-comment">Add Comment</button>
+      <hr>
+      <p class="section-title">Comments</p>
+      ${commentHtml || `<div class="subtle">No comments yet.</div>`}
+      <div id="comment-error" class="comment-error hidden"></div>
+      <div class="row" style="margin-top:8px">
+        <div class="field"><label for="c-author">Author</label><input id="c-author" placeholder="Name" /></div>
+        <div class="field"><label for="c-text">Comment</label><input id="c-text" placeholder="Write a comment" /></div>
+      </div>
+      <button class="add-btn" id="add-comment">Add Comment</button>
+    </section>
 
     <hr>
     <div class="inspector-actions">
@@ -328,6 +368,49 @@ export function renderInspector(root, post, handlers) {
       refreshVariantFields();
     });
   }
+
+  // Inspector tab logic
+  const tabButtons = [...root.querySelectorAll("[data-inspector-tab]")];
+  const panes = [...root.querySelectorAll("[data-inspector-pane]")];
+  function activateInspectorTab(tab) {
+    for (const button of tabButtons) button.classList.toggle("active", button.dataset.inspectorTab === tab);
+    for (const pane of panes) pane.classList.toggle("hidden", pane.dataset.inspectorPane !== tab);
+  }
+  for (const button of tabButtons) {
+    button.addEventListener("click", () => activateInspectorTab(button.dataset.inspectorTab));
+  }
+
+  // Auto grow caption
+  const captionInput = root.querySelector("#f-caption");
+  const autoGrow = (field) => {
+    if (!field) return;
+    field.style.height = "auto";
+    field.style.height = `${Math.max(field.scrollHeight, 110)}px`;
+  };
+  autoGrow(captionInput);
+  captionInput?.addEventListener("input", () => autoGrow(captionInput));
+
+  // Hashtag suggestions insert
+  root.querySelectorAll("[data-hashtag]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const tag = button.dataset.hashtag;
+      if (!tag) return;
+      const tagsInput = root.querySelector("#f-tags");
+      const current = tagsInput.value
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+      if (!current.some((value) => value.toLowerCase() === tag.toLowerCase())) {
+        current.push(tag);
+      }
+      tagsInput.value = current.join(", ");
+      const prefix = captionInput?.value?.trim().endsWith("#") ? "" : " ";
+      if (captionInput && !extractHashtags(captionInput.value).includes(tag.toLowerCase())) {
+        captionInput.value = `${captionInput.value.trim()}${prefix}#${tag}`.trim();
+        autoGrow(captionInput);
+      }
+    });
+  });
 
   // Save
   root.querySelector("#save-post").addEventListener("click", () => {
@@ -427,29 +510,51 @@ export function renderInspector(root, post, handlers) {
   });
 
   const mediaInput = root.querySelector("#f-media-file");
+  const mediaDropzone = root.querySelector("#f-media-dropzone");
   const mediaStatus = root.querySelector("#f-media-status");
-  mediaInput?.addEventListener("change", async () => {
-    const file = mediaInput.files?.[0];
+  async function processMediaFile(file) {
     if (!file) return;
     if (!handlers.onUploadMedia) return;
     if (!ALLOWED_UPLOAD_MIME_TYPES.has(file.type)) {
       mediaStatus.textContent = `Unsupported file type (${file.type || "unknown"}). Allowed: JPG, PNG, GIF, WEBP, MP4, MOV, WEBM, PDF.`;
-      mediaInput.value = "";
       return;
     }
     if (file.size > SAFE_MAX_BINARY_UPLOAD_BYTES) {
       mediaStatus.textContent = `File too large (${formatBytes(file.size)}). Max supported size is about ${formatBytes(SAFE_MAX_BINARY_UPLOAD_BYTES)}.`;
-      mediaInput.value = "";
       return;
     }
     mediaStatus.textContent = "Uploading...";
     try {
       await handlers.onUploadMedia(file);
       mediaStatus.textContent = "Uploaded.";
-      mediaInput.value = "";
     } catch (error) {
       mediaStatus.textContent = `Upload failed: ${error.message || "Unknown error"}`;
     }
+  }
+
+  mediaDropzone?.addEventListener("click", () => mediaInput?.click());
+  mediaDropzone?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      mediaInput?.click();
+    }
+  });
+  mediaDropzone?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    mediaDropzone.classList.add("drag-over");
+  });
+  mediaDropzone?.addEventListener("dragleave", () => mediaDropzone.classList.remove("drag-over"));
+  mediaDropzone?.addEventListener("drop", async (event) => {
+    event.preventDefault();
+    mediaDropzone.classList.remove("drag-over");
+    const file = event.dataTransfer?.files?.[0];
+    await processMediaFile(file);
+  });
+
+  mediaInput?.addEventListener("change", async () => {
+    const file = mediaInput.files?.[0];
+    await processMediaFile(file);
+    mediaInput.value = "";
   });
 }
 

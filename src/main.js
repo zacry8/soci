@@ -114,6 +114,27 @@ function listAssignees(posts) {
   return [...new Set(posts.map((p) => (p.assignee || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 }
 
+function collectHashtagSuggestions(posts) {
+  const counts = new Map();
+  for (const post of posts) {
+    const fromTags = Array.isArray(post.tags) ? post.tags : [];
+    for (const tag of fromTags) {
+      const normalized = String(tag || "").trim().toLowerCase().replace(/^#/, "");
+      if (!normalized) continue;
+      counts.set(normalized, (counts.get(normalized) || 0) + 1);
+    }
+    const caption = String(post.caption || "");
+    const hashMatches = [...caption.matchAll(/#([a-z0-9_]+)/gi)].map((match) => match[1].toLowerCase());
+    for (const hash of hashMatches) {
+      counts.set(hash, (counts.get(hash) || 0) + 1);
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+}
+
 function syncAssigneeFilter(posts) {
   const assignees = listAssignees(posts);
   const selected = filters.assignee;
@@ -420,6 +441,7 @@ function paint(state) {
   const visiblePosts = posts.filter(matchesFilters);
   const activePost = posts.find((p) => p.id === state.activePostId) || null;
   const integrity = profileIntegrity(posts);
+  const hashtagSuggestions = collectHashtagSuggestions(posts);
 
   const paintProfileSimulator = () => {
     renderProfileSimulator(el.grid, visiblePosts, {
@@ -472,6 +494,7 @@ function paint(state) {
   renderInspector(el.inspector, activePost, {
     clients: state.clients,
     media: state.media,
+    hashtagSuggestions,
     onSave: (patch) => {
       if (!activePost) return;
       const applied = applyStatusRules(patch, activePost);

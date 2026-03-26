@@ -504,7 +504,37 @@
   - Verification:
     - syntax checks pass for `backend/routes/uploads.js`, `backend/db.js`, `src/render.js`
 
+### Implementation Snapshot Addendum 17 (2026-03-26)
+- Delivered Gen Z-forward visual/system UX refresh with solarized dual-mode palette and inspector modernization:
+  - Global visual language (`styles.css`):
+    - introduced tokenized **off-white light mode** + **obsidian dark mode** palette via `:root` + `@media (prefers-color-scheme: dark)`
+    - shifted from harsh strokes/white surfaces to layered surface tokens, softer contrast lines, and depth-driven separation
+    - refreshed typography stack to `"Plus Jakarta Sans", Inter, system-ui`
+    - applied larger squircle radii and gradient accent treatment for CTAs/active states
+  - Layout hierarchy (`index.html` + `styles.css`):
+    - moved view toggles to topbar and relabeled to `Kanban | Calendar | Grid`
+    - refined left sidebar into lighter action rail style while keeping existing action semantics
+  - Inspector IA + social UX (`src/render.js`):
+    - restructured long-form inspector into tabs: `Content | Settings | Collaboration`
+    - added sticky inspector action bar for persistent save/duplicate/delete affordance
+    - added media-first drag-and-drop upload zone while preserving hidden file input fallback
+    - upgraded post preview card to larger social-style frame with lightweight engagement overlays
+    - added visual readiness bar (`Post readiness: X%`) based on existing checklist model
+    - caption editor now auto-expands for frictionless writing
+    - added hashtag suggestion chips with usage counts and one-click insertion into tags/caption
+  - Suggestion data flow (`src/main.js`):
+    - added `collectHashtagSuggestions(posts)` across tags + caption hashtags
+    - wired suggestions into `renderInspector` handlers without backend/schema changes
+  - Validation pass:
+    - syntax checks pass for `src/render.js` and `src/main.js` via `node --check`
+    - browser verification pass confirms:
+      - new topbar view-toggle placement and styling
+      - updated sidebar visual hierarchy
+      - inspector tab segmentation and sticky action row
+      - drag/drop media affordance and readiness meter visibility
+      - no new runtime console errors observed during smoke interactions
+
 ## Last Memory Update
 - **Updated:** 2026-03-26 (latest)
 - **By:** Claude Code
-- **Reason:** Logged media delivery/download optimization and cleanup updates (`?download=1`, lazy preview hints, and best-effort orphan file deletion on post/client removal).
+- **Reason:** Logged Gen Z-forward visual refresh: solarized off-white/obsidian palette, topbar toggle hierarchy, inspector tab architecture, media-first dropzone, sticky actions, readiness progress UI, and hashtag suggestion flow.

@@ -27,8 +27,15 @@ npm run api        # starts backend on http://localhost:8787
 ## Key files
 | File | Purpose |
 | --- | --- |
-| `backend/server.js` | All API endpoints (login, clients, posts, media, share links, file serving) |
-| `backend/db.js` | JSON persistence — atomic writes via tmp+rename, write queue for concurrency |
+| `backend/server.js` | Thin HTTP entry point — CORS, security headers, route dispatch |
+| `backend/router.js` | Minimal zero-dependency route matcher (supports `:param` segments) |
+| `backend/validators.js` | Input validation for client and post payloads |
+| `backend/routes/auth.js` | `POST /api/auth/login` — rate limiting, timing-safe credential check |
+| `backend/routes/admin.js` | All `/api/admin/*` endpoints (state, clients, posts, media, share-links) |
+| `backend/routes/share.js` | `GET /api/share/calendar` — token-based read-only client view |
+| `backend/routes/uploads.js` | `GET /uploads/:filename` — static file serving |
+| `backend/routes/health.js` | `GET /health` |
+| `backend/db.js` | JSON persistence — atomic read-modify-write queue, tmp+rename writes |
 | `backend/auth.js` | JWT create/verify |
 | `backend/config.js` | All config from env vars with defaults |
 | `backend/utils.js` | CORS, JSON body parsing, file name sanitization, UUID |
@@ -55,7 +62,7 @@ Clients → Posts → Media
 - `DATA_FILE` and `UPLOAD_DIR` in `.env` point to Docker volume paths (`/data/db.json`, `/uploads`)
 - Uploads are served publicly at `/uploads/{uuid}.ext` — UUID naming makes guessing infeasible
 - Allowed upload MIME types: `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `video/mp4`, `video/quicktime`, `video/webm`, `application/pdf`
-- `saveState()` in `db.js` uses atomic write (tmp + rename) and a write queue — do not bypass this
+- `db.js` uses an `enqueue()` wrapper that serializes the full read-modify-write for every write operation — do not bypass this or call `saveState` directly
 
 ## Env vars (see .env.example)
 `PORT`, `APP_BASE_URL`, `API_BASE_URL`, `CORS_ORIGINS`, `MAX_JSON_BYTES`, `MAX_UPLOAD_BYTES`, `AUTH_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DATA_FILE`, `UPLOAD_DIR`
