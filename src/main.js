@@ -67,7 +67,12 @@ const shareState = {
   error: ""
 };
 
-store.setErrorHandler((message) => {
+store.setErrorHandler((message, error) => {
+  if (error?.isAuthError) {
+    setAuthToken(null);
+    showLogin();
+    return;
+  }
   showToast(message, "error");
 });
 
@@ -140,13 +145,13 @@ function applyStatusRules(patch, existing) {
   const next = { ...patch };
   if (!next.clientId) {
     showToast("Assign a client before saving.", "error");
-    return existing;
+    return null;
   }
   if ((next.status === "in-review" || next.status === "ready") && !next.scheduleDate) {
     showToast("Schedule date is required for In Review / Ready.", "error");
     next.status = existing.status;
   }
-  if (next.status === "ready" && !next.checklist.approval) {
+  if (next.status === "ready" && !next.checklist?.approval) {
     showToast("Approval must be checked before moving to Ready.", "error");
     next.status = existing.status;
   }
@@ -469,7 +474,9 @@ function paint(state) {
     media: state.media,
     onSave: (patch) => {
       if (!activePost) return;
-      store.updatePost(activePost.id, applyStatusRules(patch, activePost));
+      const applied = applyStatusRules(patch, activePost);
+      if (!applied) return;
+      store.updatePost(activePost.id, applied);
       showToast("Saved!", "success");
     },
     onComment: (author, text) => {

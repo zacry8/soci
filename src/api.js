@@ -37,6 +37,11 @@ async function request(path, { method = "GET", token = "", body } = {}) {
     body: body ? JSON.stringify(body) : undefined
   });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    const err = new Error(data.error || "Unauthorized");
+    err.isAuthError = true;
+    throw err;
+  }
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
 }

@@ -78,6 +78,15 @@ export async function upsertPost(patch) {
         visibility: patch.visibility || "client-shareable",
         scheduleDate: patch.scheduleDate || "",
         mediaIds: Array.isArray(patch.mediaIds) ? patch.mediaIds : [],
+        publishState: patch.publishState || "draft",
+        publishedAt: patch.publishedAt || "",
+        scheduledAt: patch.scheduledAt || "",
+        postType: patch.postType || "static",
+        platformVariants: patch.platformVariants && typeof patch.platformVariants === "object" ? patch.platformVariants : {},
+        assignee: patch.assignee || "",
+        reviewer: patch.reviewer || "",
+        comments: Array.isArray(patch.comments) ? patch.comments : [],
+        checklist: patch.checklist && typeof patch.checklist === "object" ? patch.checklist : { copy: false, media: false, tags: false, schedule: false, approval: false },
         createdAt: now(),
         updatedAt: now()
       };

@@ -101,6 +101,10 @@ export function createStore() {
       isBootstrapped = true;
       notify();
     } catch (error) {
+      if (error?.isAuthError) {
+        reportSyncError("Session expired. Please sign in again.", error);
+        return;
+      }
       reportSyncError("Could not load server state. Using local fallback data.", error);
       clients = makeSeedClients().map(normalizeClient);
       posts = makeSeedPosts(clients).map((post) => normalizePost(post, clients));
@@ -189,7 +193,7 @@ export function createStore() {
     updatePost(id, patch) {
       const next = posts.map((p) => (p.id === id ? { ...p, ...patch } : p));
       setPosts(next);
-      const updated = next.find((p) => p.id === id);
+      const updated = posts.find((p) => p.id === id);
       if (updated) void syncPost(updated);
     },
     movePost(id, status) {
@@ -212,7 +216,7 @@ export function createStore() {
             : p
       );
       setPosts(next);
-      const updated = next.find((p) => p.id === id);
+      const updated = posts.find((p) => p.id === id);
       if (updated) void syncPost(updated);
     },
     deletePost(id) {
