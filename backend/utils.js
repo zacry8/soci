@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import path from "node:path";
 
 export function json(res, status, payload) {
   const body = JSON.stringify(payload);
@@ -46,4 +47,11 @@ export function now() {
 export function pickCorsOrigin(requestOrigin, allowedOrigins = []) {
   if (!requestOrigin) return allowedOrigins[0] || "";
   return allowedOrigins.includes(requestOrigin) ? requestOrigin : "";
+}
+
+// Returns the resolved absolute path if it's safely inside baseDir, null otherwise.
+// Use this to guard against path traversal attacks.
+export function validateFilePath(filePath, baseDir) {
+  const absolute = path.resolve(baseDir, filePath);
+  return absolute.startsWith(path.resolve(baseDir)) ? absolute : null;
 }

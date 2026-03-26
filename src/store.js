@@ -90,6 +90,8 @@ export function createStore() {
       if (!clients.length) {
         clients = makeSeedClients().map(normalizeClient);
         posts = makeSeedPosts(clients).map((post) => normalizePost(post, clients));
+        for (const client of clients) void syncClient(client);
+        for (const post of posts) void syncPost(post);
       }
       if (!clients.some((client) => client.id === activeClientId)) {
         activeClientId = clients[0]?.id || "";
