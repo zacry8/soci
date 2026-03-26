@@ -372,6 +372,22 @@
     - live frontend serves updated inspector code
     - live API health and CORS preflight for `/api/admin/media` and `/api/admin/posts` respond correctly
 
+### Implementation Snapshot Addendum 12 (2026-03-26)
+- Captured latest production deployment/debug cycle and resilience follow-through:
+  - New production fix commit pushed: `4daba69` (`Fix prod API base normalization and surface sync failures in UI`)
+  - Root-cause mitigation documented:
+    - stale persisted `soci.api.base` values (legacy `/api` suffix forms) could produce invalid API targets
+  - Frontend hardening shipped:
+    - `src/api.js`: `normalizeApiBase()` trims trailing slashes and strips legacy `/api` suffix
+    - `src/store.js`: centralized sync error reporting hook (`setErrorHandler`)
+    - `src/main.js`: sync failures surfaced via toast notifications (prevents silent save/upload failures)
+  - CI/CD incident + recovery:
+    - initial `Deploy to VPS` run failed with SSH timeout (`dial tcp ***:22: i/o timeout`)
+    - rerun succeeded for the same commit after connectivity recovery
+  - Live verification notes:
+    - production frontend confirms normalized API-base code is deployed
+    - latest deploy workflow status recovered to success
+
 ## 📚 Resources
 
 ### Known Inputs
@@ -406,9 +422,56 @@
 
 ---
 
+### Implementation Snapshot Addendum 13 (2026-03-26)
+- Fixed save-persistence bug and modularized backend for maintainability:
+  - Root-cause fix — seed data sync (`src/store.js`):
+    - when backend returns no clients (empty volume), frontend fell back to seed data with new UUIDs, discarding any saved posts
+    - seed clients/posts are now synced to backend immediately on first bootstrap
+    - prevents browser refresh from discarding saved changes via seed-data re-initialization
+  - Root-cause fix — atomic read-modify-write (`backend/db.js`):
+    - replaced write-only queue with `enqueue()` wrapping the full `loadState → modify → saveState`
+    - concurrent saves no longer read stale state and overwrite each other
+    - `saveState` is now internal; all write operations go through `enqueue`
+  - Backend modularized from 342-line monolith into focused modules:
+    - `backend/router.js` — minimal zero-dependency route matcher with `:param` support
+    - `backend/validators.js` — `validateClient()` and `validatePost()` extracted and exported
+    - `backend/routes/health.js` — `GET /health`
+    - `backend/routes/auth.js` — `POST /api/auth/login` + rate limiting
+    - `backend/routes/admin.js` — all `/api/admin/*` endpoints + media upload error handling fixed
+    - `backend/routes/share.js` — `GET /api/share/calendar`
+    - `backend/routes/uploads.js` — `GET /uploads/:filename`
+    - `backend/server.js` — reduced to ~55-line entry point (CORS, security headers, dispatch)
+  - Additional fixes:
+    - media write errors (`mkdir`/`writeFile`) now return 500 instead of silently failing
+    - `validateFilePath()` helper added to `backend/utils.js` — deduplicates path traversal check
+  - Verification:
+    - `GET /health`, `POST /api/auth/login`, `POST /api/admin/clients`, `POST /api/admin/posts` smoke-tested locally
+    - commit `cf7407c` pushed to `main`, auto-deploy triggered to VPS
+
+### Implementation Snapshot Addendum 14 (2026-03-26)
+- Diagnosed and fixed media upload reliability issues causing "finnicky" behavior in MVP flows:
+  - Root-cause alignment (frontend vs backend constraints):
+    - frontend now validates upload MIME types against backend-allowed set before upload
+    - frontend now enforces conservative binary size ceiling (~9MB) to account for base64+JSON overhead under `MAX_UPLOAD_BYTES`
+  - `src/render.js` upload UX hardening:
+    - restricted file input `accept` list to supported media types/extensions only
+    - added explicit user-facing validation messages for unsupported types and oversized files
+    - added inline byte-format helper for clearer error messaging
+  - `src/render.js` preview reliability upgrade:
+    - primary media preview now renders as true inline media (`<img>` / `<video controls>`) when possible
+    - graceful anchor fallback retained for PDFs/other non-inline cases
+  - `backend/routes/admin.js` validation resilience:
+    - refined magic-byte checks to be MIME-specific (length guards per format)
+    - improved file mismatch/corruption error messaging for easier debugging
+  - `backend/routes/uploads.js` serving correctness:
+    - now returns extension-based `Content-Type` for known media types
+    - returns `Content-Disposition: inline` for image/video/pdf to support in-app preview
+    - retains attachment fallback for unknown binary types
+  - Verification status:
+    - syntax checks pass for `src/render.js`, `backend/routes/admin.js`, `backend/routes/uploads.js`
+    - runtime API boot check blocked locally by secure startup guard (missing non-default `AUTH_SECRET`/`ADMIN_PASSWORD` in environment), not by new code changes
+
 ## Last Memory Update
 - **Updated:** 2026-03-26 (latest)
-- **By:** Cline
-- **Reason:** Fixed API persistence regression caused by frontend/backend status mismatch and resolved inspector label association accessibility violations; added verification notes.
-- **Reason:** Added inspector sidebar reordering and media flow verification updates; documented accessibility/source-scan validation for final QA pass.
-- **Reason:** Added API-base normalization and explicit frontend sync error surfacing to address production “silent save” failure mode and stale endpoint configuration risks.
+- **By:** Claude Code
+- **Reason:** Logged media upload reliability diagnosis and fixes (frontend pre-validation, inline preview rendering, MIME-aware upload serving headers, and stronger backend signature checks).

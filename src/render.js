@@ -1,6 +1,19 @@
 import { CHECKLIST_LABELS, PLATFORM_OPTIONS, STATUSES, STATUS_LABELS } from "./data.js";
 
 const checklistKeys = ["copy", "media", "tags", "schedule", "approval"];
+const ALLOWED_UPLOAD_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "application/pdf"
+]);
+// Backend default MAX_UPLOAD_BYTES is 12MB for JSON payload. Because uploads are base64-in-JSON,
+// practical binary-safe max is lower. Keep a conservative client-side cap to avoid surprise 413s.
+const SAFE_MAX_BINARY_UPLOAD_BYTES = 9 * 1024 * 1024;
 
 function escapeHtml(value = "") {
   return value
@@ -8,6 +21,27 @@ function escapeHtml(value = "") {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function renderPrimaryMediaPreview(media) {
+  if (!media?.urlPath) return `<span class="safe-zone">Media preview</span>`;
+  const url = escapeHtml(media.urlPath);
+  const name = escapeHtml(media.fileName || "media");
+  const mime = String(media.mimeType || "").toLowerCase();
+  if (mime.startsWith("image/")) {
+    return `<img src="${url}" alt="${name}" style="max-width:100%;max-height:220px;object-fit:cover;border-radius:10px;display:block"/>`;
+  }
+  if (mime.startsWith("video/")) {
+    return `<video controls preload="metadata" style="max-width:100%;max-height:220px;border-radius:10px;display:block"><source src="${url}" type="${escapeHtml(mime)}"/>Your browser does not support video preview.</video>`;
+  }
+  return `<a href="${url}" target="_blank" rel="noreferrer">${name}</a>`;
 }
 
 // ── Kanban ───────────────────────────────────────────────────────────────────
@@ -147,9 +181,7 @@ export function renderInspector(root, post, handlers) {
   const allMedia = handlers?.media || [];
   const postMedia = allMedia.filter((item) => (post.mediaIds || []).includes(item.id));
   const primaryMedia = postMedia[0] || null;
-  const mediaPreviewHtml = primaryMedia
-    ? `<a href="${escapeHtml(primaryMedia.urlPath || "")}" target="_blank" rel="noreferrer">${escapeHtml(primaryMedia.fileName || "media")}</a>`
-    : `<span class="safe-zone">Media preview</span>`;
+  const mediaPreviewHtml = renderPrimaryMediaPreview(primaryMedia);
   const mediaListHtml = postMedia.length
     ? `<ul>${postMedia.map((item) => `<li><a href="${escapeHtml(item.urlPath || "")}" target="_blank" rel="noreferrer">${escapeHtml(item.fileName || "media")}</a></li>`).join("")}</ul>`
     : `<div class="subtle" style="font-size:12px">No media uploaded yet.</div>`;
@@ -172,7 +204,7 @@ export function renderInspector(root, post, handlers) {
     <div class="field"><label for="f-title">Title</label><input id="f-title" value="${escapeHtml(post.title)}" /></div>
     <div class="field">
       <label for="f-media-file">Media Upload</label>
-      <input id="f-media-file" type="file" accept="image/*,video/*,application/pdf" />
+      <input id="f-media-file" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm,.pdf" />
       <div id="f-media-status" class="subtle" style="font-size:12px"></div>
       ${mediaListHtml}
     </div>
@@ -390,6 +422,16 @@ export function renderInspector(root, post, handlers) {
     const file = mediaInput.files?.[0];
     if (!file) return;
     if (!handlers.onUploadMedia) return;
+    if (!ALLOWED_UPLOAD_MIME_TYPES.has(file.type)) {
+      mediaStatus.textContent = `Unsupported file type (${file.type || "unknown"}). Allowed: JPG, PNG, GIF, WEBP, MP4, MOV, WEBM, PDF.`;
+      mediaInput.value = "";
+      return;
+    }
+    if (file.size > SAFE_MAX_BINARY_UPLOAD_BYTES) {
+      mediaStatus.textContent = `File too large (${formatBytes(file.size)}). Max supported size is about ${formatBytes(SAFE_MAX_BINARY_UPLOAD_BYTES)}.`;
+      mediaInput.value = "";
+      return;
+    }
     mediaStatus.textContent = "Uploading...";
     try {
       await handlers.onUploadMedia(file);
