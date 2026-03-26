@@ -2,7 +2,11 @@ const STORAGE_AUTH_TOKEN = "soci.auth.token";
 const STORAGE_API_BASE = "soci.api.base";
 
 function getApiBase() {
-  return localStorage.getItem(STORAGE_API_BASE) || "http://localhost:8787";
+  const stored = localStorage.getItem(STORAGE_API_BASE);
+  if (stored) return stored;
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") return "http://localhost:8787";
+  return `https://api.${host}`;
 }
 
 
