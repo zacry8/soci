@@ -45,12 +45,18 @@ function renderPrimaryMediaPreview(media) {
   const name = escapeHtml(media.fileName || "media");
   const mime = String(media.mimeType || "").toLowerCase();
   if (mime.startsWith("image/")) {
-    return `<img src="${url}" alt="${name}" loading="lazy" decoding="async" style="max-width:100%;max-height:220px;object-fit:cover;border-radius:10px;display:block"/>`;
+    return `<img src="${url}" alt="${name}" loading="lazy" decoding="async" class="media-preview-img"/>`;
   }
   if (mime.startsWith("video/")) {
-    return `<video controls preload="metadata" style="max-width:100%;max-height:220px;border-radius:10px;display:block"><source src="${url}" type="${escapeHtml(mime)}"/>Your browser does not support video preview.</video>`;
+    return `<video controls preload="metadata" class="media-preview-video"><source src="${url}" type="${escapeHtml(mime)}"/>Your browser does not support video preview.</video>`;
   }
   return `<a href="${url}" target="_blank" rel="noreferrer">${name}</a>`;
+}
+
+function iconWithLabel(icon, label, value = "") {
+  const safeLabel = escapeHtml(label);
+  const safeValue = escapeHtml(value);
+  return `<span class="social-pill"><i data-lucide="${escapeHtml(icon)}" aria-hidden="true"></i><span>${safeLabel}${safeValue ? ` ${safeValue}` : ""}</span></span>`;
 }
 
 // ── Kanban ───────────────────────────────────────────────────────────────────
@@ -180,9 +186,9 @@ export function renderInspector(root, post, handlers) {
 
   // Per-platform variant fields
   const variantFieldsHtml = post.platforms.map((p) => `
-    <div style="margin-bottom:8px">
+    <div class="mb-8">
       <div class="variant-field-label">${escapeHtml(p)}</div>
-      <textarea id="variant-${p.toLowerCase()}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;min-height:60px;resize:vertical">${escapeHtml(post.platformVariants?.[p] || "")}</textarea>
+      <textarea id="variant-${p.toLowerCase()}" class="variant-textarea">${escapeHtml(post.platformVariants?.[p] || "")}</textarea>
     </div>
   `).join("");
 
@@ -201,13 +207,13 @@ export function renderInspector(root, post, handlers) {
     .map((entry) => `<button type="button" class="hashtag-chip" data-hashtag="${escapeHtml(entry.tag)}">#${escapeHtml(entry.tag)} · ${entry.count}</button>`)
     .join("");
   const mediaListHtml = postMedia.length
-    ? `<ul>${postMedia.map((item) => {
+    ? `<ul class="media-list">${postMedia.map((item) => {
       const url = escapeHtml(item.urlPath || "");
       const downloadUrl = escapeHtml(withDownloadParam(item.urlPath || ""));
       const fileName = escapeHtml(item.fileName || "media");
       return `<li><a href="${url}" target="_blank" rel="noreferrer">${fileName}</a> · <a href="${downloadUrl}" target="_blank" rel="noreferrer" download>Download original</a></li>`;
     }).join("")}</ul>`
-    : `<div class="subtle" style="font-size:12px">No media uploaded yet.</div>`;
+    : `<div class="subtle" class="fs-xs-fixed">No media uploaded yet.</div>`;
 
   root.innerHTML = `
     <div id="form-errors" class="form-errors hidden" role="alert"></div>
@@ -233,9 +239,9 @@ export function renderInspector(root, post, handlers) {
           <strong>${escapeHtml(post.title || "Untitled Post")}</strong>
           <span class="subtle">${escapeHtml(post.postType || "post")} • ${escapeHtml(post.publishState || "draft")}</span>
           <div class="post-preview-overlay">
-            <span class="social-pill">❤ 2.4k</span>
-            <span class="social-pill">💬 184</span>
-            <span class="social-pill">↗ Share</span>
+            ${iconWithLabel("heart", "2.4k")}
+            ${iconWithLabel("message-circle", "184")}
+            ${iconWithLabel("send", "Share")}
           </div>
         </div>
       </section>
@@ -251,14 +257,14 @@ export function renderInspector(root, post, handlers) {
           </div>
         </div>
         <input id="f-media-file" type="file" hidden accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm,.pdf" />
-        <div id="f-media-status" class="subtle" style="font-size:12px"></div>
+        <div id="f-media-status" class="subtle" class="fs-xs-fixed"></div>
         ${mediaListHtml}
       </div>
       <div class="field"><label for="f-caption">Caption</label><textarea id="f-caption" class="auto-grow">${escapeHtml(post.caption)}</textarea></div>
       ${suggestionHtml ? `<div class="hashtag-suggestions">${suggestionHtml}</div>` : ""}
       <div class="field">
         <span class="variant-field-label">Platform Captions</span>
-        <div class="variant-fields">${variantFieldsHtml || '<div class="subtle" style="font-size:12px">Select platforms above to add per-platform captions.</div>'}</div>
+        <div class="variant-fields">${variantFieldsHtml || '<div class="subtle" class="fs-xs-fixed">Select platforms above to add per-platform captions.</div>'}</div>
       </div>
     </section>
 
@@ -334,7 +340,7 @@ export function renderInspector(root, post, handlers) {
       <p class="section-title">Comments</p>
       ${commentHtml || `<div class="subtle">No comments yet.</div>`}
       <div id="comment-error" class="comment-error hidden"></div>
-      <div class="row" style="margin-top:8px">
+      <div class="row" class="mt-8">
         <div class="field"><label for="c-author">Author</label><input id="c-author" placeholder="Name" /></div>
         <div class="field"><label for="c-text">Comment</label><input id="c-text" placeholder="Write a comment" /></div>
       </div>
@@ -359,8 +365,8 @@ export function renderInspector(root, post, handlers) {
     const variantRoot = root.querySelector(".variant-fields");
     variantRoot.innerHTML = selected.length ? selected.map((p) => {
       const existing = root.querySelector(`#variant-${p.toLowerCase()}`)?.value || post.platformVariants?.[p] || "";
-      return `<div style="margin-bottom:8px"><div class="variant-field-label">${escapeHtml(p)}</div><textarea id="variant-${p.toLowerCase()}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;min-height:60px;resize:vertical">${escapeHtml(existing)}</textarea></div>`;
-    }).join("") : `<div class="subtle" style="font-size:12px">Select platforms above to add per-platform captions.</div>`;
+      return `<div class="mb-8"><div class="variant-field-label">${escapeHtml(p)}</div><textarea id="variant-${p.toLowerCase()}" class="variant-textarea">${escapeHtml(existing)}</textarea></div>`;
+    }).join("") : `<div class="subtle" class="fs-xs-fixed">Select platforms above to add per-platform captions.</div>`;
   }
   for (const btn of toggles) {
     btn.addEventListener("click", () => {
@@ -556,6 +562,8 @@ export function renderInspector(root, post, handlers) {
     await processMediaFile(file);
     mediaInput.value = "";
   });
+
+  window.lucide?.createIcons();
 }
 
 export function renderShareCalendar(root, client, posts, offset = 0, onOffsetChange) {
@@ -572,100 +580,166 @@ export function renderShareCalendar(root, client, posts, offset = 0, onOffsetCha
 
 // ── Profile Simulator ────────────────────────────────────────────────────────
 
-function tile(post) {
+function buildMediaMap(media = []) {
+  const map = new Map();
+  for (const item of media) map.set(item.id, item);
+  return map;
+}
+
+function getPrimaryMedia(post, mediaMap) {
+  const ids = Array.isArray(post.mediaIds) ? post.mediaIds : [];
+  for (const id of ids) {
+    const media = mediaMap.get(id);
+    if (media?.urlPath) return media;
+  }
+  return null;
+}
+
+function renderPreviewMedia(post, mediaMap, className = "") {
+  const media = getPrimaryMedia(post, mediaMap);
+  const fallback = `<div class="tile-fallback">${escapeHtml((post.title || "Untitled").slice(0, 28))}</div>`;
+  if (!media?.urlPath) return fallback;
+  const url = escapeHtml(media.urlPath);
+  const mime = String(media.mimeType || "").toLowerCase();
+  const alt = escapeHtml(media.fileName || post.title || "Post media");
+  if (mime.startsWith("image/")) {
+    return `<img src="${url}" alt="${alt}" loading="lazy" class="${className}" />`;
+  }
+  if (mime.startsWith("video/")) {
+    return `<video class="${className}" muted playsinline preload="metadata"><source src="${url}" type="${escapeHtml(mime)}" /></video>`;
+  }
+  return fallback;
+}
+
+function instagramTile(post, mediaMap) {
+  const type = String(post.postType || "static").toLowerCase();
+  const stateBadge = post.publishState === "published" ? "" : `<span class="mock-badge">${escapeHtml(post.publishState)}</span>`;
+  const typeIcon = type === "carousel"
+    ? `<i data-lucide="copy" class="mock-top-icon" aria-hidden="true"></i>`
+    : type === "reel" || type === "video"
+    ? `<i data-lucide="play-square" class="mock-top-icon" aria-hidden="true"></i>`
+    : "";
   return `
-    <article class="feed-tile ${post.postType || "static"}">
-      <div class="tile-thumb">${escapeHtml((post.title || "").slice(0, 22) || "Untitled")}</div>
-      <div class="tile-meta">${post.postType || "post"} • ${post.publishState}</div>
+    <article class="mock-ig-tile" title="${escapeHtml(post.title || "Post")}">
+      ${renderPreviewMedia(post, mediaMap, "mock-media")}
+      <div class="mock-ig-overlay">
+        <div class="mock-ig-icons">${typeIcon}</div>
+        ${stateBadge}
+      </div>
     </article>
   `;
 }
 
-function makeAudit(posts, mode) {
+function formatViews(index) {
+  const presets = ["2.4M", "890K", "1.1M", "776K", "403K", "92K"];
+  return presets[index % presets.length];
+}
+
+function tiktokTile(post, mediaMap, index) {
+  const pinned = index < 3 ? `<span class="mock-pin">Pinned</span>` : "";
+  return `
+    <article class="mock-tt-tile" title="${escapeHtml(post.title || "Video")}">
+      ${renderPreviewMedia(post, mediaMap, "mock-media")}
+      <div class="mock-tt-gradient"></div>
+      ${pinned}
+      <div class="mock-tt-views"><i data-lucide="play" aria-hidden="true"></i><span>${formatViews(index)}</span></div>
+    </article>
+  `;
+}
+
+function getPlatformPosts(posts, mode) {
   const platform = mode === "tiktok" ? "TikTok" : "Instagram";
-  const now = Date.now();
-  const checks = [];
+  return posts.filter((p) => (p.platforms || []).includes(platform));
+}
 
-  const published = posts.filter((p) => p.publishState === "published");
-  const scheduled = posts.filter((p) => p.publishState === "scheduled");
-  const missingPublishedAt = published.filter((p) => !p.publishedAt);
-  const futurePublishedAt = published.filter((p) => p.publishedAt && new Date(p.publishedAt).getTime() > now);
-  const missingScheduledAt = scheduled.filter((p) => !(p.scheduledAt || p.scheduleDate));
-  const idSet = new Set();
-  const duplicateIds = [];
-  for (const post of posts) {
-    if (idSet.has(post.id)) duplicateIds.push(post.id);
-    idSet.add(post.id);
-  }
+function toInstagramCard(posts, mediaMap, profile) {
+  return `
+    <section class="inspo-card instagram-card">
+      <header class="inspo-profile-head">
+        <img src="${escapeHtml(profile.avatarUrl)}" alt="${escapeHtml(profile.displayName)}" class="inspo-avatar" />
+        <div class="inspo-profile-meta">
+          <h4>${escapeHtml(profile.handle)}</h4>
+          <div class="inspo-stats">
+            <span><strong>${escapeHtml(String(posts.length))}</strong> posts</span>
+            <span><strong>${escapeHtml(profile.followers)}</strong> followers</span>
+            <span><strong>${escapeHtml(profile.following)}</strong> following</span>
+          </div>
+          <p class="inspo-name">${escapeHtml(profile.displayName)}</p>
+          <p class="inspo-bio">${escapeHtml(profile.bio).replaceAll("\n", "<br/>")}</p>
+          <a href="${escapeHtml(profile.linkUrl)}" target="_blank" rel="noreferrer" class="inspo-link">${escapeHtml(profile.linkText)}</a>
+        </div>
+      </header>
+      <div class="inspo-tabs"><span class="active">Posts</span><span>Reels</span><span>Tagged</span></div>
+      <div class="mock-grid instagram">
+        ${posts.length ? posts.map((post) => instagramTile(post, mediaMap)).join("") : `<div class="grid-empty">No Instagram posts yet.</div>`}
+      </div>
+    </section>
+  `;
+}
 
-  checks.push({
-    level: missingPublishedAt.length ? "error" : "ok",
-    label: "Published posts have timestamps",
-    detail: missingPublishedAt.length
-      ? `${missingPublishedAt.length} published posts missing publishedAt.`
-      : "All published posts include publishedAt.",
-    targets: missingPublishedAt.map((p) => p.id)
-  });
-  checks.push({
-    level: futurePublishedAt.length ? "warning" : "ok",
-    label: "Published timestamps are in the past",
-    detail: futurePublishedAt.length
-      ? `${futurePublishedAt.length} published posts have future timestamps.`
-      : "No future-dated published posts found.",
-    targets: futurePublishedAt.map((p) => p.id)
-  });
-  checks.push({
-    level: missingScheduledAt.length ? "warning" : "ok",
-    label: "Scheduled posts have schedule metadata",
-    detail: missingScheduledAt.length
-      ? `${missingScheduledAt.length} scheduled posts missing schedule metadata.`
-      : "All scheduled posts include schedule metadata.",
-    targets: missingScheduledAt.map((p) => p.id)
-  });
-  checks.push({
-    level: duplicateIds.length ? "error" : "ok",
-    label: "Post IDs are unique",
-    detail: duplicateIds.length ? `${duplicateIds.length} duplicate post IDs detected.` : "No duplicate IDs detected.",
-    targets: duplicateIds
-  });
+function toTiktokCard(posts, mediaMap, profile) {
+  return `
+    <section class="inspo-card tiktok-card">
+      <header class="inspo-profile-head tiktok">
+        <img src="${escapeHtml(profile.avatarUrl)}" alt="${escapeHtml(profile.displayName)}" class="inspo-avatar" />
+        <div class="inspo-profile-meta">
+          <h4>${escapeHtml(profile.handle)}</h4>
+          <p class="inspo-name">${escapeHtml(profile.displayName)}</p>
+          <div class="inspo-stats">
+            <span><strong>${escapeHtml(profile.following)}</strong> Following</span>
+            <span><strong>${escapeHtml(profile.followers)}</strong> Followers</span>
+            <span><strong>${escapeHtml(profile.likes)}</strong> Likes</span>
+          </div>
+          <p class="inspo-bio">${escapeHtml(profile.bio).replaceAll("\n", "<br/>")}</p>
+          <a href="${escapeHtml(profile.linkUrl)}" target="_blank" rel="noreferrer" class="inspo-link">${escapeHtml(profile.linkText)}</a>
+        </div>
+      </header>
+      <div class="inspo-tabs"><span class="active">Videos</span><span>Favorites</span><span>Liked</span></div>
+      <div class="mock-grid tiktok">
+        ${posts.length ? posts.map((post, index) => tiktokTile(post, mediaMap, index)).join("") : `<div class="grid-empty">No TikTok posts yet.</div>`}
+      </div>
+    </section>
+  `;
+}
 
-  const modeEligible = posts.filter((p) => (p.platforms || []).includes(platform));
-  checks.push({
-    level: modeEligible.length ? "ok" : "warning",
-    label: `${platform} profile has eligible posts`,
-    detail: modeEligible.length
-      ? `${modeEligible.length} posts are eligible for ${platform}.`
-      : `No ${platform}-eligible posts found.`,
-    targets: []
-  });
-
-  const hasError = checks.some((c) => c.level === "error");
-  const hasWarning = checks.some((c) => c.level === "warning");
-  const summary = hasError ? "error" : hasWarning ? "warning" : "ok";
-
-  return { checks, summary, platform, modeEligible };
+function renderSettingsPanel(profile) {
+  return `
+    <details class="simulator-settings">
+      <summary>Profile Simulator Settings</summary>
+      <div class="simulator-settings-grid">
+        <label>Handle<input data-profile-setting="handle" value="${escapeHtml(profile.handle)}" /></label>
+        <label>Display Name<input data-profile-setting="displayName" value="${escapeHtml(profile.displayName)}" /></label>
+        <label>Avatar URL<input data-profile-setting="avatarUrl" value="${escapeHtml(profile.avatarUrl)}" /></label>
+        <label>Followers<input data-profile-setting="followers" value="${escapeHtml(profile.followers)}" /></label>
+        <label>Following<input data-profile-setting="following" value="${escapeHtml(profile.following)}" /></label>
+        <label>Likes<input data-profile-setting="likes" value="${escapeHtml(profile.likes)}" /></label>
+        <label>Link Text<input data-profile-setting="linkText" value="${escapeHtml(profile.linkText)}" /></label>
+        <label>Link URL<input data-profile-setting="linkUrl" value="${escapeHtml(profile.linkUrl)}" /></label>
+        <label class="full">Bio<textarea data-profile-setting="bio">${escapeHtml(profile.bio)}</textarea></label>
+      </div>
+    </details>
+  `;
 }
 
 export function renderProfileSimulator(root, posts, options) {
   const mode = options?.mode || "instagram";
   const onModeChange = options?.onModeChange;
-  const onFixPost = options?.onFixPost;
-  const integrity = options?.integrity || { level: "ok", message: "Profile integrity verified." };
+  const onProfileSettingsChange = options?.onProfileSettingsChange;
+  const mediaMap = buildMediaMap(options?.media || []);
+  const profile = {
+    handle: "zacdeck",
+    displayName: "Zac Deck",
+    avatarUrl: "https://picsum.photos/seed/profile/300/300",
+    followers: "1,523",
+    following: "414",
+    likes: "24.2M",
+    bio: "any pronouns or whatevs man 🤙\n@somewhere ✨\nsay that shit !",
+    linkText: "direct.me/zaccy",
+    linkUrl: "#",
+    ...(options?.profileSettings || {})
+  };
 
-  const audit = makeAudit(posts, mode);
-  const eligiblePosts = audit.modeEligible;
-
-  const published = eligiblePosts.filter((p) => p.publishState === "published");
-  const futureAsc = eligiblePosts
-    .filter((p) => p.publishState !== "published")
-    .sort((a, b) => {
-      const aDate = new Date(a.scheduledAt || `${a.scheduleDate || "2099-12-31"}T09:00:00`).getTime();
-      const bDate = new Date(b.scheduledAt || `${b.scheduleDate || "2099-12-31"}T09:00:00`).getTime();
-      return aDate - bDate;
-    });
-
-  const projected = [...futureAsc].reverse().concat(published);
-  const topNine = projected.slice(0, 9);
+  const eligiblePosts = getPlatformPosts(posts, mode);
 
   root.innerHTML = `
     <div class="profile-toolbar">
@@ -673,42 +747,20 @@ export function renderProfileSimulator(root, posts, options) {
         <button class="small ${mode === "instagram" ? "active" : ""}" data-mode="instagram">Instagram</button>
         <button class="small ${mode === "tiktok" ? "active" : ""}" data-mode="tiktok">TikTok</button>
       </div>
-      <span class="integrity ${integrity.level}">${escapeHtml(integrity.message)}</span>
+      <span class="subtle">${eligiblePosts.length} mapped thumbnails</span>
     </div>
-
-    <section class="mock-profile ${mode}">
-      <header class="mock-header">
-        <div><strong>${mode === "instagram" ? "@yourstudio" : "@yourstudio.tok"}</strong></div>
-        <div class="subtle">Current posts: ${published.length} • Planned: ${futureAsc.length}</div>
-      </header>
-
-      <section class="audit-panel ${audit.summary}">
-        <h4>Accuracy Audit</h4>
-        <ul>
-          ${audit.checks.map((check) => `
-            <li class="${check.level}">
-              <div class="audit-line">
-                <strong>${escapeHtml(check.label)}</strong>
-                ${check.targets?.length ? `<button class="small audit-fix" data-fix="${check.targets[0]}">Fix now</button>` : ""}
-              </div>
-              <span>${escapeHtml(check.detail)}</span>
-            </li>
-          `).join("")}
-        </ul>
-      </section>
-
-      <p class="section-title">Current Profile (published)</p>
-      <div class="mock-grid ${mode}">${published.map(tile).join("") || `<div class="grid-empty">No published posts yet.</div>`}</div>
-
-      <p class="section-title">Projected Top 9 (after future posts)</p>
-      <div class="mock-grid ${mode}">${topNine.map(tile).join("") || `<div class="grid-empty">No future projection available.</div>`}</div>
-    </section>
+    ${renderSettingsPanel(profile)}
+    ${mode === "instagram" ? toInstagramCard(eligiblePosts, mediaMap, profile) : toTiktokCard(eligiblePosts, mediaMap, profile)}
   `;
 
   root.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => onModeChange?.(button.dataset.mode));
   });
-  root.querySelectorAll("[data-fix]").forEach((button) => {
-    button.addEventListener("click", () => onFixPost?.(button.dataset.fix));
+  root.querySelectorAll("[data-profile-setting]").forEach((field) => {
+    field.addEventListener("input", () => {
+      onProfileSettingsChange?.({ [field.dataset.profileSetting]: field.value });
+    });
   });
+
+  window.lucide?.createIcons();
 }

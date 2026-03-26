@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Profile Clone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+</head>
+<body class="bg-[#121212] text-white font-sans antialiased overflow-x-hidden">
+
+    <div class="flex min-h-screen">
+      
+        <!-- Top Navigation Bar (Mobile/Tablet) - Hidden on desktop -->
+        <div class="xl:hidden fixed top-0 left-0 w-full h-[60px] border-b border-white/10 bg-[#121212] z-50 flex items-center justify-between px-4">
+            <svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M38.1698 22.4828C35.5398 22.2599 33.1557 21.1466 31.1896 19.4674C29.6102 18.1408 28.3756 16.4173 27.5925 14.4533C26.8647 12.6457 26.5 10.6698 26.5 8H20.0305V31.8415C20.0305 35.5492 17.0252 38.5545 13.3175 38.5545C9.60975 38.5545 6.60449 35.5492 6.60449 31.8415C6.60449 28.1337 9.60975 25.1285 13.3175 25.1285C14.4716 25.1285 15.556 25.4191 16.5052 25.9276V19.1417C15.4855 18.8155 14.4178 18.647 13.3175 18.647C6.03577 18.647 0.133301 24.5495 0.133301 31.8313C0.133301 39.113 6.03577 45.0155 13.3175 45.0155C20.5992 45.0155 26.5017 39.113 26.5017 31.8313V19.9806C29.6235 23.3683 34.027 25.6833 38.9329 25.8553V22.4828H38.1698Z" fill="white"/>
+                <path d="M38.1698 22.4828C35.5398 22.2599 33.1557 21.1466 31.1896 19.4674V25.3263C33.6896 26.6578 36.413 27.505 39.2905 27.817V22.5691C38.918 22.5358 38.5434 22.507 38.1698 22.4828Z" fill="#FE2C55"/>
+                <path d="M26.5 8H33.0069C33.1818 10.3283 34.0042 12.5113 35.3409 14.3724C34.2001 13.5937 32.9157 12.9818 31.5412 12.562C29.9829 12.0838 28.2917 11.8906 26.5 12.0163V8Z" fill="#25F4EE"/>
+            </svg>
+            <div class="flex gap-4">
+                <i data-lucide="search" class="w-6 h-6"></i>
+                <i data-lucide="more-horizontal" class="w-6 h-6"></i>
+            </div>
+        </div>
+  
+        <!-- Sidebar - Fixed Left (Desktop) -->
+        <div class="hidden md:flex fixed top-0 left-0 h-screen w-[72px] xl:w-[240px] border-r border-white/10 flex-col py-4 px-2 xl:px-4 z-50 bg-[#121212] overflow-y-auto no-scrollbar">
+            <div class="mb-6 px-2 xl:px-0 flex items-center xl:justify-start justify-center cursor-pointer">
+                <div class="hidden xl:flex items-center gap-2">
+                    <svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M38.1698 22.4828C35.5398 22.2599 33.1557 21.1466 31.1896 19.4674C29.6102 18.1408 28.3756 16.4173 27.5925 14.4533C26.8647 12.6457 26.5 10.6698 26.5 8H20.0305V31.8415C20.0305 35.5492 17.0252 38.5545 13.3175 38.5545C9.60975 38.5545 6.60449 35.5492 6.60449 31.8415C6.60449 28.1337 9.60975 25.1285 13.3175 25.1285C14.4716 25.1285 15.556 25.4191 16.5052 25.9276V19.1417C15.4855 18.8155 14.4178 18.647 13.3175 18.647C6.03577 18.647 0.133301 24.5495 0.133301 31.8313C0.133301 39.113 6.03577 45.0155 13.3175 45.0155C20.5992 45.0155 26.5017 39.113 26.5017 31.8313V19.9806C29.6235 23.3683 34.027 25.6833 38.9329 25.8553V22.4828H38.1698Z" fill="white"/>
+                        <path d="M38.1698 22.4828C35.5398 22.2599 33.1557 21.1466 31.1896 19.4674V25.3263C33.6896 26.6578 36.413 27.505 39.2905 27.817V22.5691C38.918 22.5358 38.5434 22.507 38.1698 22.4828Z" fill="#FE2C55"/>
+                        <path d="M26.5 8H33.0069C33.1818 10.3283 34.0042 12.5113 35.3409 14.3724C34.2001 13.5937 32.9157 12.9818 31.5412 12.562C29.9829 12.0838 28.2917 11.8906 26.5 12.0163V8Z" fill="#25F4EE"/>
+                    </svg>
+                    <span class="text-2xl font-bold tracking-tight">TikTok</span>
+                </div>
+                <div class="xl:hidden">
+                    <svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M38.1698 22.4828C35.5398 22.2599 33.1557 21.1466 31.1896 19.4674C29.6102 18.1408 28.3756 16.4173 27.5925 14.4533C26.8647 12.6457 26.5 10.6698 26.5 8H20.0305V31.8415C20.0305 35.5492 17.0252 38.5545 13.3175 38.5545C9.60975 38.5545 6.60449 35.5492 6.60449 31.8415C6.60449 28.1337 9.60975 25.1285 13.3175 25.1285C14.4716 25.1285 15.556 25.4191 16.5052 25.9276V19.1417C15.4855 18.8155 14.4178 18.647 13.3175 18.647C6.03577 18.647 0.133301 24.5495 0.133301 31.8313C0.133301 39.113 6.03577 45.0155 13.3175 45.0155C20.5992 45.0155 26.5017 39.113 26.5017 31.8313V19.9806C29.6235 23.3683 34.027 25.6833 38.9329 25.8553V22.4828H38.1698Z" fill="white"/>
+                        <path d="M38.1698 22.4828C35.5398 22.2599 33.1557 21.1466 31.1896 19.4674V25.3263C33.6896 26.6578 36.413 27.505 39.2905 27.817V22.5691C38.918 22.5358 38.5434 22.507 38.1698 22.4828Z" fill="#FE2C55"/>
+                        <path d="M26.5 8H33.0069C33.1818 10.3283 34.0042 12.5113 35.3409 14.3724C34.2001 13.5937 32.9157 12.9818 31.5412 12.562C29.9829 12.0838 28.2917 11.8906 26.5 12.0163V8Z" fill="#25F4EE"/>
+                    </svg>
+                </div>
+            </div>
+          
+            <div class="flex flex-col gap-1 xl:gap-2 mb-6 border-b border-white/10 pb-6">
+                <!-- Sidebar Items -->
+                <button class="flex items-center gap-2 xl:gap-4 p-2 xl:p-3 w-fit xl:w-full rounded-lg hover:bg-white/5 transition-colors group text-white">
+                    <i data-lucide="home" class="w-[26px] h-[26px] stroke-2"></i>
+                    <span class="hidden xl:block text-[17px] font-bold">For You</span>
+                </button>
+                <button class="flex items-center gap-2 xl:gap-4 p-2 xl:p-3 w-fit xl:w-full rounded-lg hover:bg-white/5 transition-colors group text-white">
+                    <i data-lucide="compass" class="w-[26px] h-[26px] stroke-2"></i>
+                    <span class="hidden xl:block text-[17px] font-bold">Explore</span>
+                </button>
+                <button class="flex items-center gap-2 xl:gap-4 p-2 xl:p-3 w-fit xl:w-full rounded-lg hover:bg-white/5 transition-colors group text-white">
+                    <i data-lucide="users" class="w-[26px] h-[26px] stroke-2"></i>
+                    <span class="hidden xl:block text-[17px] font-bold">Following</span>
+                </button>
+                <button class="flex items-center gap-2 xl:gap-4 p-2 xl:p-3 w-fit xl:w-full rounded-lg hover:bg-white/5 transition-colors group text-white">
+                    <i data-lucide="video" class="w-[26px] h-[26px] stroke-2"></i>
+                    <span class="hidden xl:block text-[17px] font-bold">LIVE</span>
+                </button>
+                <button class="flex items-center gap-2 xl:gap-4 p-2 xl:p-3 w-fit xl:w-full rounded-lg hover:bg-white/5 transition-colors group text-[#FE2C55]">
+                    <div class="w-8 h-8 rounded-full overflow-hidden border border-white/20">
+                        <img src="https://picsum.photos/seed/profile/100/100" alt="Profile" class="w-full h-full object-cover" />
+                    </div>
+                    <span class="hidden xl:block text-[17px] font-bold">Profile</span>
+                </button>
+            </div>
+  
+            <!-- Mock Following List -->
+            <div class="hidden xl:flex flex-col gap-4" id="following-list">
+                <p class="text-sm font-semibold text-gray-400 px-2">Following accounts</p>
+                <!-- Populated by JS -->
+            </div>
+        </div>
+  
+        <!-- Main Content Area -->
+        <div class="flex-1 md:ml-[72px] xl:ml-[240px] mt-[60px] md:mt-0 overflow-y-auto w-full flex justify-center pb-20">
+            <main class="w-full max-w-[800px] pt-8 px-4 xl:px-6">
+            
+                <!-- Profile Header -->
+                <header class="flex flex-col md:flex-row mb-6 gap-6 md:gap-8 items-start relative">
+                
+                    <!-- Share & More Icons (Desktop) -->
+                    <div class="hidden md:flex absolute top-0 right-0 gap-4 text-white">
+                        <i data-lucide="share-2" class="w-6 h-6 cursor-pointer hover:text-gray-300"></i>
+                        <i data-lucide="more-horizontal" class="w-6 h-6 cursor-pointer hover:text-gray-300"></i>
+                    </div>
+    
+                    <!-- Avatar -->
+                    <div class="flex-shrink-0 w-[116px] h-[116px] rounded-full overflow-hidden cursor-pointer">
+                        <img src="https://picsum.photos/seed/profile/300/300" alt="Zac Deck" class="w-full h-full object-cover" />
+                    </div>
+    
+                    <!-- Profile Info -->
+                    <div class="flex-1 flex flex-col pt-1">
+                        <h1 class="text-[32px] font-bold leading-tight mb-1">zacdeck</h1>
+                        <h2 class="text-[18px] font-semibold mb-4">Zac Deck</h2>
+                        
+                        <!-- Actions -->
+                        <div class="flex gap-2 mb-5">
+                            <button class="bg-[#FE2C55] hover:bg-[#E6284D] text-white font-semibold text-[16px] px-8 py-2 rounded-[4px] min-w-[140px] transition-colors">
+                                Follow
+                            </button>
+                            <button class="bg-white/10 hover:bg-white/20 text-white font-semibold text-[16px] px-4 py-2 rounded-[4px] transition-colors">
+                                Message
+                            </button>
+                            <button class="bg-white/10 hover:bg-white/20 text-white p-2 rounded-[4px] transition-colors flex items-center justify-center w-[40px]">
+                                <i data-lucide="user" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+    
+                        <!-- Stats Row -->
+                        <div class="flex gap-5 mb-4 text-[17px]">
+                            <div class="flex gap-1.5 items-center cursor-pointer hover:underline">
+                                <strong class="font-bold">414</strong> <span class="text-gray-400 text-[16px]">Following</span>
+                            </div>
+                            <div class="flex gap-1.5 items-center cursor-pointer hover:underline">
+                                <strong class="font-bold">1.5M</strong> <span class="text-gray-400 text-[16px]">Followers</span>
+                            </div>
+                            <div class="flex gap-1.5 items-center cursor-pointer hover:underline">
+                                <strong class="font-bold">24.2M</strong> <span class="text-gray-400 text-[16px]">Likes</span>
+                            </div>
+                        </div>
+    
+                        <!-- Bio block -->
+                        <div class="text-[16px] leading-[1.4] whitespace-pre-line mb-3">
+                            any pronouns or whatevs man 🤙
+                            <br>
+                            @somewhere ✨
+                            <br>
+                            say that shit !
+                        </div>
+    
+                        <!-- Link -->
+                        <a href="#" class="flex items-center gap-2 font-semibold text-white hover:underline w-fit">
+                            <i data-lucide="link" class="w-[18px] h-[18px]"></i>
+                            <span>direct.me/zaccy</span>
+                        </a>
+    
+                    </div>
+                </header>
+    
+                <!-- Profile Tabs -->
+                <div class="flex text-[18px] font-semibold border-b border-white/10 w-full mb-1 relative">
+                    <button id="btn-videos" onclick="switchTab('videos')" class="flex-1 md:flex-none px-6 py-3 text-center transition-colors relative text-white flex justify-center gap-2 items-center">
+                        Videos
+                        <div id="underline-videos" class="absolute bottom-0 left-0 w-full h-[2px] bg-white block"></div>
+                    </button>
+                    <button id="btn-favorites" onclick="switchTab('favorites')" class="flex-1 md:flex-none px-6 py-3 text-center transition-colors relative flex items-center justify-center gap-2 text-gray-500 hover:bg-white/5">
+                        <i data-lucide="bookmark" class="w-5 h-5"></i>
+                        Favorites
+                        <div id="underline-favorites" class="absolute bottom-0 left-0 w-full h-[2px] bg-white hidden"></div>
+                    </button>
+                    <button id="btn-liked" onclick="switchTab('liked')" class="flex-1 md:flex-none px-6 py-3 text-center transition-colors relative flex items-center justify-center gap-2 text-gray-500 hover:bg-white/5">
+                        <i data-lucide="lock" class="w-5 h-5"></i>
+                        Liked
+                        <div id="underline-liked" class="absolute bottom-0 left-0 w-full h-[2px] bg-white hidden"></div>
+                    </button>
+                </div>
+    
+                <!-- Video Grid (3-Column) -->
+                <div id="video-grid" class="grid grid-cols-3 gap-[2px] sm:gap-4 mt-2">
+                    <!-- Populated by JS -->
+                </div>
+    
+            </main>
+        </div>
+        
+        <!-- Mobile Bottom Navigation - Hidden on desktop -->
+        <div class="md:hidden fixed bottom-0 left-0 w-full h-[60px] border-t border-white/10 bg-[#121212] z-50 flex items-center justify-around px-2 text-white">
+            <button class="p-2"><i data-lucide="home" class="w-[26px] h-[26px]"></i></button>
+            <button class="p-2"><i data-lucide="compass" class="w-[26px] h-[26px]"></i></button>
+            <div class="w-12 h-8 bg-white text-black rounded-lg flex items-center justify-center font-bold relative overflow-hidden cursor-pointer mx-2">
+                <div class="absolute left-0 top-0 bottom-0 w-[4px] bg-[#25F4EE]"></div>
+                <div class="absolute right-0 top-0 bottom-0 w-[4px] bg-[#FE2C55]"></div>
+                <span class="relative z-10 text-xl leading-none mb-1">+</span>
+            </div>
+            <button class="p-2"><i data-lucide="message-circle" class="w-[26px] h-[26px]"></i></button>
+            <button class="p-2 text-[#FE2C55]"><i data-lucide="user" class="w-[26px] h-[26px] fill-current"></i></button>
+        </div>
+  
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // 1. Generate Mock Following List
+        const followingList = document.getElementById('following-list');
+        [1, 2, 3, 4].forEach(i => {
+            followingList.insertAdjacentHTML('beforeend', `
+                <div class="flex items-center gap-3 px-2 cursor-pointer hover:bg-white/5 p-2 rounded-lg">
+                    <div class="w-8 h-8 rounded-full overflow-hidden bg-gray-800">
+                        <img src="https://picsum.photos/seed/user${i}/100/100" alt="User" />
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-bold text-white leading-tight">user_${i}829</span>
+                        <span class="text-xs text-gray-400 leading-tight">User Name ${i}</span>
+                    </div>
+                </div>
+            `);
+        });
+
+        // 2. Generate Mock Videos
+        const videoGrid = document.getElementById('video-grid');
+        const mockVideos = Array.from({ length: 18 }).map((_, i) => {
+            const viewsRaw = Math.random();
+            let views = '';
+            if (i === 0) views = '2.4M';
+            else if (i === 1) views = '890K';
+            else if (i === 2) views = '1.1M';
+            else if (viewsRaw > 0.8) views = `${(Math.random() * 5 + 1).toFixed(1)}M`;
+            else if (viewsRaw > 0.3) views = `${Math.floor(Math.random() * 900) + 10}K`;
+            else views = `${Math.floor(Math.random() * 9000) + 1000}`;
+
+            return {
+                id: i,
+                imageUrl: `https://picsum.photos/seed/${i + 300}/400/711`, 
+                views: views,
+                isPinned: i < 3 
+            };
+        });
+
+        mockVideos.forEach(video => {
+            videoGrid.insertAdjacentHTML('beforeend', `
+                <div class="relative aspect-[9/16] cursor-pointer group rounded-sm sm:rounded-md overflow-hidden bg-[#2F2F2F]">
+                    <img src="${video.imageUrl}" alt="Video ${video.id}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+                    <div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 pointer-events-none"></div>
+                    ${video.isPinned ? `<div class="absolute top-2 left-2 bg-[#FE2C55] text-white text-[12px] font-bold px-1.5 py-0.5 rounded-[2px] z-10">Pinned</div>` : ''}
+                    <div class="absolute bottom-2 left-2 flex items-center gap-1 text-white font-semibold text-[14px] z-10">
+                        <!-- Play Icon Inline SVG (lucide via JS sometimes conflicts in dynamically injected HTML without manual re-initialization) -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                        <span>${video.views}</span>
+                    </div>
+                </div>
+            `);
+        });
+
+        // 3. Handle Tab Switching
+        function switchTab(activeTab) {
+            const tabs = ['videos', 'favorites', 'liked'];
+            tabs.forEach(tab => {
+                const btn = document.getElementById(`btn-${tab}`);
+                const underline = document.getElementById(`underline-${tab}`);
+                
+                if (tab === activeTab) {
+                    btn.classList.add('text-white');
+                    btn.classList.remove('text-gray-500', 'hover:bg-white/5');
+                    underline.classList.remove('hidden');
+                    underline.classList.add('block');
+                } else {
+                    btn.classList.add('text-gray-500', 'hover:bg-white/5');
+                    btn.classList.remove('text-white');
+                    underline.classList.add('hidden');
+                    underline.classList.remove('block');
+                }
+            });
+        }
+
+        // 4. Initialize Lucide Icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>

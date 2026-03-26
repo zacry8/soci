@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Profile Clone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Hide scrollbar for smooth horizontal scrolling in highlights */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-black text-white font-sans antialiased overflow-hidden">
+
+    <div class="flex min-h-screen">
+      
+        <!-- Sidebar - Fixed Left -->
+        <div class="fixed top-0 left-0 h-screen w-[72px] xl:w-[244px] border-r border-[#262626] flex flex-col justify-between py-5 px-3 z-50 bg-black">
+            <div class="flex flex-col gap-2">
+                <div class="px-3 pb-6 pt-2 h-[72px] flex items-center">
+                    <!-- Instagram text logo for large screens, icon for small -->
+                    <div class="hidden xl:block text-xl font-semibold italic tracking-wider">Instagram</div>
+                    <div class="xl:hidden"><i data-lucide="home" class="w-6 h-6"></i></div>
+                </div>
+              
+                <div class="flex flex-col gap-1 text-white">
+                    <button class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-[#1a1a1a] transition-colors group">
+                        <i data-lucide="home" class="w-6 h-6 stroke-2 group-hover:scale-105 transition-transform"></i>
+                        <span class="hidden xl:block text-base tracking-wide">Home</span>
+                    </button>
+                    <button class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-[#1a1a1a] transition-colors group">
+                        <i data-lucide="search" class="w-6 h-6 stroke-2 group-hover:scale-105 transition-transform"></i>
+                        <span class="hidden xl:block text-base tracking-wide">Search</span>
+                    </button>
+                    <button class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-[#1a1a1a] transition-colors group">
+                        <i data-lucide="compass" class="w-6 h-6 stroke-2 group-hover:scale-105 transition-transform"></i>
+                        <span class="hidden xl:block text-base tracking-wide">Explore</span>
+                    </button>
+                    <button class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-[#1a1a1a] transition-colors group">
+                        <i data-lucide="play-square" class="w-6 h-6 stroke-2 group-hover:scale-105 transition-transform"></i>
+                        <span class="hidden xl:block text-base tracking-wide">Reels</span>
+                    </button>
+                    <button class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-[#1a1a1a] transition-colors group">
+                        <i data-lucide="message-circle" class="w-6 h-6 stroke-2 group-hover:scale-105 transition-transform"></i>
+                        <span class="hidden xl:block text-base tracking-wide">Messages</span>
+                    </button>
+                    <button class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-[#1a1a1a] transition-colors group">
+                        <i data-lucide="heart" class="w-6 h-6 stroke-2 group-hover:scale-105 transition-transform"></i>
+                        <span class="hidden xl:block text-base tracking-wide">Notifications</span>
+                    </button>
+                    <button class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-[#1a1a1a] transition-colors group">
+                        <i data-lucide="plus-square" class="w-6 h-6 stroke-2 group-hover:scale-105 transition-transform"></i>
+                        <span class="hidden xl:block text-base tracking-wide">Create</span>
+                    </button>
+                    
+                    <!-- Profile Icon Active State -->
+                    <button class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-[#1a1a1a] transition-colors group font-bold">
+                        <div class="w-6 h-6 rounded-full overflow-hidden border border-white group-hover:scale-105 transition-transform">
+                            <img src="https://picsum.photos/seed/profile/100/100" alt="Profile" class="w-full h-full object-cover" />
+                        </div>
+                        <span class="hidden xl:block text-base tracking-wide font-bold">Profile</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-1 text-white">
+                <!-- Placeholder for Threads icon -->
+                <button class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-[#1a1a1a] transition-colors group">
+                    <svg aria-label="Threads" class="group-hover:scale-105 transition-transform" color="rgb(245, 245, 245)" fill="rgb(245, 245, 245)" height="24" role="img" viewBox="0 0 192 192" width="24"><path d="M141.537 88.9883C140.71 88.5919 139.87 88.2104 139.019 87.8451C137.537 60.5382 122.616 44.905 97.5619 44.745C97.4484 44.7443 97.3355 44.7443 97.222 44.7443C82.2364 44.7443 69.7731 51.1409 62.102 62.7807L75.881 72.2328C81.6116 63.5383 90.6052 61.6848 97.2286 61.6848C97.3051 61.6848 97.3819 61.6848 97.4576 61.6855C105.707 61.7381 111.932 64.1366 115.961 68.814C118.893 72.2193 120.854 76.925 121.825 82.8638C114.511 81.6207 106.601 81.2385 98.145 81.7233C74.3247 83.0954 59.0111 96.9879 60.0396 116.292C60.5615 126.084 65.4397 134.508 73.775 140.011C80.8224 144.663 89.899 146.938 99.3323 146.423C111.79 145.74 121.563 140.987 128.381 132.296C133.559 125.696 136.834 117.143 138.28 106.366C144.217 109.949 148.617 114.664 151.047 120.332C155.179 129.967 155.42 145.8 142.501 158.708C131.182 170.016 117.576 174.908 97.0135 175.059C74.2042 174.89 56.9538 167.575 45.7381 153.317C35.2355 139.966 29.8077 120.682 29.6052 96C29.8077 71.3178 35.2355 52.0336 45.7381 38.6827C56.9538 24.4249 74.2039 17.11 97.0132 16.9405C119.988 17.1113 137.539 24.4614 149.184 38.788C154.894 45.8136 159.199 54.6488 162.037 64.9503L178.184 60.6422C174.744 47.9622 169.331 37.0357 161.965 27.974C147.036 9.60668 125.202 0.195148 97.0695 0C64.3053 0.196013 40.7188 10.3204 26.0694 28.4357C11.666 46.2573 5.30588 70.3685 5.00031 96C5.30588 121.632 11.666 145.743 26.0694 163.564C40.7188 181.68 64.3053 191.804 97.0695 192C125.597 191.815 147.461 183.12 162.365 168.229C179.67 150.941 180.208 127.388 174.155 112.597C168.514 98.8105 157.653 89.6046 141.537 88.9883ZM98.4405 129.507C88.0005 130.095 77.1544 125.409 76.6196 115.372C76.2232 107.93 81.9158 99.626 99.0812 98.0476C101.047 97.8658 102.992 97.7181 104.871 97.6015C104.364 107.96 101.428 119.68 98.4405 129.507Z"></path></svg>
+                    <span class="hidden xl:block text-base tracking-wide">Threads</span>
+                </button>
+                <button class="flex items-center gap-4 p-3 w-full rounded-lg hover:bg-[#1a1a1a] transition-colors group">
+                    <i data-lucide="menu" class="w-6 h-6 stroke-2 group-hover:scale-105 transition-transform"></i>
+                    <span class="hidden xl:block text-base tracking-wide">More</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 ml-[72px] xl:ml-[244px] overflow-y-auto w-full flex flex-col items-center">
+            <main class="w-full max-w-[935px] pt-8 pb-12 px-5 xl:px-0">
+              
+                <!-- Profile Header -->
+                <header class="flex flex-col md:flex-row mb-11 gap-8 md:gap-0">
+                    <!-- Avatar -->
+                    <div class="flex justify-center md:flex-none md:w-[290px] md:justify-center">
+                        <div class="w-[150px] h-[150px] rounded-full overflow-hidden border border-[#363636] relative">
+                            <img src="https://picsum.photos/seed/profile/300/300" alt="Zac Deck" class="w-full h-full object-cover" />
+                        </div>
+                    </div>
+
+                    <!-- Profile Info -->
+                    <div class="flex-1 flex flex-col">
+                      
+                        <!-- Username & Actions Row -->
+                        <div class="flex flex-col md:flex-row md:items-center gap-4 md:gap-6 mb-5">
+                            <div class="flex items-center gap-2">
+                                <h1 class="text-xl font-medium">zacdeck</h1>
+                                <!-- Verified Badge Mock -->
+                                <svg aria-label="Verified" class="ml-1" fill="rgb(0, 149, 246)" height="12" role="img" viewBox="0 0 40 40" width="12"><title>Verified</title><path d="M19.998 3.094 14.638 0l-2.972 5.15H5.432v6.354L0 14.64 3.094 20 0 25.359l5.432 3.137v5.905h5.975L14.638 40l5.36-3.094L25.358 40l3.232-5.6h6.162v-6.01L40 25.359 36.905 20 40 14.641l-5.248-3.03v-6.46h-6.419L25.358 0l-5.36 3.094Zm7.415 11.225 2.254 2.287-11.43 11.5-6.835-6.93 2.244-2.258 4.587 4.581 9.18-9.18Z" fill-rule="evenodd"></path></svg>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <button class="bg-[#0095F6] hover:bg-[#1877F2] text-white font-semibold text-sm px-6 py-1.5 rounded-lg transition-colors h-8 flex items-center justify-center">
+                                    Follow
+                                </button>
+                                <button class="bg-[#363636] hover:bg-[#262626] text-white font-semibold text-sm px-4 py-1.5 rounded-lg transition-colors h-8 flex items-center justify-center">
+                                    Message
+                                </button>
+                                <button class="bg-[#363636] hover:bg-[#262626] text-white p-2 rounded-lg transition-colors h-8 w-8 flex items-center justify-center">
+                                    <i data-lucide="user-square" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+
+                            <div class="hidden md:flex ml-2">
+                                <i data-lucide="settings" class="w-6 h-6 cursor-pointer"></i>
+                            </div>
+                        </div>
+
+                        <!-- Stats Row -->
+                        <ul class="hidden md:flex gap-10 mb-5">
+                            <li><span class="font-semibold text-base">1,037</span> posts</li>
+                            <li><span class="font-semibold text-base">1,523</span> followers</li>
+                            <li><span class="font-semibold text-base">414</span> following</li>
+                        </ul>
+
+                        <!-- Bio block -->
+                        <div class="text-sm">
+                            <span class="font-semibold block mb-1">zaccy maccy</span>
+                            <span class="text-[#A8A8A8] block mb-1">Digital creator</span>
+                            <div class="whitespace-pre-line leading-[1.3] mb-2">
+                                any pronouns or whatevs man 🤙
+                                <br/>
+                                <span class="text-[#E0F1FF] cursor-pointer hover:underline">@somewhere</span> ✨
+                                <br/>
+                                say that shit !
+                            </div>
+                            <div class="flex items-center gap-1 font-semibold text-[#E0F1FF] hover:underline cursor-pointer">
+                                <i data-lucide="link" class="w-3.5 h-3.5 rotate-45"></i>
+                                <span>direct.me/zaccy</span>
+                                <span class="text-[#A8A8A8] font-normal px-1">&</span>
+                                <span>2 others</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </header>
+
+                <!-- Highlights -->
+                <div id="highlights-container" class="flex gap-4 md:gap-8 mb-12 overflow-x-auto md:ml-[290px] no-scrollbar">
+                    <!-- Populated by JS -->
+                </div>
+
+                <hr class="border-t border-[#262626] w-full" />
+
+                <!-- Profile Tabs -->
+                <div class="flex justify-center gap-12 text-xs font-semibold tracking-widest uppercase text-[#A8A8A8] mb-1">
+                    <div class="flex items-center gap-2 cursor-pointer text-white border-t border-white -mt-[1px] pt-4">
+                        <i data-lucide="grid-3x3" class="w-3.5 h-3.5"></i>
+                        <span>Posts</span>
+                    </div>
+                    <div class="flex items-center gap-2 cursor-pointer pt-4 hover:text-white transition-colors">
+                        <i data-lucide="play-square" class="w-3.5 h-3.5"></i>
+                        <span>Reels</span>
+                    </div>
+                    <div class="flex items-center gap-2 cursor-pointer pt-4 hover:text-white transition-colors">
+                        <i data-lucide="user-square" class="w-3.5 h-3.5"></i>
+                        <span>Tagged</span>
+                    </div>
+                </div>
+
+                <!-- 4-Column Grid with thinner spacing (gap-[2px]) -->
+                <div id="post-grid" class="grid grid-cols-4 gap-[2px] mt-4">
+                    <!-- Populated by JS -->
+                </div>
+
+                <!-- Footer -->
+                <footer class="mt-16 pb-8 px-4 flex flex-col items-center gap-4 text-xs text-[#A8A8A8]">
+                    <div class="flex flex-wrap justify-center gap-x-4 gap-y-2 max-w-3xl">
+                        <a href="#" class="hover:underline">Meta</a>
+                        <a href="#" class="hover:underline">About</a>
+                        <a href="#" class="hover:underline">Blog</a>
+                        <a href="#" class="hover:underline">Jobs</a>
+                        <a href="#" class="hover:underline">Help</a>
+                        <a href="#" class="hover:underline">API</a>
+                        <a href="#" class="hover:underline">Privacy</a>
+                        <a href="#" class="hover:underline">Consumer Health Privacy</a>
+                        <a href="#" class="hover:underline">Terms</a>
+                        <a href="#" class="hover:underline">Locations</a>
+                        <a href="#" class="hover:underline">Instagram Lite</a>
+                        <a href="#" class="hover:underline">Threads</a>
+                        <a href="#" class="hover:underline">Contact Uploading & Non-Users</a>
+                        <a href="#" class="hover:underline">Meta Verified</a>
+                    </div>
+                    
+                    <div class="flex items-center gap-4 mt-2">
+                        <button class="flex items-center gap-1 hover:text-white transition-colors">
+                            English <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                        </button>
+                        <span>© 2024 Instagram from Meta</span>
+                    </div>
+                </footer>
+
+            </main>
+        </div>
+
+        <!-- Floating Messages Button -->
+        <button class="fixed bottom-6 right-6 bg-[#262626] hover:bg-[#363636] text-white px-5 py-3 rounded-full shadow-lg flex items-center gap-2 font-semibold transition-colors z-50">
+            <i data-lucide="message-circle" class="w-5 h-5 scale-x-[-1]"></i>
+            Messages
+        </button>
+
+    </div>
+
+    <!-- Data & Setup Scripts -->
+    <script>
+        // 1. Generate Mock Highlights
+        const mockHighlights = [
+            { id: 1, title: 'arts', imageUrl: 'https://picsum.photos/seed/h1/100/100' },
+            { id: 2, title: 'chapter 25', imageUrl: 'https://picsum.photos/seed/h2/100/100' },
+        ];
+        
+        const highlightsContainer = document.getElementById('highlights-container');
+        mockHighlights.forEach(highlight => {
+            highlightsContainer.insertAdjacentHTML('beforeend', `
+                <div class="flex flex-col items-center gap-2 cursor-pointer w-fit group">
+                    <div class="w-[77px] h-[77px] md:w-[87px] md:h-[87px] rounded-full p-[2px] border border-[#363636] group-hover:border-[#a8a8a8] transition-colors">
+                        <div class="w-full h-full rounded-full overflow-hidden border-2 border-black">
+                            <img src="${highlight.imageUrl}" alt="${highlight.title}" class="w-full h-full object-cover" />
+                        </div>
+                    </div>
+                    <span class="text-xs font-semibold px-1">${highlight.title}</span>
+                </div>
+            `);
+        });
+
+        // 2. Generate Mock Posts
+        const postGrid = document.getElementById('post-grid');
+        const mockPosts = Array.from({ length: 36 }).map((_, i) => {
+            let type = 'photo';
+            let isPinned = false;
+            
+            if (i === 1 || i === 3) isPinned = true;
+            if ([5, 7, 11, 14, 18, 23, 27, 31, 35].includes(i)) type = 'carousel';
+            if ([9, 15, 21].includes(i)) type = 'reel';
+
+            return {
+                id: i,
+                imageUrl: `https://picsum.photos/seed/${i + 100}/400/500`,
+                type: type,
+                isPinned: isPinned,
+                stats: i === 23 ? { likes: 207, comments: 26 } : null
+            };
+        });
+
+        mockPosts.forEach(post => {
+            let topIcons = '';
+            // Note: We use raw embedded SVG paths for these overlay icons since dynamically injecting classes 
+            // onto standard lucide JS icons inside grid layouts can sometimes fail to paint the 'fill-white'.
+            if (post.isPinned) {
+                topIcons += `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drop-shadow-md -rotate-45"><line x1="12" x2="12" y1="17" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.68V6a3 3 0 1 0-6 0v4.68a2 2 0 0 1-1.11 1.87l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>`;
+            }
+            if (post.type === 'carousel') {
+                topIcons += `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drop-shadow-md rotate-180 scale-x-[-1]"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
+            }
+            if (post.type === 'reel') {
+                topIcons += `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drop-shadow-md"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 8v8l6-4z"/></svg>`;
+            }
+
+            let hoverStateHTML = '';
+            if (post.stats) {
+                hoverStateHTML = `
+                    <div class="absolute inset-0 bg-black/40 hidden group-hover:flex items-center justify-center gap-6 font-bold">
+                        <div class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                            <span>${post.stats.likes}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="scale-x-[-1]"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+                            <span>${post.stats.comments}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            postGrid.insertAdjacentHTML('beforeend', `
+                <div class="relative aspect-[4/5] group cursor-pointer overflow-hidden bg-[#262626]">
+                    <img 
+                        src="${post.imageUrl}" 
+                        alt="Post ${post.id}" 
+                        class="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                        loading="lazy"
+                    />
+                    
+                    <div class="absolute top-2 right-2 flex gap-1 drop-shadow-md">
+                        ${topIcons}
+                    </div>
+
+                    ${hoverStateHTML}
+                </div>
+            `);
+        });
+
+        // 3. Initialize Lucide Icons for static layout elements
+        lucide.createIcons();
+    </script>
+</body>
+</html>

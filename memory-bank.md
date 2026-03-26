@@ -647,7 +647,160 @@
     - syntax check passes for `backend/db.js`
     - login test with a pre-existing `helper_staff` record for `zac@hommemade.xyz` confirms role is promoted to `owner_admin` at auth time
 
+### Implementation Snapshot Addendum 23 (2026-03-26)
+- Completed visual + admin UX refresh requested for Soci brand direction:
+  - `styles.css`
+    - replaced remaining purple/pink accents with wasabi/ginger-forward accents
+    - updated scheduled badges and platform accent rings to warm/green palette
+    - aligned login focus, labels, placeholders, and gradient accents with wasabi/ginger color system
+    - retained responsive typography scale tokens (`--fs-*`) and applied them across controls/text for consistent sizing behavior
+  - `index.html` + `src/main.js`
+    - confirmed Manage Users now uses inline panel UI with dropdown controls and form fields (no browser popups)
+    - admin creation/membership flow now operates through in-app fields: role selector + client selector + permission toggles
+  - Validation:
+    - source scan confirms no `prompt()` / `confirm()` usage in `src/main.js`
+    - syntax checks pass for `src/main.js` and `src/render.js`
+    - browser launch validation completed; interactive click-step verification was partially blocked by Puppeteer screenshot timeout on click action
+
+### Implementation Snapshot Addendum 24 (2026-03-26)
+- Replaced emoji UI affordances with icon-library components and aligned accent controls to branded glassmorphism:
+  - Icon library integration:
+    - `index.html` now loads Lucide via CDN (`unpkg`) and initializes icon placeholders in topbar controls
+    - replaced topbar reopen controls (`Menu`, `Details`) and theme toggle iconography with Lucide icons
+  - Theme toggle rendering update (`src/main.js`):
+    - removed emoji-based text labels
+    - `applyTheme()` now renders icon + text (`sun` / `moon`) and refreshes icons safely
+    - added `refreshIcons()` helper and invoked after paint cycles to support dynamic render updates
+  - Inspector social preview icon update (`src/render.js`):
+    - replaced emoji pills with Lucide-based pills (`heart`, `message-circle`, `send`)
+    - added icon helper + icon refresh call after inspector render
+  - Glassmorphism visual pass (`styles.css`):
+    - applied layered glass gradients, soft highlight borders, blur + depth shadows to accent-color controls
+    - covered accent controls including:
+      - active view tabs and primary/save/add buttons
+      - active profile mode buttons (`.small.active`)
+      - active platform chips (`.platform-toggle.active`)
+      - inspector active tabs
+    - extended branded glass treatment to tag/chip surfaces:
+      - hashtag chips (`.hashtag-chip`)
+      - calendar chips (`.chip`)
+      - social pills (`.social-pill`)
+      - scheduled/published card badges
+  - Validation:
+    - source scan confirms targeted emoji symbols removed from `index.html`, `src/main.js`, `src/render.js`, `styles.css`
+    - syntax checks pass for `src/main.js` and `src/render.js`
+    - browser launch check completed on local server (`http://localhost:4174/index.html`)
+
+### Implementation Snapshot Addendum 25 (2026-03-26)
+- Refined dark mode to be a neutral tonal counterpart of light mode (reduced green cast) and tightened full surface mapping for cards/boxes, including grid/profile views:
+  - Dark token rebalance in `styles.css`:
+    - updated dark palette from olive-heavy to charcoal/slate foundations while preserving brand accents for interactive states
+    - applied the same neutralized token set to both manual dark mode and prefers-color-scheme fallback
+  - Surface/card/box consistency updates:
+    - ensured grid/profile containers and cards inherit semantic tokens (`--surface-soft`, `--surface-raised`, `--line`)
+    - refreshed platform preview card rings (`.platform-ig/.platform-tt/.platform-li/.platform-x`) to token-based color-mix values
+    - replaced hardcoded preview frame border with token-based dashed border for better dark fidelity
+    - normalized profile/audit state surfaces (`.integrity.*`, `.audit-panel li.*`) to token-aware color-mix values
+    - adjusted tile typography and state badge tones (`.tile-thumb`, `.card-badge.published`, `.card-badge.scheduled`) for balanced dark contrast
+    - removed residual hardcoded light hover/background values in secondary actions and danger controls
+  - Login visual parity pass:
+    - shifted login backdrop and panel shadow to neutral dusk tones to align with the revised dark system
+    - updated login labels/placeholders/focus ring to cooler neutral accents
+  - Validation:
+    - browser launch check completed on local server (`http://localhost:4174/index.html`)
+    - no runtime errors observed during launch check
+
+### Implementation Snapshot Addendum 26 (2026-03-26)
+- Upgraded Grid Preview profile simulator into platform-authentic mock feed previews based on provided Instagram/TikTok inspo:
+  - `src/render.js`
+    - profile simulator now renders mock social-profile shells with:
+      - social-style header (`handle`, profile name, live/queued counts)
+      - Instagram and TikTok-specific tile renderers
+      - media-first tiles using uploaded post media (`image`/`video`), with fallback cards when media missing
+      - Instagram tile badges for non-published states
+      - TikTok visual semantics (`Pinned` markers + views row with play icon)
+    - preserved existing forecast logic:
+      - Current Profile section = published-only
+      - Projected Top 9 section = future-queued + published merge
+    - kept existing audit panel and fix-actions intact (non-breaking)
+  - `styles.css`
+    - replaced old `.mock-profile/.mock-header` preview shell with scoped social-mock styles:
+      - `.mock-social-shell`, `.mock-social-header`, `.mock-avatar`, `.mock-social-meta`
+      - Instagram 4-column tighter grid (`gap: 2px`) with `4/5` aspect tiles
+      - TikTok 3-column portrait feed with `9/16` aspect tiles and gradient overlays
+      - tile-level primitives for realistic feed appearance:
+        - `.mock-ig-tile`, `.mock-tt-tile`, `.mock-media`, `.tile-fallback`
+        - `.mock-badge`, `.mock-pin`, `.mock-tt-views`, `.mock-tt-gradient`
+  - Validation:
+    - syntax checks pass (`node --check src/render.js && node --check src/main.js`)
+    - local browser smoke check completed on `http://localhost:4174/index.html`
+    - no new console/runtime errors observed during preview interactions
+
+### Implementation Snapshot Addendum 27 (2026-03-26)
+- Refactored Profile Preview into modular inspo-simulator cards and removed audit workflow per user direction:
+  - `src/main.js`
+    - removed `profileIntegrity` dependency from preview paint path
+    - added persisted profile simulator settings store (`soci.profile.settings.v1`) with defaults for:
+      - `handle`, `displayName`, `avatarUrl`
+      - `followers`, `following`, `likes`
+      - `bio`, `linkText`, `linkUrl`
+    - wired `onProfileSettingsChange` to persist + re-render simulator cards live
+  - `src/render.js`
+    - removed Accuracy Audit logic/UI/actions entirely:
+      - removed audit generator and related fix-button wiring
+      - removed `integrity` / `onFixPost` preview interactions
+    - added modular simulator-card renderers:
+      - `toInstagramCard(posts, mediaMap, profile)`
+      - `toTiktokCard(posts, mediaMap, profile)`
+      - `renderSettingsPanel(profile)`
+    - platform toggles now switch full inspo-style card renderers in Profile Preview
+    - implemented strict thumbnail mapping behavior:
+      - media resolved deterministically from first valid `post.mediaIds` entry present in media map
+      - no random image substitution; missing media falls back to explicit title tile
+    - added IG/TT tile semantics from post metadata:
+      - Instagram type icons (`carousel`/`reel`/`video`) and publish-state badges
+      - TikTok pinned treatment + views overlay row
+  - `styles.css`
+    - removed obsolete audit/integrity style blocks
+    - added scoped simulator settings styles (`.simulator-settings*`)
+    - added scoped inspo card styles (`.inspo-card*`, `.inspo-profile-*`, `.inspo-tabs`)
+    - refined tile overlay icon containers and spacing for closer inspo fidelity
+  - Validation:
+    - syntax checks pass (`node --check src/main.js` and `node --check src/render.js`)
+    - source scan confirms no active preview audit markers (`Accuracy Audit`, `audit-panel`, `data-fix`, `onFixPost`, `integrity`)
+    - browser launch check completed on `http://localhost:4174/index.html`
+
+### Implementation Snapshot Addendum 28 (2026-03-26)
+- Refined sidebar action controls and Kanban horizontal scrolling UX per UI polish request:
+  - `index.html`
+    - upgraded `+ Client` action to icon button (`user-plus`) with clearer “New Client” label
+    - grouped share/export actions into a compact control cluster:
+      - `Share Link` icon button (`link-2`)
+      - new expandable `Export` control (`download`) containing:
+        - `CSV` (`file-spreadsheet`)
+        - `ICS` (`calendar-down`)
+    - preserved all existing element IDs (`#new-client`, `#copy-share-link`, `#export-csv`, `#export-ics`) to avoid JS behavior regressions
+  - `styles.css`
+    - added reusable sidebar action button treatment for icon-based controls (`.action-btn`)
+    - added export dropdown styling (`.export-menu`, `.export-menu-list`)
+    - improved Kanban horizontal scroll behavior and visual clarity:
+      - enabled explicit horizontal overflow on `#kanban-view`
+      - added thin themed scrollbar styles for WebKit and Firefox
+      - slightly increased lane min width for cleaner scroll affordance
+  - Verification:
+    - local browser verification completed on `http://localhost:4174/index.html`
+    - updated action grouping/icons and Kanban scrollbar rendering observed successfully
+
+### Implementation Snapshot Addendum 29 (2026-03-26)
+- Corrected Export control typography mismatch caused by native `<summary>` rendering:
+  - `styles.css`
+    - normalized `.export-menu summary` typography/line-height to match sidebar button scale
+    - enforced consistent summary layout (`inline-flex`, full-width center alignment)
+    - disabled residual native marker behavior via `summary::marker` fallback
+  - Verification:
+    - browser check confirms Export label now visually matches neighboring action buttons
+
 ## Last Memory Update
 - **Updated:** 2026-03-26 (latest)
 - **By:** Claude Code
-- **Reason:** Logged admin promotion safeguard ensuring `zac@hommemade.xyz` resolves to `owner_admin` without password changes, plus validation outcomes.
+- **Reason:** Logged Export button typography normalization and summary-marker fallback fix.

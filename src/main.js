@@ -1,4 +1,4 @@
-import { createStore, profileIntegrity, sortByProfileOrder } from "./store.js";
+import { createStore, sortByProfileOrder } from "./store.js";
 import { renderCalendar, renderInspector, renderKanban, renderProfileSimulator, renderShareCalendar } from "./render.js";
 import { getAuthToken, login, setAuthToken } from "./api.js";
 
@@ -6,6 +6,7 @@ const store = createStore();
 const STORAGE_UI_VIEWS = "soci.ui.views.v1";
 const STORAGE_UI_SECTIONS = "soci.ui.sections.v1";
 const STORAGE_THEME = "soci.theme.v1";
+const STORAGE_PROFILE_SETTINGS = "soci.profile.settings.v1";
 
 const el = {
   viewToggles: [...document.querySelectorAll("[data-view]")],
@@ -21,6 +22,18 @@ const el = {
   filterPlatform: document.querySelector("#filter-platform"),
   filterStatus: document.querySelector("#filter-status"),
   filterAssignee: document.querySelector("#filter-assignee"),
+  adminUserPanel: document.querySelector("#admin-user-panel"),
+  collapseAdminUser: document.querySelector("#collapse-admin-user"),
+  adminUserForm: document.querySelector("#admin-user-form"),
+  adminUserName: document.querySelector("#admin-user-name"),
+  adminUserEmail: document.querySelector("#admin-user-email"),
+  adminUserRole: document.querySelector("#admin-user-role"),
+  adminUserPassword: document.querySelector("#admin-user-password"),
+  adminAssignMembership: document.querySelector("#admin-assign-membership"),
+  adminMembershipClient: document.querySelector("#admin-membership-client"),
+  adminMembershipPermissions: document.querySelector("#admin-membership-permissions"),
+  adminUserError: document.querySelector("#admin-user-error"),
+  adminUserCancel: document.querySelector("#admin-user-cancel"),
   leftSidebar: document.querySelector("#left-sidebar"),
   collapseLeftSidebar: document.querySelector("#collapse-left-sidebar"),
   reopenLeftSidebar: document.querySelector("#reopen-left-sidebar"),
@@ -49,12 +62,26 @@ let calendarOffset = 0; // months from current
 let shareCalendarOffset = 0;
 let lastState = { posts: [], media: [], activePostId: null, clients: [], activeClientId: "", isBootstrapped: false };
 let visibleViews = loadJson(STORAGE_UI_VIEWS, { kanban: true, calendar: true, grid: false });
-let collapsedSections = loadJson(STORAGE_UI_SECTIONS, { workflow: false, schedule: false, preview: false, leftSidebar: false, rightSidebar: false, inspector: false });
+let collapsedSections = loadJson(STORAGE_UI_SECTIONS, { workflow: false, schedule: false, preview: false, adminUser: false, leftSidebar: false, rightSidebar: false, inspector: false });
+let profileSettings = loadJson(STORAGE_PROFILE_SETTINGS, {
+  handle: "zacdeck",
+  displayName: "Zac Deck",
+  avatarUrl: "https://picsum.photos/seed/profile/300/300",
+  followers: "1,523",
+  following: "414",
+  likes: "24.2M",
+  bio: "any pronouns or whatevs man 🤙\n@somewhere ✨\nsay that shit !",
+  linkText: "direct.me/zaccy",
+  linkUrl: "#"
+});
 if (typeof collapsedSections.rightSidebar !== "boolean") {
   collapsedSections.rightSidebar = Boolean(collapsedSections.inspector);
 }
 if (typeof collapsedSections.leftSidebar !== "boolean") {
   collapsedSections.leftSidebar = false;
+}
+if (typeof collapsedSections.adminUser !== "boolean") {
+  collapsedSections.adminUser = false;
 }
 const filters = {
   clientId: "",
@@ -110,6 +137,10 @@ function persistUiState() {
   localStorage.setItem(STORAGE_UI_SECTIONS, JSON.stringify(collapsedSections));
 }
 
+function refreshIcons() {
+  window.lucide?.createIcons();
+}
+
 function applyTheme() {
   if (themeMode === "light" || themeMode === "dark") {
     document.documentElement.setAttribute("data-theme", themeMode);
@@ -118,8 +149,12 @@ function applyTheme() {
     themeMode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
   if (el.themeToggle) {
-    el.themeToggle.textContent = themeMode === "dark" ? "☀️ Light" : "🌙 Dark";
+    const nextTheme = themeMode === "dark" ? "light" : "dark";
+    const icon = nextTheme === "light" ? "sun" : "moon";
+    const label = nextTheme === "light" ? "Light" : "Dark";
+    el.themeToggle.innerHTML = `<i data-lucide="${icon}" aria-hidden="true"></i><span>${label}</span>`;
     el.themeToggle.setAttribute("aria-label", `Switch to ${themeMode === "dark" ? "light" : "dark"} mode`);
+    refreshIcons();
   }
 }
 
@@ -299,6 +334,15 @@ function applyUiState() {
   el.scheduleSection.classList.toggle("hidden", !visibleViews.calendar);
   el.previewSection.classList.toggle("hidden", !visibleViews.grid);
 
+  const showAdminPanel = canManageUsers() && !el.adminUserPanel?.classList.contains("hidden");
+  el.adminUserPanel?.classList.toggle("is-collapsed", collapsedSections.adminUser);
+  el.collapseAdminUser && (el.collapseAdminUser.textContent = collapsedSections.adminUser ? "Expand" : "Collapse");
+  if (!canManageUsers()) {
+    el.adminUserPanel?.classList.add("hidden");
+  } else if (showAdminPanel) {
+    el.adminUserPanel?.classList.remove("hidden");
+  }
+
   el.leftSidebar.classList.toggle("is-collapsed", leftCollapsed);
   el.inspectorPanel.classList.toggle("is-collapsed", rightCollapsed);
   el.workflowSection.classList.toggle("is-collapsed", collapsedSections.workflow);
@@ -325,72 +369,61 @@ function canManageUsers() {
 }
 
 function syncRoleActions() {
-  if (!el.manageUsers) return;
-  el.manageUsers.classList.toggle("hidden", !canManageUsers());
+  if (el.manageUsers) el.manageUsers.classList.toggle("hidden", !canManageUsers());
+  if (!canManageUsers()) {
+    el.adminUserPanel?.classList.add("hidden");
+  }
 }
 
-async function manageUsersFlow() {
+function setAdminUserError(message = "") {
+  if (!el.adminUserError) return;
+  if (!message) {
+    el.adminUserError.classList.add("hidden");
+    el.adminUserError.textContent = "";
+    return;
+  }
+  el.adminUserError.textContent = message;
+  el.adminUserError.classList.remove("hidden");
+}
+
+function syncAdminMembershipClientOptions(clients) {
+  if (!el.adminMembershipClient) return;
+  const selected = el.adminMembershipClient.value;
+  el.adminMembershipClient.innerHTML = `<option value="">Select client...</option>${clients
+    .map((client) => `<option value="${client.id}">${escapeHtml(client.name)}</option>`)
+    .join("")}`;
+  el.adminMembershipClient.value = clients.some((client) => client.id === selected) ? selected : "";
+}
+
+function syncMembershipControls() {
+  const assigning = el.adminAssignMembership?.value === "yes";
+  if (el.adminMembershipClient) {
+    el.adminMembershipClient.disabled = !assigning;
+    if (!assigning) el.adminMembershipClient.value = "";
+  }
+  if (el.adminMembershipPermissions) {
+    el.adminMembershipPermissions.disabled = !assigning;
+    if (!assigning) el.adminMembershipPermissions.value = "view,comment";
+  }
+}
+
+function openAdminUserPanel() {
   if (!canManageUsers()) {
     showToast("Only admins can manage users.", "warning");
     return;
   }
+  el.adminUserPanel?.classList.remove("hidden");
+  setAdminUserError("");
+  applyUiState();
+  el.adminUserName?.focus();
+}
 
-  const email = prompt("New user email:");
-  if (!email?.trim()) return;
-  const name = prompt("Display name:", "") || "";
-  const role = prompt("Role (helper_staff or client_user):", "client_user");
-  if (!role || !["helper_staff", "client_user"].includes(role.trim())) {
-    showToast("Role must be helper_staff or client_user.", "error");
-    return;
-  }
-  const password = prompt("Temporary password (min 8 chars):");
-  if (!password || password.length < 8) {
-    showToast("Password must be at least 8 characters.", "error");
-    return;
-  }
-
-  let created;
-  try {
-    const response = await store.adminCreateUser({
-      email: email.trim().toLowerCase(),
-      name: name.trim(),
-      role: role.trim(),
-      password
-    });
-    created = response.user;
-    showToast(`User created: ${created.email}`, "success");
-  } catch {
-    return;
-  }
-
-  const doAssign = confirm("Assign this user to a client now?");
-  if (!doAssign || !created?.id) return;
-
-  if (!lastState.clients.length) {
-    showToast("No clients available. Create a client first.", "warning");
-    return;
-  }
-
-  const optionsText = lastState.clients.map((client) => `${client.id} — ${client.name}`).join("\n");
-  const clientId = prompt(`Enter client ID for membership:\n\n${optionsText}`);
-  if (!clientId?.trim()) return;
-
-  const permissionsRaw = prompt("Permissions (comma-separated: view,comment,edit,manage)", "view,comment");
-  const permissions = String(permissionsRaw || "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-  if (!permissions.length) {
-    showToast("At least one permission is required.", "error");
-    return;
-  }
-
-  try {
-    await store.adminAssignMembership({ userId: created.id, clientId: clientId.trim(), permissions });
-    showToast("Membership assigned.", "success");
-  } catch {
-    // handled by store error handler
-  }
+function closeAdminUserPanel() {
+  el.adminUserPanel?.classList.add("hidden");
+  setAdminUserError("");
+  collapsedSections = { ...collapsedSections, adminUser: false };
+  persistUiState();
+  applyUiState();
 }
 
 for (const toggle of el.viewToggles) {
@@ -404,6 +437,7 @@ for (const toggle of el.viewToggles) {
 el.collapseWorkflow.addEventListener("click", () => toggleCollapse("workflow"));
 el.collapseSchedule.addEventListener("click", () => toggleCollapse("schedule"));
 el.collapsePreview.addEventListener("click", () => toggleCollapse("preview"));
+el.collapseAdminUser?.addEventListener("click", () => toggleCollapse("adminUser"));
 el.collapseLeftSidebar.addEventListener("click", () => toggleCollapse("leftSidebar"));
 el.collapseRightSidebar.addEventListener("click", () => toggleCollapse("rightSidebar"));
 el.reopenLeftSidebar.addEventListener("click", () => {
@@ -427,7 +461,61 @@ el.newClient.addEventListener("click", () => {
 });
 
 el.manageUsers?.addEventListener("click", () => {
-  void manageUsersFlow();
+  openAdminUserPanel();
+});
+
+el.adminUserCancel?.addEventListener("click", closeAdminUserPanel);
+el.adminAssignMembership?.addEventListener("change", syncMembershipControls);
+
+el.adminUserForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!canManageUsers()) {
+    setAdminUserError("Only admins can manage users.");
+    return;
+  }
+
+  const name = el.adminUserName?.value.trim() || "";
+  const email = el.adminUserEmail?.value.trim().toLowerCase() || "";
+  const role = el.adminUserRole?.value || "client_user";
+  const password = el.adminUserPassword?.value || "";
+  const assignMembership = el.adminAssignMembership?.value === "yes";
+  const membershipClientId = el.adminMembershipClient?.value || "";
+  const permissions = String(el.adminMembershipPermissions?.value || "view,comment")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (!name) return setAdminUserError("Display name is required.");
+  if (!email) return setAdminUserError("Email is required.");
+  if (!["helper_staff", "client_user"].includes(role)) return setAdminUserError("Invalid role selection.");
+  if (password.length < 8) return setAdminUserError("Password must be at least 8 characters.");
+  if (assignMembership && !membershipClientId) return setAdminUserError("Select a client for membership assignment.");
+
+  setAdminUserError("");
+  let created;
+  try {
+    const response = await store.adminCreateUser({ email, name, role, password });
+    created = response.user;
+    showToast(`User created: ${created.email}`, "success");
+  } catch {
+    return;
+  }
+
+  if (assignMembership && created?.id) {
+    try {
+      await store.adminAssignMembership({
+        userId: created.id,
+        clientId: membershipClientId,
+        permissions
+      });
+      showToast("Membership assigned.", "success");
+    } catch {
+      return;
+    }
+  }
+
+  el.adminUserForm?.reset();
+  syncMembershipControls();
 });
 
 el.activeClient.addEventListener("change", () => {
@@ -543,27 +631,30 @@ function paint(state) {
   }
 
   applyUiState();
+  syncMembershipControls();
   const posts = sortByProfileOrder(state.posts);
   syncClientFilter(state.clients, state.activeClientId);
+  syncAdminMembershipClientOptions(state.clients);
   syncAssigneeFilter(posts);
   el.viewTitle.textContent = "Planning Workspace";
 
   const visiblePosts = posts.filter(matchesFilters);
   const activePost = posts.find((p) => p.id === state.activePostId) || null;
-  const integrity = profileIntegrity(posts);
   const hashtagSuggestions = collectHashtagSuggestions(posts);
 
   const paintProfileSimulator = () => {
     renderProfileSimulator(el.grid, visiblePosts, {
       mode: profileMode,
-      integrity,
+      media: state.media,
+      profileSettings,
       onModeChange: (nextMode) => {
         profileMode = nextMode;
         paintProfileSimulator();
       },
-      onFixPost: (id) => {
-        store.setActivePost(id);
-        revealView("kanban", "workflow");
+      onProfileSettingsChange: (patch) => {
+        profileSettings = { ...profileSettings, ...patch };
+        localStorage.setItem(STORAGE_PROFILE_SETTINGS, JSON.stringify(profileSettings));
+        paintProfileSimulator();
       }
     });
   };
@@ -635,6 +726,7 @@ function paint(state) {
   const selectedClient = getSelectedClient(state);
   const prefix = selectedClient ? `${selectedClient.name} • ` : "";
   el.stats.textContent = `${prefix}${visiblePosts.length}/${posts.length} posts • ${scheduled} scheduled`;
+  refreshIcons();
 }
 
 // ── Auth guard ───────────────────────────────────────────────────────────────

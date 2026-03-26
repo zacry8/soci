@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Soci Planner</title>
+    <link rel="preconnect" href="https://unpkg.com" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -36,11 +37,33 @@
           <p class="subtle">Social planning workspace</p>
           <div class="sidebar-actions">
             <button id="create-post" class="primary" type="button">+ New Post</button>
-            <button id="new-client" class="small" type="button">+ Client</button>
             <button id="manage-users" class="small" type="button">Manage Users</button>
-            <button id="copy-share-link" class="small" type="button">Share Link</button>
-            <button id="export-csv" class="small" type="button">CSV</button>
-            <button id="export-ics" class="small" type="button">ICS</button>
+            <button id="new-client" class="small icon-btn action-btn" type="button">
+              <i data-lucide="user-plus" aria-hidden="true"></i>
+              <span>New Client</span>
+            </button>
+            <div class="action-row">
+              <button id="copy-share-link" class="small icon-btn action-btn" type="button">
+                <i data-lucide="link-2" aria-hidden="true"></i>
+                <span>Share Link</span>
+              </button>
+              <details class="export-menu">
+                <summary class="small icon-btn action-btn">
+                  <i data-lucide="download" aria-hidden="true"></i>
+                  <span>Export</span>
+                </summary>
+                <div class="export-menu-list">
+                  <button id="export-csv" class="small icon-btn action-btn" type="button">
+                    <i data-lucide="file-spreadsheet" aria-hidden="true"></i>
+                    <span>CSV</span>
+                  </button>
+                  <button id="export-ics" class="small icon-btn action-btn" type="button">
+                    <i data-lucide="calendar-down" aria-hidden="true"></i>
+                    <span>ICS</span>
+                  </button>
+                </div>
+              </details>
+            </div>
             <button id="sign-out" class="small" type="button">Sign Out</button>
           </div>
         </div>
@@ -58,9 +81,18 @@
             <button id="toggle-grid" data-view="grid" class="tab">Grid</button>
           </div>
           <div class="workspace-controls">
-            <button id="theme-toggle" class="small" type="button" aria-label="Toggle theme">🌙 Dark</button>
-            <button id="reopen-left-sidebar" class="small hidden" type="button">☰ Menu</button>
-            <button id="reopen-right-sidebar" class="small hidden" type="button">⇤ Details</button>
+            <button id="theme-toggle" class="small icon-btn" type="button" aria-label="Toggle theme">
+              <i data-lucide="moon" aria-hidden="true"></i>
+              <span>Dark</span>
+            </button>
+            <button id="reopen-left-sidebar" class="small icon-btn hidden" type="button">
+              <i data-lucide="panel-left-open" aria-hidden="true"></i>
+              <span>Menu</span>
+            </button>
+            <button id="reopen-right-sidebar" class="small icon-btn hidden" type="button">
+              <i data-lucide="panel-right-open" aria-hidden="true"></i>
+              <span>Details</span>
+            </button>
           </div>
         </header>
 
@@ -86,6 +118,72 @@
           <select id="filter-assignee" aria-label="Filter by assignee">
             <option value="all">All Assignees</option>
           </select>
+        </section>
+
+        <section id="admin-user-panel" class="workspace-section hidden" aria-label="Admin user management">
+          <header class="section-head">
+            <h3>User Management</h3>
+            <button id="collapse-admin-user" class="small" type="button">Collapse</button>
+          </header>
+          <div class="section-body">
+            <form id="admin-user-form" class="admin-user-form" autocomplete="off">
+              <div class="row">
+                <div class="field">
+                  <label for="admin-user-name">Display Name</label>
+                  <input id="admin-user-name" type="text" placeholder="e.g. Jamie Editor" required />
+                </div>
+                <div class="field">
+                  <label for="admin-user-email">Email</label>
+                  <input id="admin-user-email" type="email" placeholder="user@agency.com" required />
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="field">
+                  <label for="admin-user-role">Role</label>
+                  <select id="admin-user-role">
+                    <option value="client_user">Client User</option>
+                    <option value="helper_staff">Helper Staff</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="admin-user-password">Temporary Password</label>
+                  <input id="admin-user-password" type="password" minlength="8" placeholder="Minimum 8 characters" required />
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="field">
+                  <label for="admin-assign-membership">Assign to Client</label>
+                  <select id="admin-assign-membership">
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="admin-membership-client">Client</label>
+                  <select id="admin-membership-client">
+                    <option value="">Select client...</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="admin-membership-permissions">Access Level</label>
+                <select id="admin-membership-permissions">
+                  <option value="view,comment">Viewer + Commenter</option>
+                  <option value="view,comment,edit">Editor</option>
+                  <option value="view,comment,edit,manage">Manager</option>
+                </select>
+              </div>
+
+              <div id="admin-user-error" class="comment-error hidden" role="alert"></div>
+              <div class="inspector-actions">
+                <button id="admin-user-submit" class="save" type="submit">Create User</button>
+                <button id="admin-user-cancel" class="btn-secondary" type="button">Close</button>
+              </div>
+            </form>
+          </div>
         </section>
 
         <section id="workflow-section" class="workspace-section">
@@ -154,6 +252,7 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>
