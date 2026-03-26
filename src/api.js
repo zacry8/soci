@@ -5,9 +5,6 @@ function getApiBase() {
   return localStorage.getItem(STORAGE_API_BASE) || "http://localhost:8787";
 }
 
-function setApiBase(base) {
-  localStorage.setItem(STORAGE_API_BASE, base.replace(/\/$/, ""));
-}
 
 export function getAuthToken() {
   return localStorage.getItem(STORAGE_AUTH_TOKEN) || "";
@@ -38,18 +35,8 @@ export async function login(email, password) {
 }
 
 export async function ensureAdminToken() {
-  let token = getAuthToken();
-  if (token) return token;
-
-  const base = prompt("API base URL", getApiBase())?.trim();
-  if (base) setApiBase(base);
-  const email = prompt("Admin email", "admin@soci.local")?.trim();
-  const password = prompt("Admin password", "") || "";
-  if (!email || !password) throw new Error("Admin login cancelled");
-
-  const auth = await login(email, password);
-  token = auth.token || "";
-  if (!token) throw new Error("No auth token returned");
+  const token = getAuthToken();
+  if (!token) throw new Error("Not authenticated");
   return token;
 }
 

@@ -7,7 +7,26 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="app-shell">
+    <div id="login-screen">
+      <div class="lc">
+        <div class="lc-logo">Soci</div>
+        <p class="lc-tagline">Content calendar for agencies</p>
+        <form id="login-form" autocomplete="on">
+          <div class="lc-field">
+            <label for="l-email">Email</label>
+            <input id="l-email" type="email" autocomplete="username" placeholder="admin@example.com" required />
+          </div>
+          <div class="lc-field">
+            <label for="l-pass">Password</label>
+            <input id="l-pass" type="password" autocomplete="current-password" placeholder="••••••••" required />
+          </div>
+          <p id="l-error" class="lc-error" hidden></p>
+          <button type="submit" class="lc-btn" id="l-btn">Sign in</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="app" class="app-shell" style="display:none">
       <aside class="sidebar" id="left-sidebar">
         <header class="sidebar-head">
           <h1>Soci</h1>
@@ -21,6 +40,7 @@
             <button id="copy-share-link" class="small" type="button">Share Link</button>
             <button id="export-csv" class="small" type="button">CSV</button>
             <button id="export-ics" class="small" type="button">ICS</button>
+            <button id="sign-out" class="small" type="button">Sign Out</button>
           </div>
           <div class="view-toggles" aria-label="View toggles">
             <button id="toggle-kanban" data-view="kanban" class="tab active">Workflow</button>

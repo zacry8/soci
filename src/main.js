@@ -1,5 +1,6 @@
 import { createStore, profileIntegrity, sortByProfileOrder } from "./store.js";
 import { renderCalendar, renderInspector, renderKanban, renderProfileSimulator, renderShareCalendar } from "./render.js";
+import { getAuthToken, login, setAuthToken } from "./api.js";
 
 const store = createStore();
 const STORAGE_UI_VIEWS = "soci.ui.views.v1";
@@ -492,10 +493,65 @@ function paint(state) {
   el.stats.textContent = `${prefix}${visiblePosts.length}/${posts.length} posts • ${scheduled} scheduled`;
 }
 
-store.subscribe((state) => {
-  lastState = state;
-  paint(state);
+// ── Auth guard ───────────────────────────────────────────────────────────────
+const loginScreen = document.getElementById("login-screen");
+const appEl = document.getElementById("app");
+
+function showLogin() {
+  loginScreen.hidden = false;
+  appEl.style.display = "none";
+}
+
+function showApp() {
+  loginScreen.hidden = true;
+  appEl.style.display = "";
+}
+
+function initApp() {
+  store.subscribe((state) => {
+    lastState = state;
+    paint(state);
+  });
+  window.addEventListener("hashchange", () => {
+    void loadSharedCalendarFromHash();
+  });
+  void loadSharedCalendarFromHash();
+}
+
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById("l-error");
+  const btn = document.getElementById("l-btn");
+  errEl.hidden = true;
+  btn.disabled = true;
+  btn.textContent = "Signing in…";
+  try {
+    const email = document.getElementById("l-email").value.trim();
+    const password = document.getElementById("l-pass").value;
+    await login(email, password);
+    showApp();
+    initApp();
+  } catch (err) {
+    errEl.textContent = err.message || "Invalid credentials";
+    errEl.hidden = false;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Sign in";
+  }
 });
+
+document.getElementById("sign-out").addEventListener("click", () => {
+  setAuthToken(null);
+  showLogin();
+});
+
+const isShareMode = location.hash.startsWith("#share=");
+if (isShareMode || getAuthToken()) {
+  showApp();
+  initApp();
+} else {
+  showLogin();
+}
 
 async function loadSharedCalendarFromHash() {
   const token = getShareToken();
@@ -533,8 +589,3 @@ async function loadSharedCalendarFromHash() {
   }
 }
 
-window.addEventListener("hashchange", () => {
-  void loadSharedCalendarFromHash();
-});
-
-void loadSharedCalendarFromHash();
