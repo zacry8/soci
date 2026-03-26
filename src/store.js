@@ -27,7 +27,11 @@ function normalizePost(post, clients) {
     publishedAt: post.publishedAt || "",
     scheduledAt: post.scheduledAt || "",
     postType: post.postType || "static",
-    mediaIds: Array.isArray(post.mediaIds) ? post.mediaIds : []
+    mediaIds: Array.isArray(post.mediaIds) ? post.mediaIds : [],
+    comments: Array.isArray(post.comments) ? post.comments : [],
+    checklist: post.checklist && typeof post.checklist === "object"
+      ? post.checklist
+      : { copy: false, media: false, tags: false, schedule: false, approval: false }
   };
 }
 
@@ -118,7 +122,7 @@ export function createStore() {
     if (!authToken) return;
     try {
       const res = await upsertPost(authToken, post);
-      const persisted = normalizePost(res.post || post, clients);
+      const persisted = normalizePost({ ...post, ...(res.post || {}) }, clients);
       posts = posts.map((p) => (p.id === persisted.id ? persisted : p));
       notify();
     } catch (error) {
