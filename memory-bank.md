@@ -1185,3 +1185,44 @@
 - **Updated:** 2026-03-27 (latest)
 - **By:** Claude Code
 - **Reason:** Logged successful end-to-end runtime role smoke tests for owner/helper/client permission behavior.
+
+### Implementation Snapshot Addendum 44 (2026-03-27)
+- Implemented targeted UI/UX polish across layout, workflow discoverability, details clarity, and sidebar controls with minimal file footprint:
+  - `index.html`
+    - made brand title actionable (`#brand-home`) to restore default workspace/dashboard state
+    - added kanban overflow hint element (`#kanban-overflow-hint`)
+    - upgraded sign-out affordance with dedicated button class (`.btn-signout`)
+  - `styles.css`
+    - improved default three-panel comfort by widening/resizing rails:
+      - shell columns now use `minmax(...)` ranges
+      - left sidebar and right details panel support horizontal resize
+    - improved filter row density and spacing behavior
+    - added kanban overflow edge gradients + hint styling for better horizontal overflow discoverability
+    - improved inspector tab affordance/contrast (default + hover + active clarity)
+    - improved readiness visuals:
+      - low-readiness fill visibility tuning
+      - compact progress micro-bar in cards
+    - added polish utilities used by render updates:
+      - `.settings-note`, `.preview-pill`, `.calendar-next-event`, `.profile-toggle`, `.btn-signout`
+  - `src/render.js`
+    - post card date now renders friendly format (e.g., `Apr 1, 2026`)
+    - post card readiness text now includes a compact visual progress bar
+    - calendar API extended with optional next-event affordance and jump callback
+    - profile simulator supports draft-label visibility toggle wiring
+    - details panel copy/labeling updates for preview clarity and settings context notes
+  - `src/main.js`
+    - added brand-home behavior to reset/reveal core workspace panels and exit share hash state
+    - added kanban overflow state sync (left/right edge cues + start hint visibility)
+    - theme toggle wording clarified to “Light Mode / Dark Mode”
+    - calendar now computes nearest scheduled event and provides quick-jump behavior
+    - profile simulator state now includes `showDraftLabels` toggle persistence in-session
+- Validation:
+  - syntax checks passed:
+    - `node --check src/main.js`
+    - `node --check src/render.js`
+  - browser smoke test performed via local static server and Puppeteer launch (`http://localhost:4174/index.html`), confirming app boots post-change.
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged UI/UX polish implementation for layout comfort, kanban overflow discoverability, card/status clarity, details panel affordance, and profile/calendar usability improvements.

@@ -39,6 +39,13 @@ function extractHashtags(caption = "") {
   return [...String(caption || "").matchAll(/#([a-z0-9_]+)/gi)].map((match) => match[1].toLowerCase());
 }
 
+function formatFriendlyDate(value = "") {
+  if (!value) return "Unscheduled";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
 function renderPrimaryMediaPreview(media) {
   if (!media?.urlPath) return `<span class="safe-zone">Media preview</span>`;
   const url = escapeHtml(media.urlPath);
@@ -520,7 +527,7 @@ function makeCard(cardTpl, post, onOpen, onDropStatus) {
   const card = cardTpl.content.firstElementChild.cloneNode(true);
   card.dataset.id = post.id;
   card.querySelector("h4").textContent = post.title;
-  card.querySelector(".meta").textContent = `${post.platforms.join(", ")} • ${post.scheduleDate || "Unscheduled"}`;
+  card.querySelector(".meta").textContent = `${post.platforms.join(", ")} • ${formatFriendlyDate(post.scheduleDate)}`;
   card.querySelector(".excerpt").textContent = post.caption.slice(0, 90) || "No caption yet.";
 
   // Publish state badge
@@ -530,7 +537,8 @@ function makeCard(cardTpl, post, onOpen, onDropStatus) {
 
   // Checklist progress
   const done = checklistKeys.filter((k) => post.checklist[k]).length;
-  card.querySelector(".card-progress").textContent = `${done}/${checklistKeys.length} ready`;
+  const readyPercent = Math.round((done / checklistKeys.length) * 100);
+  card.querySelector(".card-progress").innerHTML = `<span class="card-progress-mini"><span class="card-progress-mini-fill" style="width:${readyPercent}%"></span></span><span>${done}/${checklistKeys.length} ready</span>`;
 
   card.addEventListener("click", () => onOpen(post.id));
   card.addEventListener("dragstart", () => card.classList.add("dragging"));
@@ -579,7 +587,7 @@ export function renderKanban(root, posts, onOpen, onDropStatus) {
 
 // ── Calendar ─────────────────────────────────────────────────────────────────
 
-export function renderCalendar(root, posts, onOpen, offset = 0, onOffsetChange) {
+export function renderCalendar(root, posts, onOpen, offset = 0, onOffsetChange, options = {}) {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + offset;
@@ -591,18 +599,32 @@ export function renderCalendar(root, posts, onOpen, offset = 0, onOffsetChange) 
   const total = 35;
 
   const monthLabel = target.toLocaleString("default", { month: "long", year: "numeric" });
+  const postsInDisplayedMonth = posts.filter((post) => {
+    if (!post.scheduleDate) return false;
+    const d = new Date(`${post.scheduleDate}T00:00:00`);
+    return d.getFullYear() === displayYear && d.getMonth() === displayMonth;
+  }).length;
+  const nextEventButton = options?.nextEvent && postsInDisplayedMonth === 0
+    ? `<button id="cal-next-event" class="calendar-next-event" type="button">Next scheduled: ${escapeHtml(options.nextEvent.label)} →</button>`
+    : "";
 
   root.innerHTML = `
     <div class="calendar-nav">
       <button id="cal-prev" aria-label="Previous month">&#8249;</button>
       <h4>${monthLabel}</h4>
-      <button id="cal-next" aria-label="Next month">&#8250;</button>
+      <div>
+        ${nextEventButton}
+        <button id="cal-next" aria-label="Next month">&#8250;</button>
+      </div>
     </div>
     <div class="calendar-grid"></div>
   `;
 
   root.querySelector("#cal-prev").addEventListener("click", () => onOffsetChange?.(-1));
   root.querySelector("#cal-next").addEventListener("click", () => onOffsetChange?.(1));
+  root.querySelector("#cal-next-event")?.addEventListener("click", () => {
+    options?.onJumpToDate?.(options.nextEvent?.date || "");
+  });
 
   const grid = root.querySelector(".calendar-grid");
 
@@ -664,6 +686,7 @@ export function renderInspector(root, post, handlers) {
     : renderPrimaryMediaPreview(primaryMedia);
   const checklistDone = checklistKeys.filter((key) => post.checklist?.[key]).length;
   const readinessPercent = Math.round((checklistDone / checklistKeys.length) * 100);
+  const readinessVisualPercent = readinessPercent === 0 ? 6 : readinessPercent;
   const hashSuggestionPool = Array.isArray(handlers?.hashtagSuggestions) ? handlers.hashtagSuggestions : [];
   const existingTags = new Set((post.tags || []).map((tag) => String(tag || "").trim().toLowerCase()).filter(Boolean));
   const suggestionHtml = hashSuggestionPool
@@ -713,7 +736,7 @@ export function renderInspector(root, post, handlers) {
     <section class="inspector-pane" data-inspector-pane="content">
       <div class="readiness-wrap">
         <strong>Post readiness: ${readinessPercent}%</strong>
-        <div class="readiness-meter"><div class="readiness-meter-fill" style="width:${readinessPercent}%"></div></div>
+        <div class="readiness-meter"><div class="readiness-meter-fill ${readinessPercent < 10 ? "low" : ""}" style="width:${readinessVisualPercent}%"></div></div>
       </div>
 
       <p class="section-title">Post Preview</p>
@@ -724,6 +747,7 @@ export function renderInspector(root, post, handlers) {
         <div class="post-preview-meta">
           <strong>${escapeHtml(post.title || "Untitled Post")}</strong>
           <span class="subtle">${escapeHtml(getPostTypeLabel(normalizedPostType))} • ${escapeHtml(post.publishState || "draft")}</span>
+          <span class="preview-pill">Preview only</span>
           <div class="post-preview-overlay">
             ${iconWithLabel("heart", "2.4k")}
             ${iconWithLabel("message-circle", "184")}
@@ -756,6 +780,7 @@ export function renderInspector(root, post, handlers) {
 
     <section class="inspector-pane hidden" data-inspector-pane="settings">
       <p class="section-title">Settings &amp; Specifics</p>
+      <p class="settings-note">Workspace filters only change what you see. These fields change this post.</p>
       <div class="field"><span class="variant-field-label">Platforms</span>
         <div class="platform-toggles">
           ${PLATFORM_OPTIONS.map((p) => `<button type="button" class="platform-toggle${post.platforms.includes(p) ? " active" : ""}" data-platform="${escapeHtml(p)}" ${permissions.canEdit ? "" : "disabled"}>${escapeHtml(p)}</button>`).join("")}
@@ -837,6 +862,21 @@ export function renderInspector(root, post, handlers) {
       <button class="btn-danger" id="delete-post" title="Delete post" ${permissions.canDelete ? "" : "disabled"}>Delete Post</button>
     </div>
   `;
+
+  const saveButton = root.querySelector("#save-post");
+  let isDirty = false;
+  const markDirty = () => {
+    if (!permissions.canEdit || isDirty) return;
+    isDirty = true;
+    if (saveButton) saveButton.textContent = "Save Changes • Unsaved";
+  };
+
+  root.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.id === "save-post") return;
+    markDirty();
+  });
 
   // Platform toggle logic — updates variant fields live
   const toggles = [...root.querySelectorAll(".platform-toggle")];
@@ -972,6 +1012,8 @@ export function renderInspector(root, post, handlers) {
       caption: root.querySelector("#f-caption").value,
       checklist
     });
+    isDirty = false;
+    if (saveButton) saveButton.textContent = "Save Changes";
   });
 
   // Add comment with validation
@@ -1135,9 +1177,9 @@ function renderPreviewMedia(post, mediaMap, className = "") {
   return fallback;
 }
 
-function instagramTile(post, mediaMap) {
+function instagramTile(post, mediaMap, showDraftLabels = true) {
   const type = normalizePostType(post.postType);
-  const stateBadge = post.publishState === "published" ? "" : `<span class="mock-badge">${escapeHtml(post.publishState)}</span>`;
+  const stateBadge = !showDraftLabels || post.publishState === "published" ? "" : `<span class="mock-badge">${escapeHtml(post.publishState)}</span>`;
   const typeIcon = type === "carousel"
     ? `<i data-lucide="copy" class="mock-top-icon" aria-hidden="true"></i>`
     : type === "shorts" || type === "video"
@@ -1176,7 +1218,7 @@ function getPlatformPosts(posts, mode) {
   return posts.filter((p) => (p.platforms || []).includes(platform));
 }
 
-function toInstagramCard(posts, mediaMap, profile) {
+function toInstagramCard(posts, mediaMap, profile, showDraftLabels = true) {
   return `
     <section class="inspo-card instagram-card">
       <header class="inspo-profile-head">
@@ -1195,7 +1237,7 @@ function toInstagramCard(posts, mediaMap, profile) {
       </header>
       <div class="inspo-tabs"><span class="active">Posts</span><span>Reels</span><span>Tagged</span></div>
       <div class="mock-grid instagram">
-        ${posts.length ? posts.map((post) => instagramTile(post, mediaMap)).join("") : `<div class="grid-empty">No Instagram posts yet.</div>`}
+        ${posts.length ? posts.map((post) => instagramTile(post, mediaMap, showDraftLabels)).join("") : `<div class="grid-empty">No Instagram posts yet.</div>`}
       </div>
     </section>
   `;
@@ -1247,7 +1289,9 @@ function renderSettingsPanel(profile, settingsOpen = false) {
 
 export function renderProfileSimulator(root, posts, options) {
   const mode = options?.mode || "instagram";
+  const showDraftLabels = options?.showDraftLabels !== false;
   const onModeChange = options?.onModeChange;
+  const onToggleDraftLabels = options?.onToggleDraftLabels;
   const onProfileSettingsChange = options?.onProfileSettingsChange;
   const onSettingsOpenChange = options?.onSettingsOpenChange;
   const settingsOpen = Boolean(options?.settingsOpen);
@@ -1272,16 +1316,18 @@ export function renderProfileSimulator(root, posts, options) {
       <div class="mode-switch">
         <button class="small ${mode === "instagram" ? "active" : ""}" data-mode="instagram">Instagram</button>
         <button class="small ${mode === "tiktok" ? "active" : ""}" data-mode="tiktok">TikTok</button>
+        <button class="profile-toggle ${showDraftLabels ? "active" : ""}" type="button" data-toggle-draft-labels>${showDraftLabels ? "Draft Labels: On" : "Draft Labels: Off"}</button>
       </div>
       <span class="subtle">${escapeHtml(options?.clientName || "All Clients")} • ${eligiblePosts.length} mapped thumbnails</span>
     </div>
     ${renderSettingsPanel(profile, settingsOpen)}
-    ${mode === "instagram" ? toInstagramCard(eligiblePosts, mediaMap, profile) : toTiktokCard(eligiblePosts, mediaMap, profile)}
+    ${mode === "instagram" ? toInstagramCard(eligiblePosts, mediaMap, profile, showDraftLabels) : toTiktokCard(eligiblePosts, mediaMap, profile)}
   `;
 
   root.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => onModeChange?.(button.dataset.mode));
   });
+  root.querySelector("[data-toggle-draft-labels]")?.addEventListener("click", () => onToggleDraftLabels?.(!showDraftLabels));
   const settingsDetails = root.querySelector("[data-simulator-settings]");
   settingsDetails?.addEventListener("toggle", () => {
     onSettingsOpenChange?.(settingsDetails.open);

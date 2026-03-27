@@ -31,6 +31,7 @@ const DEFAULT_PROFILE_SETTINGS = {
 };
 
 const el = {
+  brandHome: document.querySelector("#brand-home"),
   viewToggles: [...document.querySelectorAll("[data-view]")],
   viewTitle: document.querySelector("#view-title"),
   stats: document.querySelector("#stats"),
@@ -63,6 +64,7 @@ const el = {
   scheduleSection: document.querySelector("#schedule-section"),
   previewSection: document.querySelector("#preview-section"),
   collapseWorkflow: document.querySelector("#collapse-workflow"),
+  kanbanOverflowHint: document.querySelector("#kanban-overflow-hint"),
   collapseSchedule: document.querySelector("#collapse-schedule"),
   collapsePreview: document.querySelector("#collapse-preview"),
   inspectorPanel: document.querySelector("#inspector-panel"),
@@ -81,6 +83,7 @@ const ADMIN_ROLES = new Set(["owner_admin", "admin"]);
 
 let profileMode = "instagram";
 let simulatorSettingsOpen = false;
+let showDraftLabels = true;
 let calendarOffset = 0; // months from current
 let shareCalendarOffset = 0;
 let lastState = { posts: [], media: [], activePostId: null, clients: [], activeClientId: "", isBootstrapped: false };
@@ -219,11 +222,70 @@ function applyTheme() {
   if (el.themeToggle) {
     const nextTheme = themeMode === "dark" ? "light" : "dark";
     const icon = nextTheme === "light" ? "sun" : "moon";
-    const label = nextTheme === "light" ? "Light" : "Dark";
+    const label = nextTheme === "light" ? "Light Mode" : "Dark Mode";
     el.themeToggle.innerHTML = `<i data-lucide="${icon}" aria-hidden="true"></i><span>${label}</span>`;
     el.themeToggle.setAttribute("aria-label", `Switch to ${themeMode === "dark" ? "light" : "dark"} mode`);
     refreshIcons();
   }
+}
+
+function getMonthOffsetFromDate(dateString = "") {
+  if (!dateString) return 0;
+  const target = new Date(`${dateString}T00:00:00`);
+  if (Number.isNaN(target.getTime())) return 0;
+  const now = new Date();
+  const nowMonthIndex = now.getFullYear() * 12 + now.getMonth();
+  const targetMonthIndex = target.getFullYear() * 12 + target.getMonth();
+  return targetMonthIndex - nowMonthIndex;
+}
+
+function formatFriendlyDate(value = "") {
+  if (!value) return "";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function getNextScheduledEvent(posts = []) {
+  const scheduled = posts
+    .filter((post) => post.scheduleDate)
+    .map((post) => ({ ...post, _date: new Date(`${post.scheduleDate}T00:00:00`) }))
+    .filter((post) => !Number.isNaN(post._date.getTime()))
+    .sort((a, b) => a._date - b._date);
+  if (!scheduled.length) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const upcoming = scheduled.find((post) => post._date >= today) || scheduled[0];
+  return {
+    date: upcoming.scheduleDate,
+    label: formatFriendlyDate(upcoming.scheduleDate)
+  };
+}
+
+function syncKanbanOverflowState() {
+  const workflow = el.workflowSection;
+  const kanban = el.kanban;
+  const hint = el.kanbanOverflowHint;
+  if (!workflow || !kanban) return;
+
+  const update = () => {
+    const maxScrollLeft = Math.max(kanban.scrollWidth - kanban.clientWidth, 0);
+    const hasOverflow = maxScrollLeft > 6;
+    const atStart = kanban.scrollLeft <= 2;
+    const atEnd = kanban.scrollLeft >= maxScrollLeft - 2;
+
+    workflow.classList.toggle("overflow-left", hasOverflow && !atStart);
+    workflow.classList.toggle("overflow-right", hasOverflow && !atEnd);
+    hint?.classList.toggle("hidden", !hasOverflow || !atStart);
+  };
+
+  if (!kanban.dataset.overflowBound) {
+    kanban.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    kanban.dataset.overflowBound = "1";
+  }
+
+  requestAnimationFrame(update);
 }
 
 function toggleTheme() {
@@ -429,6 +491,8 @@ function applyUiState() {
   for (const toggle of el.viewToggles) {
     toggle.classList.toggle("active", Boolean(visibleViews[toggle.dataset.view]));
   }
+
+  syncKanbanOverflowState();
 }
 
 function canManageUsers() {
@@ -563,6 +627,25 @@ el.newClient.addEventListener("click", () => {
 
 el.manageUsers?.addEventListener("click", () => {
   openAdminUserPanel();
+});
+
+el.brandHome?.addEventListener("click", () => {
+  if (location.hash.startsWith("#share=")) {
+    history.replaceState(null, "", `${location.pathname}${location.search}`);
+  }
+  visibleViews = { ...visibleViews, kanban: true, calendar: true };
+  collapsedSections = {
+    ...collapsedSections,
+    workflow: false,
+    schedule: false,
+    preview: false,
+    leftSidebar: false,
+    rightSidebar: false,
+    adminUser: false
+  };
+  persistUiState();
+  applyUiState();
+  paint(lastState);
 });
 
 el.adminUserCancel?.addEventListener("click", closeAdminUserPanel);
@@ -753,6 +836,7 @@ function paint(state) {
   const paintProfileSimulator = () => {
     renderProfileSimulator(el.grid, simulatorPosts, {
       mode: profileMode,
+      showDraftLabels,
       clientId: simulatorClient.clientId,
       clientName: simulatorClient.clientName,
       media: state.media,
@@ -763,6 +847,10 @@ function paint(state) {
       },
       onModeChange: (nextMode) => {
         profileMode = nextMode;
+        paintProfileSimulator();
+      },
+      onToggleDraftLabels: (nextValue) => {
+        showDraftLabels = Boolean(nextValue);
         paintProfileSimulator();
       },
       onProfileSettingsChange: (patch) => {
@@ -806,9 +894,17 @@ function paint(state) {
   }, calendarOffset, (delta) => {
     calendarOffset += delta;
     paint(lastState);
+  }, {
+    nextEvent: getNextScheduledEvent(visiblePosts),
+    onJumpToDate: (dateString) => {
+      calendarOffset = getMonthOffsetFromDate(dateString);
+      paint(lastState);
+    }
   });
 
   paintProfileSimulator();
+
+  syncKanbanOverflowState();
 
   renderInspector(el.inspector, activePost, {
     clients: state.clients,

@@ -30,7 +30,7 @@
     <div id="app" class="app-shell" style="display:none">
       <aside class="sidebar" id="left-sidebar">
         <header class="sidebar-head">
-          <h1>Soci</h1>
+          <button id="brand-home" class="brand-link" type="button">Soci</button>
           <button id="collapse-left-sidebar" class="small" type="button">Collapse</button>
         </header>
         <div class="sidebar-body">
@@ -64,7 +64,7 @@
                 </div>
               </details>
             </div>
-            <button id="sign-out" class="small" type="button">Sign Out</button>
+            <button id="sign-out" class="small btn-signout" type="button">Sign Out</button>
           </div>
         </div>
       </aside>
@@ -189,6 +189,7 @@
         <section id="workflow-section" class="workspace-section">
           <header class="section-head">
             <h3>Workflow</h3>
+            <span id="kanban-overflow-hint" class="subtle hidden" aria-live="polite">More columns →</span>
             <button id="collapse-workflow" class="small" type="button">Collapse</button>
           </header>
           <div class="section-body">
