@@ -887,3 +887,25 @@
 - **Updated:** 2026-03-26 (latest)
 - **By:** Claude Code
 - **Reason:** Logged inspector responsiveness/layout polish and carousel preview ordering/radius updates, including delete-action visual improvements.
+
+### Implementation Snapshot Addendum 33 (2026-03-26)
+- Completed requested simulator mapping and carousel interaction fixes for client workflows:
+  - `src/render.js`
+    - profile simulator now reads/writes from the passed `profileSettings` so preview identity is client-specific in the active context
+    - carousel Instagram shell now maps visible post details from simulator settings (likes + profile display/handle), reducing generic hardcoded meta noise
+    - TikTok and Instagram carousel copy now stays synchronized to caption/base + platform variant fields
+    - added draggable **left-side handle** for slide reordering in carousel slide list (`grip-vertical`), with optimistic local reorder + backend sync via existing reorder handler
+    - removed stale unused post-meta fields that could desync visible simulator details
+  - `styles.css`
+    - slide list row updated to include dedicated left handle column
+    - added drag-handle affordance styles (`grab`/`grabbing`) for discoverable reordering
+    - added IG likes line style (`.carousel-ig-likes`) to match simulator detail mapping and improve hierarchy
+- Validation:
+  - syntax checks pass for `src/main.js` and `src/render.js` (`node --check`)
+  - local browser smoke run completed against `http://localhost:4174/index.html`
+  - carousel preview interaction verified (platform toggle + carousel area interaction) with no new console errors
+
+## Last Memory Update
+- **Updated:** 2026-03-26 (latest)
+- **By:** Claude Code
+- **Reason:** Logged per-client profile simulator mapping, Instagram carousel metadata fix, and draggable left-handle slide reorder update.

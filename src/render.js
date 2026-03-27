@@ -158,7 +158,7 @@ function setupDragToScroll(slider) {
   });
 }
 
-function initInspectorCarouselPreview(root) {
+function initInspectorCarouselPreview(root, options = {}) {
   const preview = root.querySelector("[data-carousel-preview]");
   if (!preview) return;
 
@@ -169,6 +169,14 @@ function initInspectorCarouselPreview(root) {
   const slideList = preview.querySelector("[data-carousel-slide-list]");
   let media = [];
   let captionPayload = { instagram: "", tiktok: "" };
+  const profileSettings = {
+    handle: "your_brand",
+    displayName: "Your Brand",
+    likes: "1,234",
+    ...(options?.profileSettings || {})
+  };
+  const postDetails = options?.postDetails || {};
+  const onReorderSlides = typeof options?.onReorderSlides === "function" ? options.onReorderSlides : null;
   const mediaRatios = new Map();
 
   try {
@@ -188,6 +196,18 @@ function initInspectorCarouselPreview(root) {
   if (!media.length || !stage) return;
 
   const compactText = (value = "") => String(value || "").replace(/\s+/g, " ").trim();
+  const normalizeHandle = (value = "") => {
+    const clean = compactText(value).replace(/^@+/, "");
+    return clean || "your_brand";
+  };
+  const formatLikes = (value = "") => {
+    const raw = compactText(String(value || ""));
+    return raw || "1,234";
+  };
+  const getPostMeta = () => {
+    const likes = formatLikes(postDetails.likes || profileSettings.likes || "1,234");
+    return { likes };
+  };
 
   const readCaptionForPlatform = (platformKey) => {
     const captionField = root.querySelector("#f-caption");
@@ -201,7 +221,14 @@ function initInspectorCarouselPreview(root) {
   const syncCarouselCopy = () => {
     const caption = platform === "instagram" ? readCaptionForPlatform("instagram") : readCaptionForPlatform("tiktok");
     const captionNode = stage.querySelector("[data-carousel-caption]");
-    if (captionNode) captionNode.textContent = caption;
+    if (captionNode) {
+      if (platform === "instagram") {
+        const displayName = escapeHtml(compactText(profileSettings.displayName || normalizeHandle(profileSettings.handle)));
+        captionNode.innerHTML = `<strong>${displayName}</strong> ${escapeHtml(caption)}`;
+      } else {
+        captionNode.textContent = caption;
+      }
+    }
     const audioNode = stage.querySelector("[data-carousel-audio]");
     if (audioNode) {
       const audioSeed = compactText(caption).replace(/^#/, "").slice(0, 34) || "your_brand";
@@ -237,6 +264,54 @@ function initInspectorCarouselPreview(root) {
     img.src = item.urlPath || "";
   });
 
+  let slideOrder = media.map((item) => item.id).filter(Boolean);
+
+  const reorderSlides = async (nextOrder) => {
+    if (!Array.isArray(nextOrder) || !nextOrder.length) return;
+    slideOrder = nextOrder;
+    const rank = new Map(nextOrder.map((id, index) => [id, index]));
+    media = [...media].sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+    paint();
+    if (!onReorderSlides) return;
+    try {
+      await onReorderSlides(nextOrder);
+    } catch {
+      // keep local optimistic order even if backend sync fails; store layer shows toast
+    }
+  };
+
+  const setupSlideReorder = () => {
+    if (!slideList) return;
+    let dragMediaId = "";
+    slideList.querySelectorAll("[data-slide-row]").forEach((row) => {
+      row.addEventListener("dragover", (event) => {
+        event.preventDefault();
+      });
+      row.addEventListener("drop", (event) => {
+        event.preventDefault();
+        const targetId = row.getAttribute("data-slide-row") || "";
+        if (!dragMediaId || !targetId || dragMediaId === targetId) return;
+        const ids = [...slideOrder];
+        const from = ids.indexOf(dragMediaId);
+        const to = ids.indexOf(targetId);
+        if (from < 0 || to < 0) return;
+        ids.splice(from, 1);
+        ids.splice(to, 0, dragMediaId);
+        void reorderSlides(ids);
+      });
+    });
+    slideList.querySelectorAll("[data-slide-handle]").forEach((handle) => {
+      handle.addEventListener("dragstart", (event) => {
+        dragMediaId = handle.getAttribute("data-slide-handle") || "";
+        event.dataTransfer?.setData("text/plain", dragMediaId);
+        event.dataTransfer.effectAllowed = "move";
+      });
+      handle.addEventListener("dragend", () => {
+        dragMediaId = "";
+      });
+    });
+  };
+
   const renderSlideList = () => {
     if (!slideList) return;
     slideList.innerHTML = media.map((item, index) => {
@@ -248,7 +323,10 @@ function initInspectorCarouselPreview(root) {
         ? `<video muted playsinline preload="metadata" src="${escapeHtml(item.urlPath || "")}" class="carousel-list-thumb"></video>`
         : `<img src="${escapeHtml(item.urlPath || "")}" class="carousel-list-thumb" alt="${escapeHtml(item.fileName || "slide")}" />`;
       return `
-        <article class="carousel-list-row">
+        <article class="carousel-list-row" data-slide-row="${escapeHtml(item.id || "")}">
+          <button type="button" class="carousel-drag-handle" data-slide-handle="${escapeHtml(item.id || "")}" draggable="true" title="Drag to reorder slide" aria-label="Drag to reorder slide ${index + 1}">
+            <i data-lucide="grip-vertical" aria-hidden="true"></i>
+          </button>
           <div class="carousel-list-thumb-wrap">${thumb}</div>
           <div class="carousel-list-copy">
             <strong>Slide ${index + 1}</strong>
@@ -258,6 +336,7 @@ function initInspectorCarouselPreview(root) {
         </article>
       `;
     }).join("");
+    setupSlideReorder();
   };
 
   const computeMediaRatios = async () => {
@@ -291,6 +370,9 @@ function initInspectorCarouselPreview(root) {
   };
 
   const renderInstagram = () => {
+    const { likes } = getPostMeta();
+    const handle = normalizeHandle(profileSettings.handle);
+    const displayName = compactText(profileSettings.displayName || handle);
     const instagramCaption = escapeHtml(readCaptionForPlatform("instagram"));
     const slides = media.map((item) => `
       <div class="carousel-slide carousel-slide-ig">
@@ -301,7 +383,7 @@ function initInspectorCarouselPreview(root) {
     stage.innerHTML = `
       <section class="carousel-ig-shell">
         <div class="carousel-ig-head">
-          <span class="carousel-user">your_brand</span>
+          <span class="carousel-user">${escapeHtml(handle)}</span>
           <i data-lucide="more-horizontal"></i>
         </div>
         <div class="carousel-ig-frame" data-carousel-ig-frame>
@@ -317,7 +399,8 @@ function initInspectorCarouselPreview(root) {
           <div class="carousel-dots">${dots}</div>
           <i data-lucide="bookmark"></i>
         </div>
-        <p class="carousel-ig-caption" data-carousel-caption>${instagramCaption}</p>
+        <p class="carousel-ig-likes">${escapeHtml(likes)} likes</p>
+        <p class="carousel-ig-caption" data-carousel-caption><strong>${escapeHtml(displayName)}</strong> ${instagramCaption}</p>
       </section>
     `;
     const firstItem = media[0];
@@ -343,6 +426,7 @@ function initInspectorCarouselPreview(root) {
   };
 
   const renderTikTok = () => {
+    const handle = normalizeHandle(profileSettings.handle);
     const tiktokCaptionRaw = readCaptionForPlatform("tiktok");
     const tiktokCaption = escapeHtml(tiktokCaptionRaw);
     const tiktokAudio = escapeHtml(`Original sound - ${compactText(tiktokCaptionRaw).replace(/^#/, "").slice(0, 34) || "your_brand"}`);
@@ -372,7 +456,7 @@ function initInspectorCarouselPreview(root) {
         </div>
         <div class="carousel-tt-overlay">
           <div>
-            <strong>@your_brand</strong>
+            <strong>@${escapeHtml(handle)}</strong>
             <p data-carousel-caption>${tiktokCaption}</p>
             <small data-carousel-audio>${tiktokAudio}</small>
           </div>
@@ -984,7 +1068,15 @@ export function renderInspector(root, post, handlers) {
     });
   });
 
-  initInspectorCarouselPreview(root);
+  initInspectorCarouselPreview(root, {
+    profileSettings: handlers?.profileSettings || {},
+    postDetails: {
+      likes: handlers?.profileSettings?.likes || "",
+      publishState: post.publishState,
+      postType: post.postType
+    },
+    onReorderSlides: handlers?.onReorderMedia
+  });
   window.lucide?.createIcons();
 }
 
@@ -1169,7 +1261,7 @@ export function renderProfileSimulator(root, posts, options) {
         <button class="small ${mode === "instagram" ? "active" : ""}" data-mode="instagram">Instagram</button>
         <button class="small ${mode === "tiktok" ? "active" : ""}" data-mode="tiktok">TikTok</button>
       </div>
-      <span class="subtle">${eligiblePosts.length} mapped thumbnails</span>
+      <span class="subtle">${escapeHtml(options?.clientName || "All Clients")} • ${eligiblePosts.length} mapped thumbnails</span>
     </div>
     ${renderSettingsPanel(profile)}
     ${mode === "instagram" ? toInstagramCard(eligiblePosts, mediaMap, profile) : toTiktokCard(eligiblePosts, mediaMap, profile)}

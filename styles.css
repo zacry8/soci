@@ -542,13 +542,36 @@ body.share-mode .main {
 
 .carousel-list-row {
   display: grid;
-  grid-template-columns: 42px 1fr auto;
+  grid-template-columns: 26px 42px 1fr auto;
   align-items: center;
   gap: 8px;
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 6px;
   background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
+}
+
+.carousel-drag-handle {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface-soft) 72%, transparent);
+  color: var(--subtle);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  padding: 0;
+}
+
+.carousel-drag-handle:active {
+  cursor: grabbing;
+}
+
+.carousel-drag-handle i {
+  width: 13px;
+  height: 13px;
 }
 
 .carousel-list-thumb-wrap {
@@ -1895,4 +1918,11 @@ body.share-mode .main {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+.carousel-ig-likes {
+  margin: 2px 12px 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
 }
