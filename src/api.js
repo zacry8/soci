@@ -102,6 +102,18 @@ export async function deletePost(token, id) {
   return request(`/api/admin/posts/${id}`, { method: "DELETE", token });
 }
 
+export async function deletePostMedia(token, postId, mediaId) {
+  return request(`/api/admin/posts/${postId}/media/${mediaId}`, { method: "DELETE", token });
+}
+
+export async function reorderPostMedia(token, postId, mediaIds) {
+  return request(`/api/admin/posts/${postId}/media/reorder`, {
+    method: "POST",
+    token,
+    body: { mediaIds }
+  });
+}
+
 export async function deleteClient(token, id) {
   return request(`/api/admin/clients/${id}`, { method: "DELETE", token });
 }

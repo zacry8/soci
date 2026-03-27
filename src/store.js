@@ -4,11 +4,13 @@ import {
   createShareLink,
   createUser,
   deleteClient as apiDeleteClient,
+  deletePostMedia as apiDeletePostMedia,
   deletePost as apiDeletePost,
   ensureAdminToken,
   getAdminState,
   getAuthUser,
   getMyState,
+  reorderPostMedia as apiReorderPostMedia,
   getShareCalendar,
   resolveApiUrl,
   uploadMedia,
@@ -17,18 +19,39 @@ import {
 } from "./api.js";
 
 const STORAGE_KEY_ACTIVE_CLIENT = "soci.activeClientId.v1";
+const PROFILE_SETTING_KEYS = new Set([
+  "handle",
+  "displayName",
+  "avatarUrl",
+  "followers",
+  "following",
+  "likes",
+  "bio",
+  "linkText",
+  "linkUrl"
+]);
 
 function clone(value) {
   return structuredClone(value);
 }
 
 function normalizeClient(client) {
+  const incomingProfile = client?.profileSettings && typeof client.profileSettings === "object" && !Array.isArray(client.profileSettings)
+    ? client.profileSettings
+    : {};
+  const profileSettings = {};
+  for (const [key, value] of Object.entries(incomingProfile)) {
+    if (!PROFILE_SETTING_KEYS.has(key)) continue;
+    if (value === undefined || value === null) continue;
+    profileSettings[key] = String(value);
+  }
   return {
     id: client?.id || crypto.randomUUID(),
     name: client?.name || "Client",
     channels: Array.isArray(client?.channels) && client.channels.length ? client.channels : ["Instagram"],
     shareSlug: client?.shareSlug || "client",
-    sharingEnabled: client?.sharingEnabled !== false
+    sharingEnabled: client?.sharingEnabled !== false,
+    profileSettings
   };
 }
 
@@ -217,6 +240,20 @@ export function createStore() {
       notify();
       void syncClient(client);
     },
+    updateClientProfileSettings(clientId, patch) {
+      const target = clients.find((client) => client.id === clientId);
+      if (!target) return;
+      const nextClient = normalizeClient({
+        ...target,
+        profileSettings: {
+          ...(target.profileSettings || {}),
+          ...((patch && typeof patch === "object") ? patch : {})
+        }
+      });
+      clients = clients.map((client) => (client.id === clientId ? nextClient : client));
+      notify();
+      void syncClient(nextClient);
+    },
     setActivePost(id) {
       activePostId = id;
       notify();
@@ -349,6 +386,64 @@ export function createStore() {
         notify();
       }
       return result;
+    },
+    async removePostMedia(postId, mediaId) {
+      const targetPost = posts.find((post) => post.id === postId);
+      if (!targetPost) return;
+
+      const previousPosts = clone(posts);
+      const previousMedia = clone(media);
+
+      posts = posts.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              mediaIds: (post.mediaIds || []).filter((id) => id !== mediaId)
+            }
+          : post
+      );
+      media = media.filter((item) => item.id !== mediaId);
+      notify();
+
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+        await apiDeletePostMedia(authToken, postId, mediaId);
+      } catch (error) {
+        posts = previousPosts;
+        media = previousMedia;
+        notify();
+        reportSyncError("Could not remove media.", error);
+        throw error;
+      }
+    },
+    async reorderPostMedia(postId, orderedMediaIds) {
+      const targetPost = posts.find((post) => post.id === postId);
+      if (!targetPost) return;
+
+      const existing = Array.isArray(targetPost.mediaIds) ? targetPost.mediaIds : [];
+      const owned = new Set(existing);
+      const requested = Array.isArray(orderedMediaIds) ? orderedMediaIds : [];
+      const nextOrder = requested.filter((id) => owned.has(id));
+      const missing = existing.filter((id) => !nextOrder.includes(id));
+      const finalOrder = [...nextOrder, ...missing];
+
+      const previousPosts = clone(posts);
+      posts = posts.map((post) =>
+        post.id === postId
+          ? { ...post, mediaIds: finalOrder }
+          : post
+      );
+      notify();
+
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+        await apiReorderPostMedia(authToken, postId, finalOrder);
+      } catch (error) {
+        posts = previousPosts;
+        notify();
+        reportSyncError("Could not reorder media.", error);
+        throw error;
+      }
     },
     async adminCreateUser(payload) {
       try {

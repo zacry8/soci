@@ -984,3 +984,47 @@
 - **Updated:** 2026-03-26 (latest)
 - **By:** Claude Code
 - **Reason:** Logged IG carousel shell row-model fix that removed large footer/meta gap and caption clipping in the real inspector preview.
+
+### Implementation Snapshot Addendum 38 (2026-03-26)
+- Completed client-unique profile/post preview settings mapping so simulator identity is scoped per client (not global):
+  - Backend persistence + validation:
+    - `backend/db.js`
+      - normalizes and stores `client.profileSettings` per client record
+      - merges partial `profileSettings` patches on client updates without wiping existing keys
+    - `backend/validators.js`
+      - `validateClient()` now validates `profileSettings` as a constrained object with allowed fields and length limits
+  - Frontend state normalization + mapping:
+    - `src/store.js`
+      - normalizes `profileSettings` on client ingest
+      - exposes per-client update path via `updateClientProfileSettings(clientId, patch)`
+    - `src/main.js`
+      - resolves simulator settings from selected/active client using client-derived defaults + persisted client `profileSettings`
+      - defaults are now generic/vague and client-based (`Client`, `brand`, `Profile bio`, `website`) rather than personal-name specific
+    - `src/render.js`
+      - profile simulator and carousel preview shells consume passed `profileSettings` from active client context
+      - profile settings form updates are persisted back to that specific client mapping
+- Verification:
+  - syntax checks pass for touched modules (`backend/db.js`, `backend/validators.js`, `src/store.js`, `src/main.js`, `src/render.js`)
+  - API-level multi-client persistence check confirms independent profile settings values are retained per client
+
+## Last Memory Update
+- **Updated:** 2026-03-26 (latest)
+- **By:** Claude Code
+- **Reason:** Logged client-unique simulator/profile settings mapping and generic client-derived defaults across preview surfaces.
+
+### Implementation Snapshot Addendum 39 (2026-03-26)
+- Agency-MVP polish pass for tenant-safe defaults and presentation:
+  - `src/data.js`
+    - removed remaining personal-name seed values in collaboration defaults
+    - replaced with role-generic defaults for agency use:
+      - `assignee: "Content Lead"`
+      - `reviewer: "Account Lead"`
+  - Confirms client-facing seed/demo content is generic and brand-agnostic while preserving existing workflow behavior.
+- Verification:
+  - syntax check passes for `src/data.js`
+  - source scan confirms no remaining `Zac` / `your_brand` references in `src/*`
+
+## Last Memory Update
+- **Updated:** 2026-03-26 (latest)
+- **By:** Claude Code
+- **Reason:** Logged agency-MVP default cleanup to remove personal seed values and keep client-facing setup generic.

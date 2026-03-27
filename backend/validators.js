@@ -14,6 +14,28 @@ export function validateClient(body) {
     return "shareSlug must be a string up to 100 characters";
   if (body.sharingEnabled !== undefined && typeof body.sharingEnabled !== "boolean")
     return "sharingEnabled must be a boolean";
+  if (body.profileSettings !== undefined) {
+    if (!body.profileSettings || typeof body.profileSettings !== "object" || Array.isArray(body.profileSettings)) {
+      return "profileSettings must be an object";
+    }
+    const limits = {
+      handle: 80,
+      displayName: 120,
+      avatarUrl: 500,
+      followers: 50,
+      following: 50,
+      likes: 50,
+      bio: 400,
+      linkText: 120,
+      linkUrl: 500
+    };
+    const allowed = new Set(Object.keys(limits));
+    for (const [key, value] of Object.entries(body.profileSettings)) {
+      if (!allowed.has(key)) return `profileSettings contains unsupported field: ${key}`;
+      if (typeof value !== "string") return `profileSettings.${key} must be a string`;
+      if (value.length > limits[key]) return `profileSettings.${key} must be at most ${limits[key]} characters`;
+    }
+  }
   return null;
 }
 

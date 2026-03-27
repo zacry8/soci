@@ -322,8 +322,8 @@
             if (baseRatio > 1.91) baseRatio = 1.91; // Max landscape width
             
             const slidesHtml = mediaFiles.map(m => `
-                <div class="w-full shrink-0 snap-center relative flex items-center justify-center bg-gray-100 transform-gpu">
-                    <img src="${m.url}" class="w-full h-full object-cover pointer-events-none transform-gpu" />
+                <div class="w-full h-full shrink-0 snap-center relative flex items-center justify-center overflow-hidden bg-gray-100 transform-gpu">
+                    <img src="${m.url}" class="w-full h-full object-cover object-center pointer-events-none transform-gpu" />
                 </div>
             `).join('');
 
@@ -355,20 +355,20 @@
 
                     <!-- IG Footer Actions -->
                     <div class="p-3 pointer-events-none transform-gpu">
-                        <div class="flex items-center justify-between mb-3 pointer-events-auto">
+                        <div class="relative flex items-center justify-between mb-2 pointer-events-auto">
                             <div class="flex gap-4">
                                 <i data-lucide="heart" class="w-6 h-6"></i>
                                 <i data-lucide="message-circle" class="w-6 h-6"></i>
                                 <i data-lucide="send" class="w-6 h-6"></i>
                             </div>
                             <!-- Dots -->
-                            <div class="flex gap-1 absolute left-1/2 -translate-x-1/2">
+                            <div class="flex gap-1 absolute left-1/2 -translate-x-1/2 pointer-events-none">
                                 ${dotsHtml}
                             </div>
                             <i data-lucide="bookmark" class="w-6 h-6"></i>
                         </div>
-                        <p class="text-sm font-semibold mb-1">1,234 likes</p>
-                        <p class="text-sm"><span class="font-semibold">your_brand</span> Swipe to see the full collection! ✨ #preview</p>
+                        <p class="text-sm font-semibold mb-0.5">1,234 likes</p>
+                        <p class="text-sm leading-snug"><span class="font-semibold">your_brand</span> Swipe to see the full collection! ✨ #preview</p>
                     </div>
                 </div>
             `;

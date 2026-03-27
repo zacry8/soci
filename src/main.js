@@ -6,7 +6,29 @@ const store = createStore();
 const STORAGE_UI_VIEWS = "soci.ui.views.v1";
 const STORAGE_UI_SECTIONS = "soci.ui.sections.v1";
 const STORAGE_THEME = "soci.theme.v1";
-const STORAGE_PROFILE_SETTINGS = "soci.profile.settings.v1";
+const PROFILE_SETTING_KEYS = new Set([
+  "handle",
+  "displayName",
+  "avatarUrl",
+  "followers",
+  "following",
+  "likes",
+  "bio",
+  "linkText",
+  "linkUrl"
+]);
+
+const DEFAULT_PROFILE_SETTINGS = {
+  handle: "brand",
+  displayName: "Client",
+  avatarUrl: "https://picsum.photos/seed/client-avatar/300/300",
+  followers: "—",
+  following: "—",
+  likes: "—",
+  bio: "Profile bio",
+  linkText: "website",
+  linkUrl: "#"
+};
 
 const el = {
   viewToggles: [...document.querySelectorAll("[data-view]")],
@@ -63,17 +85,6 @@ let shareCalendarOffset = 0;
 let lastState = { posts: [], media: [], activePostId: null, clients: [], activeClientId: "", isBootstrapped: false };
 let visibleViews = loadJson(STORAGE_UI_VIEWS, { kanban: true, calendar: true, grid: false });
 let collapsedSections = loadJson(STORAGE_UI_SECTIONS, { workflow: false, schedule: false, preview: false, adminUser: false, leftSidebar: false, rightSidebar: false, inspector: false });
-let profileSettings = loadJson(STORAGE_PROFILE_SETTINGS, {
-  handle: "zacdeck",
-  displayName: "Zac Deck",
-  avatarUrl: "https://picsum.photos/seed/profile/300/300",
-  followers: "1,523",
-  following: "414",
-  likes: "24.2M",
-  bio: "any pronouns or whatevs man 🤙\n@somewhere ✨\nsay that shit !",
-  linkText: "direct.me/zaccy",
-  linkUrl: "#"
-});
 if (typeof collapsedSections.rightSidebar !== "boolean") {
   collapsedSections.rightSidebar = Boolean(collapsedSections.inspector);
 }
@@ -130,6 +141,62 @@ function loadJson(key, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function normalizeProfileSettings(settings = {}) {
+  return { ...DEFAULT_PROFILE_SETTINGS, ...(settings || {}) };
+}
+
+function sanitizeProfileSettingsPatch(patch = {}) {
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) return {};
+  const next = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (!PROFILE_SETTING_KEYS.has(key)) continue;
+    if (value === undefined || value === null) continue;
+    next[key] = String(value);
+  }
+  return next;
+}
+
+function toHandleFromClientName(name = "") {
+  const slug = String(name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+  return slug || DEFAULT_PROFILE_SETTINGS.handle;
+}
+
+function buildClientDerivedProfileDefaults(client) {
+  if (!client) return { ...DEFAULT_PROFILE_SETTINGS };
+  const clientName = String(client.name || "").trim() || DEFAULT_PROFILE_SETTINGS.displayName;
+  const avatarSeed = encodeURIComponent(client.shareSlug || client.id || clientName.toLowerCase());
+  return {
+    ...DEFAULT_PROFILE_SETTINGS,
+    handle: toHandleFromClientName(clientName),
+    displayName: clientName,
+    avatarUrl: `https://picsum.photos/seed/${avatarSeed}/300/300`
+  };
+}
+
+function resolveProfileSettingsForClient(state, clientId = "") {
+  const targetClient =
+    state.clients.find((client) => client.id === clientId) ||
+    state.clients.find((client) => client.id === state.activeClientId) ||
+    state.clients[0] ||
+    null;
+  const clientDefaults = buildClientDerivedProfileDefaults(targetClient);
+  const fromClient = sanitizeProfileSettingsPatch(targetClient?.profileSettings || {});
+  return normalizeProfileSettings({ ...clientDefaults, ...fromClient });
+}
+
+function resolveSimulatorClient(state) {
+  const selectedClientId = filters.clientId || state.activeClientId || state.clients[0]?.id || "";
+  const selectedClient = state.clients.find((client) => client.id === selectedClientId) || null;
+  return {
+    clientId: selectedClient?.id || "",
+    clientName: selectedClient?.name || "All Clients"
+  };
 }
 
 function persistUiState() {
@@ -641,19 +708,32 @@ function paint(state) {
   const visiblePosts = posts.filter(matchesFilters);
   const activePost = posts.find((p) => p.id === state.activePostId) || null;
   const hashtagSuggestions = collectHashtagSuggestions(posts);
+  const simulatorClient = resolveSimulatorClient(state);
+  const simulatorPosts = posts.filter((post) => {
+    if (simulatorClient.clientId && post.clientId !== simulatorClient.clientId) return false;
+    return matchesFilters(post);
+  });
+  const simulatorProfileSettings = resolveProfileSettingsForClient(state, simulatorClient.clientId);
 
   const paintProfileSimulator = () => {
-    renderProfileSimulator(el.grid, visiblePosts, {
+    renderProfileSimulator(el.grid, simulatorPosts, {
       mode: profileMode,
+      clientId: simulatorClient.clientId,
+      clientName: simulatorClient.clientName,
       media: state.media,
-      profileSettings,
+      profileSettings: simulatorProfileSettings,
       onModeChange: (nextMode) => {
         profileMode = nextMode;
         paintProfileSimulator();
       },
       onProfileSettingsChange: (patch) => {
-        profileSettings = { ...profileSettings, ...patch };
-        localStorage.setItem(STORAGE_PROFILE_SETTINGS, JSON.stringify(profileSettings));
+        if (!simulatorClient.clientId) {
+          showToast("Select a client before editing preview settings.", "warning");
+          return;
+        }
+        const safePatch = sanitizeProfileSettingsPatch(patch);
+        if (!Object.keys(safePatch).length) return;
+        store.updateClientProfileSettings(simulatorClient.clientId, safePatch);
       }
     });
   };
@@ -695,6 +775,7 @@ function paint(state) {
     clients: state.clients,
     media: state.media,
     hashtagSuggestions,
+    profileSettings: resolveProfileSettingsForClient(state, activePost?.clientId || simulatorClient.clientId),
     onSave: (patch) => {
       if (!activePost) return;
       const applied = applyStatusRules(patch, activePost);
@@ -718,6 +799,15 @@ function paint(state) {
       if (!activePost) return;
       await store.uploadPostMedia(activePost.id, file);
       showToast("Media uploaded.", "success");
+    },
+    onRemoveMedia: async (mediaId) => {
+      if (!activePost) return;
+      await store.removePostMedia(activePost.id, mediaId);
+      showToast("Media removed.", "success");
+    },
+    onReorderMedia: async (orderedMediaIds) => {
+      if (!activePost) return;
+      await store.reorderPostMedia(activePost.id, orderedMediaIds);
     }
   });
 

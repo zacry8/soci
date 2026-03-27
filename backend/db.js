@@ -16,6 +16,40 @@ const initialState = () => ({
 });
 
 const ALWAYS_ADMIN_EMAILS = new Set(["zac@hommemade.xyz"]);
+const PROFILE_SETTING_KEYS = new Set([
+  "handle",
+  "displayName",
+  "avatarUrl",
+  "followers",
+  "following",
+  "likes",
+  "bio",
+  "linkText",
+  "linkUrl"
+]);
+
+function sanitizeClientProfileSettings(input = {}) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const limits = {
+    handle: 80,
+    displayName: 120,
+    avatarUrl: 500,
+    followers: 50,
+    following: 50,
+    likes: 50,
+    bio: 400,
+    linkText: 120,
+    linkUrl: 500
+  };
+  const next = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (!PROFILE_SETTING_KEYS.has(key)) continue;
+    if (value === undefined || value === null) continue;
+    const str = String(value).trim().slice(0, limits[key] || 200);
+    next[key] = str;
+  }
+  return next;
+}
 
 function applyRolePromotions(state) {
   let changed = false;
@@ -32,6 +66,10 @@ function applyRolePromotions(state) {
 function ensureStateShape(value) {
   const state = { ...initialState(), ...(value || {}) };
   if (!Array.isArray(state.clients)) state.clients = [];
+  state.clients = state.clients.map((client) => ({
+    ...client,
+    profileSettings: sanitizeClientProfileSettings(client?.profileSettings || {})
+  }));
   if (!Array.isArray(state.posts)) state.posts = [];
   if (!Array.isArray(state.media)) state.media = [];
   if (!Array.isArray(state.shareLinks)) state.shareLinks = [];
@@ -115,14 +153,19 @@ export function upsertClient(patch) {
   return enqueue(async () => {
     const state = await loadState();
     const existing = state.clients.find((c) => c.id === patch.id);
+    const mergedProfileSettings = sanitizeClientProfileSettings({
+      ...(existing?.profileSettings || {}),
+      ...((patch && typeof patch.profileSettings === "object" && !Array.isArray(patch.profileSettings)) ? patch.profileSettings : {})
+    });
     const client = existing
-      ? { ...existing, ...patch, updatedAt: now() }
+      ? { ...existing, ...patch, profileSettings: mergedProfileSettings, updatedAt: now() }
       : {
           id: patch.id || id(),
           name: patch.name || "Client",
           channels: Array.isArray(patch.channels) && patch.channels.length ? patch.channels : ["Instagram"],
           shareSlug: patch.shareSlug || String(patch.name || "client").toLowerCase().replace(/[^a-z0-9]+/g, "-"),
           sharingEnabled: patch.sharingEnabled !== false,
+          profileSettings: mergedProfileSettings,
           createdAt: now(),
           updatedAt: now()
         };
@@ -210,6 +253,55 @@ export function addMedia(record) {
     );
     await saveState(state);
     return media;
+  });
+}
+
+export function removeMedia(postId, mediaId) {
+  return enqueue(async () => {
+    const state = await loadState();
+    const post = state.posts.find((p) => p.id === postId);
+    if (!post) return { ok: false, error: "Post not found" };
+
+    const mediaRecord = state.media.find((m) => m.id === mediaId);
+    if (!mediaRecord || mediaRecord.postId !== postId) {
+      return { ok: false, error: "Media not found" };
+    }
+
+    state.media = state.media.filter((m) => m.id !== mediaId);
+    state.posts = state.posts.map((p) =>
+      p.id === postId
+        ? {
+            ...p,
+            mediaIds: (Array.isArray(p.mediaIds) ? p.mediaIds : []).filter((id) => id !== mediaId),
+            updatedAt: now()
+          }
+        : p
+    );
+    await saveState(state);
+    await cleanupMediaFiles([mediaRecord]);
+
+    return { ok: true, removedMediaId: mediaId, postId };
+  });
+}
+
+export function reorderPostMedia(postId, orderedMediaIds = []) {
+  return enqueue(async () => {
+    const state = await loadState();
+    const post = state.posts.find((p) => p.id === postId);
+    if (!post) return null;
+
+    const existing = Array.isArray(post.mediaIds) ? post.mediaIds : [];
+    const ownedSet = new Set(existing);
+    const requested = Array.isArray(orderedMediaIds) ? orderedMediaIds : [];
+
+    const sanitizedOrdered = requested.filter((mediaId) => ownedSet.has(mediaId));
+    const missing = existing.filter((mediaId) => !sanitizedOrdered.includes(mediaId));
+    const nextMediaIds = [...sanitizedOrdered, ...missing];
+
+    const updatedPost = { ...post, mediaIds: nextMediaIds, updatedAt: now() };
+    state.posts = state.posts.map((p) => (p.id === postId ? updatedPost : p));
+    await saveState(state);
+    return updatedPost;
   });
 }
 

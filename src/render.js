@@ -170,9 +170,9 @@ function initInspectorCarouselPreview(root, options = {}) {
   let media = [];
   let captionPayload = { instagram: "", tiktok: "" };
   const profileSettings = {
-    handle: "zacdeck",
-    displayName: "Zac Deck",
-    likes: "24.2M",
+    handle: "brand",
+    displayName: "Client",
+    likes: "—",
     ...(options?.profileSettings || {})
   };
   const postDetails = options?.postDetails || {};
@@ -198,7 +198,7 @@ function initInspectorCarouselPreview(root, options = {}) {
   const compactText = (value = "") => String(value || "").replace(/\s+/g, " ").trim();
   const normalizeHandle = (value = "") => {
     const clean = compactText(value).replace(/^@+/, "");
-    return clean || "zacdeck";
+    return clean || "brand";
   };
   const formatLikes = (value = "") => {
     const raw = compactText(String(value || ""));
@@ -1224,14 +1224,14 @@ export function renderProfileSimulator(root, posts, options) {
   const onProfileSettingsChange = options?.onProfileSettingsChange;
   const mediaMap = buildMediaMap(options?.media || []);
   const profile = {
-    handle: "zacdeck",
-    displayName: "Zac Deck",
-    avatarUrl: "https://picsum.photos/seed/profile/300/300",
-    followers: "1,523",
-    following: "414",
-    likes: "24.2M",
-    bio: "any pronouns or whatevs man 🤙\n@somewhere ✨\nsay that shit !",
-    linkText: "direct.me/zaccy",
+    handle: "brand",
+    displayName: "Client",
+    avatarUrl: "https://picsum.photos/seed/client-avatar/300/300",
+    followers: "—",
+    following: "—",
+    likes: "—",
+    bio: "Profile bio",
+    linkText: "website",
     linkUrl: "#",
     ...(options?.profileSettings || {})
   };

@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createAuthToken, hashPassword, verifyAuthToken } from "../auth.js";
-import { addMedia, createShareLink, deleteClient, deletePost, loadState, upsertClient, upsertMembership, upsertPost, upsertUser } from "../db.js";
+import { addMedia, createShareLink, deleteClient, deletePost, loadState, removeMedia, reorderPostMedia, upsertClient, upsertMembership, upsertPost, upsertUser } from "../db.js";
 import { id, json, readJsonBody, sanitizeFileName, validateFilePath } from "../utils.js";
 import { validateClient, validateMembership, validatePost, validateUser } from "../validators.js";
 
@@ -126,6 +126,31 @@ export function registerAdminRoutes(router, config) {
     if (!params.postId) return json(res, 400, { error: "postId required" });
     await deletePost(params.postId);
     return json(res, 200, { ok: true });
+  });
+
+  // DELETE /api/admin/posts/:postId/media/:mediaId
+  router.delete("/api/admin/posts/:postId/media/:mediaId", async (req, res, params) => {
+    if (!(await requireAdmin(req, res))) return;
+    if (!params.postId || !params.mediaId) return json(res, 400, { error: "postId and mediaId required" });
+    const result = await removeMedia(params.postId, params.mediaId);
+    if (!result?.ok) {
+      const status = result?.error === "Post not found" || result?.error === "Media not found" ? 404 : 400;
+      return json(res, status, { error: result?.error || "Could not remove media" });
+    }
+    return json(res, 200, { ok: true, removedMediaId: params.mediaId, postId: params.postId });
+  });
+
+  // POST /api/admin/posts/:postId/media/reorder
+  router.post("/api/admin/posts/:postId/media/reorder", async (req, res, params) => {
+    if (!(await requireAdmin(req, res))) return;
+    if (!params.postId) return json(res, 400, { error: "postId required" });
+    const body = await readJsonBody(req, config.maxJsonBytes).catch((e) => ({ __error: e?.message || "Invalid JSON" }));
+    if (body?.__error) return json(res, body.__error === "Payload too large" ? 413 : 400, { error: body.__error });
+    if (!Array.isArray(body.mediaIds)) return json(res, 400, { error: "mediaIds array is required" });
+
+    const post = await reorderPostMedia(params.postId, body.mediaIds);
+    if (!post) return json(res, 404, { error: "Post not found" });
+    return json(res, 200, { post });
   });
 
   // DELETE /api/admin/clients/:clientId
