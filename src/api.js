@@ -134,6 +134,22 @@ export async function getMyState(token) {
   return request("/api/me/state", { token });
 }
 
+export async function upsertMyPost(token, payload) {
+  return request("/api/me/posts", { method: "POST", token, body: payload });
+}
+
+export async function deleteMyPostMedia(token, postId, mediaId) {
+  return request(`/api/me/posts/${postId}/media/${mediaId}`, { method: "DELETE", token });
+}
+
+export async function reorderMyPostMedia(token, postId, mediaIds) {
+  return request(`/api/me/posts/${postId}/media/reorder`, {
+    method: "POST",
+    token,
+    body: { mediaIds }
+  });
+}
+
 function toBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

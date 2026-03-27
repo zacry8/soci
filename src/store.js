@@ -3,6 +3,7 @@ import {
   assignMembership,
   createShareLink,
   createUser,
+  deleteMyPostMedia,
   deleteClient as apiDeleteClient,
   deletePostMedia as apiDeletePostMedia,
   deletePost as apiDeletePost,
@@ -12,6 +13,8 @@ import {
   getMyState,
   reorderPostMedia as apiReorderPostMedia,
   getShareCalendar,
+  upsertMyPost,
+  reorderMyPostMedia as apiReorderMyPostMedia,
   resolveApiUrl,
   uploadMedia,
   upsertClient,
@@ -115,6 +118,7 @@ export function createStore() {
   let activePostId = posts[0]?.id ?? null;
   let authToken = "";
   let authUser = getAuthUser();
+  let authContext = { capabilities: {}, permissionsByClient: {} };
   let isBootstrapped = false;
   let errorHandler = null;
   const listeners = new Set();
@@ -128,7 +132,25 @@ export function createStore() {
     for (const listener of listeners) listener(getState());
   };
 
-  const getState = () => ({ posts: clone(posts), media: clone(media), activePostId, clients: clone(clients), activeClientId, isBootstrapped });
+  const getState = () => ({
+    posts: clone(posts),
+    media: clone(media),
+    activePostId,
+    clients: clone(clients),
+    activeClientId,
+    isBootstrapped,
+    authContext: clone(authContext)
+  });
+
+  const canManageAsAdmin = () => ["owner_admin", "admin"].includes(authUser?.role || "");
+  const canPermission = (clientId, minimum = "view") => {
+    if (canManageAsAdmin()) return true;
+    const order = ["view", "comment", "edit", "manage"];
+    const current = authContext?.permissionsByClient?.[clientId] || "";
+    const currentRank = order.indexOf(current);
+    const requiredRank = order.indexOf(minimum);
+    return currentRank >= requiredRank && requiredRank >= 0;
+  };
 
   const maybeBootstrap = async () => {
     if (isBootstrapped) return;
@@ -142,6 +164,12 @@ export function createStore() {
       clients = (state.clients || []).map(normalizeClient);
       posts = (state.posts || []).map((post) => normalizePost(post, clients));
       media = Array.isArray(state.media) ? state.media.map(normalizeMediaRecord) : [];
+      authContext = state.authContext && typeof state.authContext === "object"
+        ? {
+            capabilities: state.authContext.capabilities || {},
+            permissionsByClient: state.authContext.permissionsByClient || {}
+          }
+        : { capabilities: {}, permissionsByClient: {} };
       if (!clients.length && ["owner_admin", "admin"].includes(role)) {
         clients = makeSeedClients().map(normalizeClient);
         posts = makeSeedPosts(clients).map((post) => normalizePost(post, clients));
@@ -166,6 +194,7 @@ export function createStore() {
       clients = makeSeedClients().map(normalizeClient);
       posts = makeSeedPosts(clients).map((post) => normalizePost(post, clients));
       media = [];
+      authContext = { capabilities: {}, permissionsByClient: {} };
       activeClientId = clients[0]?.id || "";
       activePostId = posts[0]?.id || null;
       isBootstrapped = true;
@@ -188,7 +217,9 @@ export function createStore() {
   const syncPost = async (post) => {
     if (!authToken) return;
     try {
-      const res = await upsertPost(authToken, post);
+      const res = canManageAsAdmin()
+        ? await upsertPost(authToken, post)
+        : await upsertMyPost(authToken, post);
       const persisted = normalizePost({ ...post, ...(res.post || {}) }, clients);
       posts = posts.map((p) => (p.id === persisted.id ? persisted : p));
       notify();
@@ -219,6 +250,36 @@ export function createStore() {
     getCurrentUser() {
       return authUser;
     },
+    getAuthContext() {
+      return clone(authContext);
+    },
+    canEditPost(post) {
+      if (!post?.clientId) return false;
+      if (!canPermission(post.clientId, "edit")) return false;
+      if ((authUser?.role || "") === "client_user" && post.visibility === "internal") return false;
+      return true;
+    },
+    canCommentOnPost(post) {
+      if (!post?.clientId) return false;
+      if (!canPermission(post.clientId, "comment")) return false;
+      if ((authUser?.role || "") === "client_user" && post.visibility === "internal") return false;
+      return true;
+    },
+    canManageUsers() {
+      if (canManageAsAdmin()) return true;
+      return Boolean(authContext?.capabilities?.canManageUsers);
+    },
+    canManageClients() {
+      if (canManageAsAdmin()) return true;
+      return Boolean(authContext?.capabilities?.canManageClients);
+    },
+    canCreatePosts() {
+      if (canManageAsAdmin()) return true;
+      if (typeof authContext?.capabilities?.canCreatePosts === "boolean") {
+        return authContext.capabilities.canCreatePosts;
+      }
+      return Object.keys(authContext?.permissionsByClient || {}).some((clientId) => canPermission(clientId, "edit"));
+    },
     subscribe(listener) {
       listeners.add(listener);
       listener(getState());
@@ -226,6 +287,7 @@ export function createStore() {
       return () => listeners.delete(listener);
     },
     createPost() {
+      if (!this.canCreatePosts()) return;
       const post = createEmptyPost(activeClientId || clients[0]?.id || "");
       setPosts([post, ...posts]);
       activePostId = post.id;
@@ -233,6 +295,7 @@ export function createStore() {
       void syncPost(post);
     },
     createClient(name) {
+      if (!this.canManageClients()) return;
       const client = createEmptyClient(name?.trim() || "New Client");
       setClients([client, ...clients]);
       activeClientId = client.id;
@@ -265,6 +328,8 @@ export function createStore() {
       notify();
     },
     updatePost(id, patch) {
+      const existing = posts.find((p) => p.id === id);
+      if (!this.canEditPost(existing)) return;
       const next = posts.map((p) => (p.id === id ? { ...p, ...patch } : p));
       setPosts(next);
       const updated = posts.find((p) => p.id === id);
@@ -274,6 +339,7 @@ export function createStore() {
       if (!STATUSES.includes(status)) return;
       const post = posts.find((p) => p.id === id);
       if (!post) return;
+      if (!this.canEditPost(post)) return;
       if (!post.clientId) return;
       if ((status === "in-review" || status === "ready") && !post.scheduleDate) return;
       if (status === "ready" && !post.checklist.approval) return;
@@ -284,6 +350,8 @@ export function createStore() {
     },
     addComment(id, author, text) {
       if (!text.trim()) return;
+      const existing = posts.find((p) => p.id === id);
+      if (!this.canCommentOnPost(existing)) return;
       const next = posts.map((p) =>
           p.id === id
             ? { ...p, comments: [...p.comments, { author: author || "Teammate", text, at: new Date().toISOString() }] }
@@ -294,6 +362,7 @@ export function createStore() {
       if (updated) void syncPost(updated);
     },
     deletePost(id) {
+      if (!canManageAsAdmin()) return;
       const next = posts.filter((p) => p.id !== id);
       if (activePostId === id) activePostId = next[0]?.id ?? null;
       setPosts(next);
@@ -304,6 +373,7 @@ export function createStore() {
       }
     },
     deleteClient(id) {
+      if (!canManageAsAdmin()) return;
       const nextPosts = posts.filter((p) => p.clientId !== id);
       const nextMedia = media.filter((m) => nextPosts.some((p) => p.mediaIds?.includes(m.id)));
       posts = nextPosts;
@@ -318,6 +388,7 @@ export function createStore() {
     duplicatePost(id) {
       const original = posts.find((p) => p.id === id);
       if (!original) return;
+      if (!this.canEditPost(original)) return;
       const stamp = new Date().toISOString();
       const copy = {
         ...structuredClone(original),
@@ -390,6 +461,9 @@ export function createStore() {
     async removePostMedia(postId, mediaId) {
       const targetPost = posts.find((post) => post.id === postId);
       if (!targetPost) return;
+      if (!this.canEditPost(targetPost)) {
+        throw new Error("Insufficient permissions");
+      }
 
       const previousPosts = clone(posts);
       const previousMedia = clone(media);
@@ -407,7 +481,11 @@ export function createStore() {
 
       try {
         if (!authToken) authToken = await ensureAdminToken();
-        await apiDeletePostMedia(authToken, postId, mediaId);
+        if (canManageAsAdmin()) {
+          await apiDeletePostMedia(authToken, postId, mediaId);
+        } else {
+          await deleteMyPostMedia(authToken, postId, mediaId);
+        }
       } catch (error) {
         posts = previousPosts;
         media = previousMedia;
@@ -419,6 +497,9 @@ export function createStore() {
     async reorderPostMedia(postId, orderedMediaIds) {
       const targetPost = posts.find((post) => post.id === postId);
       if (!targetPost) return;
+      if (!this.canEditPost(targetPost)) {
+        throw new Error("Insufficient permissions");
+      }
 
       const existing = Array.isArray(targetPost.mediaIds) ? targetPost.mediaIds : [];
       const owned = new Set(existing);
@@ -437,7 +518,11 @@ export function createStore() {
 
       try {
         if (!authToken) authToken = await ensureAdminToken();
-        await apiReorderPostMedia(authToken, postId, finalOrder);
+        if (canManageAsAdmin()) {
+          await apiReorderPostMedia(authToken, postId, finalOrder);
+        } else {
+          await apiReorderMyPostMedia(authToken, postId, finalOrder);
+        }
       } catch (error) {
         posts = previousPosts;
         notify();

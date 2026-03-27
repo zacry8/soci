@@ -1028,3 +1028,160 @@
 - **Updated:** 2026-03-26 (latest)
 - **By:** Claude Code
 - **Reason:** Logged agency-MVP default cleanup to remove personal seed values and keep client-facing setup generic.
+
+### Implementation Snapshot Addendum 40 (2026-03-27)
+- Implemented storage durability hardening for media + JSON persistence safety:
+  - Startup/storage config hardening:
+    - `backend/config.js`
+      - added backup-related config keys:
+        - `backupDir`
+        - `backupDataFile`
+        - `backupUploadDir`
+        - `backupManifestVersion`
+    - `backend/server.js`
+      - added startup storage layout checks/creation for runtime + backup directories
+      - added warning when backup source paths diverge from runtime `DATA_FILE` / `UPLOAD_DIR`
+  - Backup reliability upgrade:
+    - `scripts/backup.sh`
+      - now supports env-driven source/target paths (`APP_DIR`, `BACKUP_DIR`, `BACKUP_DATA_FILE`, `BACKUP_UPLOAD_DIR`)
+      - fail-fast validation for missing DB/uploads source paths
+      - validates `db.json` parse before archiving
+      - generates `manifest.json` with deterministic file list + SHA-256 checksums
+      - captures summary metadata (counts/bytes, timestamp, hostname, best-effort git commit)
+      - supports optional `POST_BACKUP_HOOK` for off-host copy/replication
+  - Restore confidence + integrity tooling:
+    - added `scripts/verify-backup.sh`
+      - validates archive structure (`manifest.json`, `db.json`)
+      - verifies checksum + size for all manifest entries
+      - validates DB media references resolve to files inside backup payload
+    - added `scripts/check-storage-integrity.mjs`
+      - checks live DB/uploads consistency
+      - flags missing media files, dangling post→media references, duplicate media IDs, and orphan files
+  - Documentation + environment updates:
+    - `.env.example`
+      - documented backup env keys and optional post-backup hook
+    - `DEPLOYMENT.md`
+      - replaced simple backup section with verified-backup runbook
+      - added nightly backup + weekly verify + weekly integrity-check cron examples
+      - added manual operational commands for backup/verify/integrity workflows
+- Validation:
+  - syntax/lint-level checks pass for updated scripts and backend modules:
+    - `node --check backend/server.js`
+    - `node --check backend/config.js`
+    - `bash -n scripts/backup.sh`
+    - `bash -n scripts/verify-backup.sh`
+    - `node --check scripts/check-storage-integrity.mjs`
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged storage durability hardening (verified backups + checksum manifests + restore verification + live integrity scanner + backup path safety checks).
+
+### Implementation Snapshot Addendum 41 (2026-03-27)
+- Executed full local end-to-end durability workflow against project paths:
+  - Backup command run with explicit project-scoped env paths:
+    - `APP_DIR=/Users/zacry/Documents/VSCode Projects/Soci`
+    - `BACKUP_DIR=/Users/zacry/Documents/VSCode Projects/Soci/backups`
+    - `BACKUP_DATA_FILE=/Users/zacry/Documents/VSCode Projects/Soci/backend/data/db.json`
+    - `BACKUP_UPLOAD_DIR=/Users/zacry/Documents/VSCode Projects/Soci/backend/uploads`
+  - Results:
+    - backup archive created successfully:
+      - `backups/soci-backup-20260327-003754.tar.gz`
+    - backup verification succeeded:
+      - `manifestVersion: 1`
+      - `filesVerified: 2`
+      - `mediaReferencesChecked: 1`
+    - live integrity check succeeded with zero drift:
+      - `missingUploadFiles: 0`
+      - `orphanUploadFiles: 0`
+      - `warnings: 0`
+      - `errors: 0`
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged successful end-to-end backup → verify → integrity execution and recorded resulting archive/check metrics.
+
+### Implementation Snapshot Addendum 42 (2026-03-27)
+- Implemented Phase 1 permission hardening across backend + frontend for safer multi-user client operations:
+  - Backend scope/permission core:
+    - added `backend/permissions.js` with centralized helpers:
+      - `buildAccessContext(state, user)`
+      - `canAccessClient(...)`
+      - `canAccessPost(...)`
+      - capability map generation (`getCapabilities(...)`)
+  - Backend me-scope route expansion and enforcement (`backend/routes/me.js`):
+    - added role-scoped capability payload in `GET /api/me/state`:
+      - `authContext.capabilities`
+      - `authContext.permissionsByClient`
+    - added and enforced edit path for non-admin scoped users:
+      - `POST /api/me/posts`
+      - prevents cross-client post reassignment by non-admin users
+    - added and enforced media mutation paths for non-admin scoped users:
+      - `DELETE /api/me/posts/:postId/media/:mediaId`
+      - `POST /api/me/posts/:postId/media/reorder`
+    - comment path now uses centralized post-access checks
+  - Frontend API surface (`src/api.js`):
+    - added me-scope methods:
+      - `upsertMyPost(...)`
+      - `deleteMyPostMedia(...)`
+      - `reorderMyPostMedia(...)`
+  - Frontend store authorization behavior (`src/store.js`):
+    - ingests and stores `authContext` from backend state
+    - added capability helpers:
+      - `canEditPost`, `canCommentOnPost`, `canManageUsers`, `canManageClients`, `canCreatePosts`
+    - routes non-admin post/media writes to me-scope APIs
+    - blocks unauthorized create/edit/comment/delete/duplicate actions in store layer
+  - Frontend UI permission gating (`src/main.js`, `src/render.js`):
+    - top-level action controls now disable/hide by capability:
+      - create post, create client, share/export controls, manage users
+    - inspector now receives explicit permission object and disables restricted controls:
+      - save, duplicate, delete, comment, upload, media delete, platform/settings inputs
+      - carousel reorder callback only wired when allowed
+  - Capability alignment fix:
+    - `canUploadMedia` in `backend/permissions.js` is admin-only to match current `/api/admin/media` route scope.
+- Validation:
+  - syntax checks pass:
+    - `node --check backend/permissions.js`
+    - `node --check backend/routes/me.js`
+    - `node --check src/api.js`
+    - `node --check src/store.js`
+    - `node --check src/main.js`
+    - `node --check src/render.js`
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged Phase 1 permission hardening implementation (centralized scope checks, me-scope mutation endpoints, frontend capability gating, and syntax validation).
+
+### Implementation Snapshot Addendum 43 (2026-03-27)
+- Ran full role-based runtime smoke verification for permission hardening using isolated local API runtime:
+  - ephemeral server config:
+    - `PORT=8791`
+    - isolated DB: `backend/data/permission-smoke-db.json`
+    - isolated uploads: `backend/uploads-smoke`
+  - server startup/log:
+    - API base: `http://localhost:8791`
+    - log file: `backend/data/permission-smoke-server.log`
+- Verified pass conditions by role:
+  - Owner/Admin:
+    - login succeeds
+    - create client/post/users/memberships succeeds
+  - Helper (`helper_staff` with `view/comment/edit`):
+    - `GET /api/me/state` succeeds with `canCreatePosts=true`
+    - scoped post edit/create succeeds
+    - cross-client move attempt is blocked (`403`)
+    - admin-state access blocked (`401`)
+  - Client (`client_user` with `view/comment`):
+    - `GET /api/me/state` succeeds with `canCreatePosts=false`
+    - internal posts are not returned in scoped state
+    - create post blocked (`403`)
+    - edit internal post blocked (`403`)
+    - comment on shareable post succeeds (`200`)
+- Outcome:
+  - role-scoped permission model is functionally validated for core allow/deny flows.
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged successful end-to-end runtime role smoke tests for owner/helper/client permission behavior.

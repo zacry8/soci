@@ -127,15 +127,54 @@ Frontend will call API at `https://api.yourdomain.com` (prompted at first login 
 
 ---
 
-## 5) Backups (critical for JSON + uploads)
-Use a nightly cron to archive:
-- `backend/data/db.json`
-- `backend/uploads/`
+## 5) Backups + Restore Verification (critical)
 
-Example script in `scripts/backup.sh` + cron entry:
+Soci now supports **verifiable backups** with:
+- `db.json` JSON validation before archive
+- `manifest.json` including sha256 checksums for DB + uploads
+- optional post-backup replication hook (`POST_BACKUP_HOOK`)
+
+Backup-related env vars:
+- `BACKUP_DIR` (default `/backups`)
+- `BACKUP_DATA_FILE` (should match live `DATA_FILE`)
+- `BACKUP_UPLOAD_DIR` (should match live `UPLOAD_DIR`)
+- `BACKUP_MANIFEST_VERSION` (default `1`)
+
+### Recommended cron schedule
+
+Nightly backup:
 ```bash
-0 2 * * * /var/www/soci/scripts/backup.sh >> /var/www/soci/backup.log 2>&1
+0 2 * * * APP_DIR=/var/www/soci BACKUP_DIR=/var/www/soci/backups BACKUP_DATA_FILE=/data/db.json BACKUP_UPLOAD_DIR=/uploads /var/www/soci/scripts/backup.sh >> /var/www/soci/backup.log 2>&1
 ```
+
+Weekly backup verification drill (latest archive):
+```bash
+0 3 * * 0 /bin/bash -lc 'latest=$(ls -1t /var/www/soci/backups/soci-backup-*.tar.gz | head -n1) && /var/www/soci/scripts/verify-backup.sh "$latest"' >> /var/www/soci/backup-verify.log 2>&1
+```
+
+Weekly live storage integrity scan:
+```bash
+15 3 * * 0 /bin/bash -lc 'DATA_FILE=/data/db.json UPLOAD_DIR=/uploads node /var/www/soci/scripts/check-storage-integrity.mjs' >> /var/www/soci/storage-integrity.log 2>&1
+```
+
+### Manual commands
+
+Create backup:
+```bash
+APP_DIR=/var/www/soci BACKUP_DIR=/var/www/soci/backups BACKUP_DATA_FILE=/data/db.json BACKUP_UPLOAD_DIR=/uploads /var/www/soci/scripts/backup.sh
+```
+
+Verify a backup archive:
+```bash
+/var/www/soci/scripts/verify-backup.sh /var/www/soci/backups/soci-backup-YYYYMMDD-HHMMSS.tar.gz
+```
+
+Scan live DB/uploads consistency:
+```bash
+DATA_FILE=/data/db.json UPLOAD_DIR=/uploads node /var/www/soci/scripts/check-storage-integrity.mjs
+```
+
+> Keep at least one off-host copy (via `POST_BACKUP_HOOK`) to avoid single-server disaster loss.
 
 ---
 

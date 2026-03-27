@@ -691,6 +691,15 @@ export function renderInspector(root, post, handlers) {
       `;
     }).join("")}</ul>`
     : `<div class="subtle" class="fs-xs-fixed">No media uploaded yet.</div>`;
+  const permissions = {
+    canEdit: true,
+    canComment: true,
+    canDelete: true,
+    canDuplicate: true,
+    canUploadMedia: true,
+    canReorderMedia: true,
+    ...(handlers?.permissions || {})
+  };
 
   root.innerHTML = `
     <div id="form-errors" class="form-errors hidden" role="alert"></div>
@@ -724,20 +733,20 @@ export function renderInspector(root, post, handlers) {
       </section>
 
       <p class="section-title">Caption &amp; Content</p>
-      <div class="field"><label for="f-title">Title</label><input id="f-title" value="${escapeHtml(post.title)}" /></div>
+      <div class="field"><label for="f-title">Title</label><input id="f-title" value="${escapeHtml(post.title)}" ${permissions.canEdit ? "" : "disabled"} /></div>
       <div class="field">
         <label for="f-media-file">Media Upload</label>
-        <div class="media-dropzone" id="f-media-dropzone" tabindex="0" role="button" aria-label="Upload media">
+        <div class="media-dropzone" id="f-media-dropzone" tabindex="0" role="button" aria-label="Upload media" ${permissions.canUploadMedia ? "" : "aria-disabled=\"true\""}>
           <div>
             <strong>Drop media here</strong>
             <div class="subtle">or click to browse image/video/PDF</div>
           </div>
         </div>
-        <input id="f-media-file" type="file" hidden accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm,.pdf" />
+        <input id="f-media-file" type="file" hidden accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm,.pdf" ${permissions.canUploadMedia ? "" : "disabled"} />
         <div id="f-media-status" class="subtle" class="fs-xs-fixed"></div>
         ${mediaListHtml}
       </div>
-      <div class="field"><label for="f-caption">Caption</label><textarea id="f-caption" class="auto-grow">${escapeHtml(post.caption)}</textarea></div>
+      <div class="field"><label for="f-caption">Caption</label><textarea id="f-caption" class="auto-grow" ${permissions.canEdit ? "" : "disabled"}>${escapeHtml(post.caption)}</textarea></div>
       ${suggestionHtml ? `<div class="hashtag-suggestions">${suggestionHtml}</div>` : ""}
       <div class="field">
         <p class="section-title section-title-tight">Platform Captions</p>
@@ -749,29 +758,29 @@ export function renderInspector(root, post, handlers) {
       <p class="section-title">Settings &amp; Specifics</p>
       <div class="field"><span class="variant-field-label">Platforms</span>
         <div class="platform-toggles">
-          ${PLATFORM_OPTIONS.map((p) => `<button type="button" class="platform-toggle${post.platforms.includes(p) ? " active" : ""}" data-platform="${escapeHtml(p)}">${escapeHtml(p)}</button>`).join("")}
+          ${PLATFORM_OPTIONS.map((p) => `<button type="button" class="platform-toggle${post.platforms.includes(p) ? " active" : ""}" data-platform="${escapeHtml(p)}" ${permissions.canEdit ? "" : "disabled"}>${escapeHtml(p)}</button>`).join("")}
         </div>
       </div>
       <div class="field">
         <label for="f-tags">Tags</label>
-        <input id="f-tags" value="${escapeHtml(post.tags.join(", "))}" placeholder="e.g. branding, portfolio" />
+        <input id="f-tags" value="${escapeHtml(post.tags.join(", "))}" placeholder="e.g. branding, portfolio" ${permissions.canEdit ? "" : "disabled"} />
         <span class="field-hint">Separate tags with commas</span>
       </div>
       <div class="row inspector-single">
         <div class="field"><label for="f-status">Status</label>
-          <select id="f-status">${STATUSES.map((s) => `<option value="${s}" ${post.status === s ? "selected" : ""}>${STATUS_LABELS[s]}</option>`).join("")}</select>
+          <select id="f-status" ${permissions.canEdit ? "" : "disabled"}>${STATUSES.map((s) => `<option value="${s}" ${post.status === s ? "selected" : ""}>${STATUS_LABELS[s]}</option>`).join("")}</select>
         </div>
-        <div class="field"><label for="f-date">Schedule Date</label><input id="f-date" type="date" value="${post.scheduleDate || ""}" /></div>
+        <div class="field"><label for="f-date">Schedule Date</label><input id="f-date" type="date" value="${post.scheduleDate || ""}" ${permissions.canEdit ? "" : "disabled"} /></div>
       </div>
       <div class="row inspector-single">
         <div class="field"><label for="f-client-id">Client</label>
-          <select id="f-client-id">
+          <select id="f-client-id" ${permissions.canEdit ? "" : "disabled"}>
             <option value="">Unassigned</option>
             ${clients.map((client) => `<option value="${client.id}" ${post.clientId === client.id ? "selected" : ""}>${escapeHtml(client.name)}</option>`).join("")}
           </select>
         </div>
         <div class="field"><label for="f-visibility">Visibility</label>
-          <select id="f-visibility">
+          <select id="f-visibility" ${permissions.canEdit ? "" : "disabled"}>
             <option value="client-shareable" ${post.visibility === "client-shareable" ? "selected" : ""}>Client Shareable</option>
             <option value="internal" ${post.visibility === "internal" ? "selected" : ""}>Internal Only</option>
           </select>
@@ -779,18 +788,18 @@ export function renderInspector(root, post, handlers) {
       </div>
       <div class="row inspector-single">
         <div class="field"><label for="f-publish-state">Publish State</label>
-          <select id="f-publish-state">
+          <select id="f-publish-state" ${permissions.canEdit ? "" : "disabled"}>
             <option value="draft" ${post.publishState === "draft" ? "selected" : ""}>Draft</option>
             <option value="scheduled" ${post.publishState === "scheduled" ? "selected" : ""}>Scheduled</option>
             <option value="published" ${post.publishState === "published" ? "selected" : ""}>Published</option>
           </select>
         </div>
-        <div class="field"><label for="f-published-at">Published At</label><input id="f-published-at" type="datetime-local" value="${post.publishedAt ? post.publishedAt.slice(0, 16) : ""}" /></div>
+        <div class="field"><label for="f-published-at">Published At</label><input id="f-published-at" type="datetime-local" value="${post.publishedAt ? post.publishedAt.slice(0, 16) : ""}" ${permissions.canEdit ? "" : "disabled"} /></div>
       </div>
       <div class="row inspector-single">
-        <div class="field"><label for="f-scheduled-at">Scheduled At</label><input id="f-scheduled-at" type="datetime-local" value="${post.scheduledAt ? post.scheduledAt.slice(0, 16) : ""}" /></div>
+        <div class="field"><label for="f-scheduled-at">Scheduled At</label><input id="f-scheduled-at" type="datetime-local" value="${post.scheduledAt ? post.scheduledAt.slice(0, 16) : ""}" ${permissions.canEdit ? "" : "disabled"} /></div>
         <div class="field"><label for="f-post-type">Post Type</label>
-          <select id="f-post-type">
+          <select id="f-post-type" ${permissions.canEdit ? "" : "disabled"}>
             ${POST_TYPE_OPTIONS.map((option) => `<option value="${escapeHtml(option.value)}" ${normalizedPostType === option.value ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
           </select>
         </div>
@@ -800,14 +809,14 @@ export function renderInspector(root, post, handlers) {
     <section class="inspector-pane hidden" data-inspector-pane="collaboration">
       <p class="section-title">Collaboration</p>
       <div class="row inspector-single">
-        <div class="field"><label for="f-assignee">Assignee</label><input id="f-assignee" value="${escapeHtml(post.assignee || "")}" /></div>
-        <div class="field"><label for="f-reviewer">Reviewer</label><input id="f-reviewer" value="${escapeHtml(post.reviewer || "")}" /></div>
+        <div class="field"><label for="f-assignee">Assignee</label><input id="f-assignee" value="${escapeHtml(post.assignee || "")}" ${permissions.canEdit ? "" : "disabled"} /></div>
+        <div class="field"><label for="f-reviewer">Reviewer</label><input id="f-reviewer" value="${escapeHtml(post.reviewer || "")}" ${permissions.canEdit ? "" : "disabled"} /></div>
       </div>
 
       <hr>
       <p class="section-title">Publish Readiness</p>
       <div class="checklist">
-        ${checklistKeys.map((key) => `<label><input type="checkbox" id="c-${key}" ${post.checklist[key] ? "checked" : ""}/> ${CHECKLIST_LABELS[key]}</label>`).join("")}
+        ${checklistKeys.map((key) => `<label><input type="checkbox" id="c-${key}" ${post.checklist[key] ? "checked" : ""} ${permissions.canEdit ? "" : "disabled"}/> ${CHECKLIST_LABELS[key]}</label>`).join("")}
       </div>
 
       <hr>
@@ -815,17 +824,17 @@ export function renderInspector(root, post, handlers) {
       ${commentHtml || `<div class="subtle">No comments yet.</div>`}
       <div id="comment-error" class="comment-error hidden"></div>
       <div class="row inspector-single mt-8">
-        <div class="field"><label for="c-author">Author</label><input id="c-author" placeholder="Name" /></div>
-        <div class="field"><label for="c-text">Comment</label><textarea id="c-text" placeholder="Write a comment"></textarea></div>
+        <div class="field"><label for="c-author">Author</label><input id="c-author" placeholder="Name" ${permissions.canComment ? "" : "disabled"} /></div>
+        <div class="field"><label for="c-text">Comment</label><textarea id="c-text" placeholder="Write a comment" ${permissions.canComment ? "" : "disabled"}></textarea></div>
       </div>
-      <button class="add-btn" id="add-comment">Add Comment</button>
+      <button class="add-btn" id="add-comment" ${permissions.canComment ? "" : "disabled"}>Add Comment</button>
     </section>
 
     <hr>
     <div class="inspector-actions">
-      <button class="save" id="save-post">Save Changes</button>
-      <button class="btn-secondary" id="duplicate-post" title="Duplicate post">Duplicate</button>
-      <button class="btn-danger" id="delete-post" title="Delete post">Delete Post</button>
+      <button class="save" id="save-post" ${permissions.canEdit ? "" : "disabled"}>Save Changes</button>
+      <button class="btn-secondary" id="duplicate-post" title="Duplicate post" ${permissions.canDuplicate ? "" : "disabled"}>Duplicate</button>
+      <button class="btn-danger" id="delete-post" title="Delete post" ${permissions.canDelete ? "" : "disabled"}>Delete Post</button>
     </div>
   `;
 
@@ -844,6 +853,7 @@ export function renderInspector(root, post, handlers) {
   }
   for (const btn of toggles) {
     btn.addEventListener("click", () => {
+      if (!permissions.canEdit) return;
       btn.classList.toggle("active");
       refreshVariantFields();
     });
@@ -894,6 +904,7 @@ export function renderInspector(root, post, handlers) {
 
   // Save
   root.querySelector("#save-post").addEventListener("click", () => {
+    if (!permissions.canEdit) return;
     const formErrors = [];
     const selectedPlatforms = getSelectedPlatforms();
     if (!selectedPlatforms.length) selectedPlatforms.push("Instagram");
@@ -965,6 +976,7 @@ export function renderInspector(root, post, handlers) {
 
   // Add comment with validation
   root.querySelector("#add-comment").addEventListener("click", () => {
+    if (!permissions.canComment) return;
     const author = root.querySelector("#c-author").value.trim();
     const text = root.querySelector("#c-text").value.trim();
     const commentError = root.querySelector("#comment-error");
@@ -979,11 +991,13 @@ export function renderInspector(root, post, handlers) {
 
   // Duplicate
   root.querySelector("#duplicate-post").addEventListener("click", () => {
+    if (!permissions.canDuplicate) return;
     handlers.onDuplicate?.(post.id);
   });
 
   // Delete with confirmation
   root.querySelector("#delete-post").addEventListener("click", () => {
+    if (!permissions.canDelete) return;
     if (confirm(`Delete "${post.title}"? This cannot be undone.`)) {
       handlers.onDelete?.(post.id);
     }
@@ -995,6 +1009,10 @@ export function renderInspector(root, post, handlers) {
   async function processMediaFile(file) {
     if (!file) return;
     if (!handlers.onUploadMedia) return;
+    if (!permissions.canUploadMedia) {
+      mediaStatus.textContent = "You do not have permission to upload media.";
+      return;
+    }
     if (!ALLOWED_UPLOAD_MIME_TYPES.has(file.type)) {
       mediaStatus.textContent = `Unsupported file type (${file.type || "unknown"}). Allowed: JPG, PNG, GIF, WEBP, MP4, MOV, WEBM, PDF.`;
       return;
@@ -1012,9 +1030,13 @@ export function renderInspector(root, post, handlers) {
     }
   }
 
-  mediaDropzone?.addEventListener("click", () => mediaInput?.click());
+  mediaDropzone?.addEventListener("click", () => {
+    if (!permissions.canUploadMedia) return;
+    mediaInput?.click();
+  });
   mediaDropzone?.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
+      if (!permissions.canUploadMedia) return;
       event.preventDefault();
       mediaInput?.click();
     }
@@ -1027,6 +1049,7 @@ export function renderInspector(root, post, handlers) {
   mediaDropzone?.addEventListener("drop", async (event) => {
     event.preventDefault();
     mediaDropzone.classList.remove("drag-over");
+    if (!permissions.canUploadMedia) return;
     const file = event.dataTransfer?.files?.[0];
     await processMediaFile(file);
   });
@@ -1038,6 +1061,10 @@ export function renderInspector(root, post, handlers) {
   });
 
   root.querySelectorAll("[data-media-delete]").forEach((button) => {
+    if (!permissions.canEdit) {
+      button.setAttribute("disabled", "disabled");
+      return;
+    }
     button.addEventListener("click", async () => {
       const mediaId = button.getAttribute("data-media-delete") || "";
       if (!mediaId || !handlers.onRemoveMedia) return;
@@ -1058,7 +1085,7 @@ export function renderInspector(root, post, handlers) {
       publishState: post.publishState,
       postType: post.postType
     },
-    onReorderSlides: handlers?.onReorderMedia
+    onReorderSlides: permissions.canReorderMedia ? handlers?.onReorderMedia : null
   });
   window.lucide?.createIcons();
 }

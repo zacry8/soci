@@ -16,5 +16,9 @@ export const config = {
   adminEmail: process.env.ADMIN_EMAIL || "admin@soci.local",
   adminPassword: process.env.ADMIN_PASSWORD || "change-me-now",
   dataFile: process.env.DATA_FILE || path.join(rootDir, "backend", "data", "db.json"),
-  uploadDir: process.env.UPLOAD_DIR || path.join(rootDir, "backend", "uploads")
+  uploadDir: process.env.UPLOAD_DIR || path.join(rootDir, "backend", "uploads"),
+  backupDir: process.env.BACKUP_DIR || path.join(rootDir, "backups"),
+  backupDataFile: process.env.BACKUP_DATA_FILE || process.env.DATA_FILE || path.join(rootDir, "backend", "data", "db.json"),
+  backupUploadDir: process.env.BACKUP_UPLOAD_DIR || process.env.UPLOAD_DIR || path.join(rootDir, "backend", "uploads"),
+  backupManifestVersion: Number(process.env.BACKUP_MANIFEST_VERSION || 1)
 };

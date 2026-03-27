@@ -432,6 +432,7 @@ function applyUiState() {
 }
 
 function canManageUsers() {
+  if (typeof store.canManageUsers === "function") return store.canManageUsers();
   const role = store.getCurrentUser()?.role || "";
   return ADMIN_ROLES.has(role);
 }
@@ -440,6 +441,28 @@ function syncRoleActions() {
   if (el.manageUsers) el.manageUsers.classList.toggle("hidden", !canManageUsers());
   if (!canManageUsers()) {
     el.adminUserPanel?.classList.add("hidden");
+  }
+}
+
+function syncActionPermissions(state) {
+  const canCreatePosts = typeof store.canCreatePosts === "function" ? store.canCreatePosts() : true;
+  const canManageClients = typeof store.canManageClients === "function" ? store.canManageClients() : true;
+  if (el.createBtn) {
+    el.createBtn.disabled = !canCreatePosts;
+    el.createBtn.title = canCreatePosts ? "" : "You do not have permission to create posts.";
+  }
+  if (el.newClient) {
+    el.newClient.disabled = !canManageClients;
+    el.newClient.title = canManageClients ? "" : "You do not have permission to create clients.";
+  }
+  if (el.copyShareLink) el.copyShareLink.disabled = !canManageUsers();
+  if (el.exportCsv) el.exportCsv.disabled = !canManageUsers();
+  if (el.exportIcs) el.exportIcs.disabled = !canManageUsers();
+
+  const authContext = state?.authContext || {};
+  const canUploadAny = authContext?.capabilities?.canUploadMedia;
+  if (typeof canUploadAny === "boolean") {
+    document.body.classList.toggle("no-upload-permission", !canUploadAny);
   }
 }
 
@@ -519,9 +542,19 @@ el.reopenRightSidebar.addEventListener("click", () => {
   applyUiState();
 });
 
-el.createBtn.addEventListener("click", () => store.createPost());
+el.createBtn.addEventListener("click", () => {
+  if (typeof store.canCreatePosts === "function" && !store.canCreatePosts()) {
+    showToast("You do not have permission to create posts.", "warning");
+    return;
+  }
+  store.createPost();
+});
 
 el.newClient.addEventListener("click", () => {
+  if (typeof store.canManageClients === "function" && !store.canManageClients()) {
+    showToast("You do not have permission to create clients.", "warning");
+    return;
+  }
   const name = prompt("Client name:");
   if (!name?.trim()) return;
   store.createClient(name.trim());
@@ -688,6 +721,7 @@ function paint(state) {
 
   document.body.classList.remove("share-mode");
   syncRoleActions();
+  syncActionPermissions(state);
   if (!state.isBootstrapped) {
     el.viewTitle.textContent = "Planning Workspace";
     el.stats.textContent = "Connecting to API...";
@@ -780,6 +814,14 @@ function paint(state) {
     clients: state.clients,
     media: state.media,
     hashtagSuggestions,
+    permissions: {
+      canEdit: activePost ? store.canEditPost(activePost) : false,
+      canComment: activePost ? store.canCommentOnPost(activePost) : false,
+      canDelete: canManageUsers(),
+      canDuplicate: activePost ? store.canEditPost(activePost) : false,
+      canUploadMedia: Boolean(state?.authContext?.capabilities?.canUploadMedia) && (activePost ? store.canEditPost(activePost) : false),
+      canReorderMedia: activePost ? store.canEditPost(activePost) : false
+    },
     profileSettings: resolveProfileSettingsForClient(state, activePost?.clientId || simulatorClient.clientId),
     onSave: (patch) => {
       if (!activePost) return;

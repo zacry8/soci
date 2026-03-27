@@ -1,4 +1,6 @@
 import http from "node:http";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { config } from "./config.js";
 import { createRouter } from "./router.js";
 import { registerHealthRoutes } from "./routes/health.js";
@@ -16,6 +18,31 @@ if (config.authSecret === "replace-this-in-production") {
 if (config.adminPassword === "change-me-now") {
   throw new Error("[soci] ADMIN_PASSWORD is still the default. Set a strong password in .env (copy .env.example).");
 }
+
+async function ensureStorageLayout() {
+  await fs.mkdir(path.dirname(config.dataFile), { recursive: true });
+  await fs.mkdir(config.uploadDir, { recursive: true });
+  await fs.mkdir(config.backupDir, { recursive: true });
+
+  const dataRealPath = path.resolve(config.dataFile);
+  const uploadRealPath = path.resolve(config.uploadDir);
+  const backupDataPath = path.resolve(config.backupDataFile);
+  const backupUploadPath = path.resolve(config.backupUploadDir);
+
+  if (dataRealPath !== backupDataPath || uploadRealPath !== backupUploadPath) {
+    console.warn(
+      "[soci] Backup source paths differ from runtime paths. Ensure backup script targets live DATA_FILE/UPLOAD_DIR.",
+      {
+        dataFile: dataRealPath,
+        backupDataFile: backupDataPath,
+        uploadDir: uploadRealPath,
+        backupUploadDir: backupUploadPath
+      }
+    );
+  }
+}
+
+await ensureStorageLayout();
 
 // ── Router ────────────────────────────────────────────────────────────────────
 const router = createRouter();
