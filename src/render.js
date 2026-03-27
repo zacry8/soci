@@ -97,7 +97,7 @@ function renderCarouselMediaNode(media, className = "") {
   return `<div class="carousel-fallback">${escapeHtml(media.fileName || "Unsupported")}</div>`;
 }
 
-function renderCarouselPreview(postMedia = []) {
+function renderCarouselPreview(postMedia = [], captionPayload = {}) {
   if (!postMedia.length) return `<span class="safe-zone">Upload media to preview carousel</span>`;
   const payload = postMedia.map((media) => ({
     id: media.id,
@@ -105,18 +105,22 @@ function renderCarouselPreview(postMedia = []) {
     mimeType: media.mimeType,
     fileName: media.fileName
   }));
+  const textPayload = {
+    instagram: String(captionPayload.instagram || ""),
+    tiktok: String(captionPayload.tiktok || "")
+  };
   return `
-    <section class="carousel-preview" data-carousel-preview data-carousel-media="${escapeHtml(JSON.stringify(payload))}">
+    <section class="carousel-preview" data-carousel-preview data-carousel-media="${escapeHtml(JSON.stringify(payload))}" data-carousel-captions="${escapeHtml(JSON.stringify(textPayload))}">
       <div class="carousel-platform-toggle">
         <button type="button" class="carousel-toggle-btn active" data-carousel-platform="instagram">Instagram</button>
         <button type="button" class="carousel-toggle-btn" data-carousel-platform="tiktok">TikTok</button>
       </div>
       <div class="carousel-logic" data-carousel-logic><strong>IG Rule:</strong> The aspect ratio of the 1st slide is locked. Following slides center-crop to match it.</div>
-      <div class="carousel-slide-list" data-carousel-slide-list></div>
       <div class="carousel-phone">
         <div class="carousel-phone-notch"></div>
         <div class="carousel-phone-screen" data-carousel-stage></div>
       </div>
+      <div class="carousel-slide-list" data-carousel-slide-list></div>
     </section>
   `;
 }
@@ -164,6 +168,7 @@ function initInspectorCarouselPreview(root) {
   const logic = preview.querySelector("[data-carousel-logic]");
   const slideList = preview.querySelector("[data-carousel-slide-list]");
   let media = [];
+  let captionPayload = { instagram: "", tiktok: "" };
   const mediaRatios = new Map();
 
   try {
@@ -171,7 +176,38 @@ function initInspectorCarouselPreview(root) {
   } catch {
     media = [];
   }
+  try {
+    const parsedCaptions = JSON.parse(preview.dataset.carouselCaptions || "{}");
+    captionPayload = {
+      instagram: String(parsedCaptions?.instagram || ""),
+      tiktok: String(parsedCaptions?.tiktok || "")
+    };
+  } catch {
+    captionPayload = { instagram: "", tiktok: "" };
+  }
   if (!media.length || !stage) return;
+
+  const compactText = (value = "") => String(value || "").replace(/\s+/g, " ").trim();
+
+  const readCaptionForPlatform = (platformKey) => {
+    const captionField = root.querySelector("#f-caption");
+    const baseCaption = compactText(captionField?.value || "");
+    const variantId = platformKey === "instagram" ? "#variant-instagram" : "#variant-tiktok";
+    const variantCaption = compactText(root.querySelector(variantId)?.value || "");
+    const fallback = compactText(captionPayload[platformKey] || "");
+    return variantCaption || baseCaption || fallback || "Add a caption to preview copy here.";
+  };
+
+  const syncCarouselCopy = () => {
+    const caption = platform === "instagram" ? readCaptionForPlatform("instagram") : readCaptionForPlatform("tiktok");
+    const captionNode = stage.querySelector("[data-carousel-caption]");
+    if (captionNode) captionNode.textContent = caption;
+    const audioNode = stage.querySelector("[data-carousel-audio]");
+    if (audioNode) {
+      const audioSeed = compactText(caption).replace(/^#/, "").slice(0, 34) || "your_brand";
+      audioNode.textContent = `Original sound - ${audioSeed}`;
+    }
+  };
 
   const ratioLabel = (ratio) => {
     if (!Number.isFinite(ratio) || ratio <= 0) return "Unknown";
@@ -255,6 +291,7 @@ function initInspectorCarouselPreview(root) {
   };
 
   const renderInstagram = () => {
+    const instagramCaption = escapeHtml(readCaptionForPlatform("instagram"));
     const slides = media.map((item) => `
       <div class="carousel-slide carousel-slide-ig">
         ${renderCarouselMediaNode(item, "carousel-media cover")}
@@ -280,6 +317,7 @@ function initInspectorCarouselPreview(root) {
           <div class="carousel-dots">${dots}</div>
           <i data-lucide="bookmark"></i>
         </div>
+        <p class="carousel-ig-caption" data-carousel-caption>${instagramCaption}</p>
       </section>
     `;
     const firstItem = media[0];
@@ -305,6 +343,9 @@ function initInspectorCarouselPreview(root) {
   };
 
   const renderTikTok = () => {
+    const tiktokCaptionRaw = readCaptionForPlatform("tiktok");
+    const tiktokCaption = escapeHtml(tiktokCaptionRaw);
+    const tiktokAudio = escapeHtml(`Original sound - ${compactText(tiktokCaptionRaw).replace(/^#/, "").slice(0, 34) || "your_brand"}`);
     const slides = media.map((item) => {
       const bgUrl = escapeHtml(item.urlPath || "");
       return `
@@ -332,8 +373,8 @@ function initInspectorCarouselPreview(root) {
         <div class="carousel-tt-overlay">
           <div>
             <strong>@your_brand</strong>
-            <p>Checking out the new carousel preview mode! 📸 #tiktokphoto #design</p>
-            <small>Original sound - your_brand</small>
+            <p data-carousel-caption>${tiktokCaption}</p>
+            <small data-carousel-audio>${tiktokAudio}</small>
           </div>
           <div class="carousel-dots tt">${dots}</div>
         </div>
@@ -353,8 +394,18 @@ function initInspectorCarouselPreview(root) {
     attachScroller();
     setActiveDots();
     renderSlideList();
+    syncCarouselCopy();
     window.lucide?.createIcons();
   };
+
+  root.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const id = target.id || "";
+    if (id === "f-caption" || id === "variant-instagram" || id === "variant-tiktok") {
+      syncCarouselCopy();
+    }
+  });
 
   preview.querySelectorAll("[data-carousel-platform]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -506,10 +557,15 @@ export function renderInspector(root, post, handlers) {
   const clients = handlers?.clients || [];
   const normalizedPostType = normalizePostType(post.postType);
   const allMedia = handlers?.media || [];
-  const postMedia = allMedia.filter((item) => (post.mediaIds || []).includes(item.id));
+  const mediaMapById = new Map(allMedia.map((item) => [item.id, item]));
+  const postMedia = (post.mediaIds || []).map((id) => mediaMapById.get(id)).filter(Boolean);
   const primaryMedia = postMedia[0] || null;
+  const captionPayload = {
+    instagram: post.platformVariants?.Instagram || post.caption || "",
+    tiktok: post.platformVariants?.TikTok || post.caption || ""
+  };
   const mediaPreviewHtml = normalizedPostType === "carousel"
-    ? renderCarouselPreview(postMedia)
+    ? renderCarouselPreview(postMedia, captionPayload)
     : normalizedPostType === "text"
     ? renderTextPreview(post)
     : renderPrimaryMediaPreview(primaryMedia);
@@ -527,7 +583,21 @@ export function renderInspector(root, post, handlers) {
       const url = escapeHtml(item.urlPath || "");
       const downloadUrl = escapeHtml(withDownloadParam(item.urlPath || ""));
       const fileName = escapeHtml(item.fileName || "media");
-      return `<li><a href="${url}" target="_blank" rel="noreferrer">${fileName}</a> · <a href="${downloadUrl}" target="_blank" rel="noreferrer" download>Download original</a></li>`;
+      const mimeType = escapeHtml(item.mimeType || "file");
+      return `
+        <li class="media-item-row" data-media-id="${escapeHtml(item.id || "")}">
+          <div class="media-item-main">
+            <a href="${url}" target="_blank" rel="noreferrer">${fileName}</a>
+            <span class="subtle">${mimeType}</span>
+          </div>
+          <div class="media-item-actions">
+            <a href="${downloadUrl}" target="_blank" rel="noreferrer" download class="btn-media btn-download-original">Download original</a>
+            <button type="button" class="btn-media" data-media-move="up" data-media-id="${escapeHtml(item.id || "")}" aria-label="Move slide up">↑</button>
+            <button type="button" class="btn-media" data-media-move="down" data-media-id="${escapeHtml(item.id || "")}" aria-label="Move slide down">↓</button>
+            <button type="button" class="btn-media danger" data-media-delete="${escapeHtml(item.id || "")}" aria-label="Delete media">Delete</button>
+          </div>
+        </li>
+      `;
     }).join("")}</ul>`
     : `<div class="subtle" class="fs-xs-fixed">No media uploaded yet.</div>`;
 
@@ -579,7 +649,7 @@ export function renderInspector(root, post, handlers) {
       <div class="field"><label for="f-caption">Caption</label><textarea id="f-caption" class="auto-grow">${escapeHtml(post.caption)}</textarea></div>
       ${suggestionHtml ? `<div class="hashtag-suggestions">${suggestionHtml}</div>` : ""}
       <div class="field">
-        <span class="variant-field-label">Platform Captions</span>
+        <p class="section-title section-title-tight">Platform Captions</p>
         <div class="variant-fields">${variantFieldsHtml || '<div class="subtle" class="fs-xs-fixed">Select platforms above to add per-platform captions.</div>'}</div>
       </div>
     </section>
@@ -596,13 +666,13 @@ export function renderInspector(root, post, handlers) {
         <input id="f-tags" value="${escapeHtml(post.tags.join(", "))}" placeholder="e.g. branding, portfolio" />
         <span class="field-hint">Separate tags with commas</span>
       </div>
-      <div class="row">
+      <div class="row inspector-single">
         <div class="field"><label for="f-status">Status</label>
           <select id="f-status">${STATUSES.map((s) => `<option value="${s}" ${post.status === s ? "selected" : ""}>${STATUS_LABELS[s]}</option>`).join("")}</select>
         </div>
         <div class="field"><label for="f-date">Schedule Date</label><input id="f-date" type="date" value="${post.scheduleDate || ""}" /></div>
       </div>
-      <div class="row">
+      <div class="row inspector-single">
         <div class="field"><label for="f-client-id">Client</label>
           <select id="f-client-id">
             <option value="">Unassigned</option>
@@ -616,7 +686,7 @@ export function renderInspector(root, post, handlers) {
           </select>
         </div>
       </div>
-      <div class="row">
+      <div class="row inspector-single">
         <div class="field"><label for="f-publish-state">Publish State</label>
           <select id="f-publish-state">
             <option value="draft" ${post.publishState === "draft" ? "selected" : ""}>Draft</option>
@@ -626,7 +696,7 @@ export function renderInspector(root, post, handlers) {
         </div>
         <div class="field"><label for="f-published-at">Published At</label><input id="f-published-at" type="datetime-local" value="${post.publishedAt ? post.publishedAt.slice(0, 16) : ""}" /></div>
       </div>
-      <div class="row">
+      <div class="row inspector-single">
         <div class="field"><label for="f-scheduled-at">Scheduled At</label><input id="f-scheduled-at" type="datetime-local" value="${post.scheduledAt ? post.scheduledAt.slice(0, 16) : ""}" /></div>
         <div class="field"><label for="f-post-type">Post Type</label>
           <select id="f-post-type">
@@ -638,7 +708,7 @@ export function renderInspector(root, post, handlers) {
 
     <section class="inspector-pane hidden" data-inspector-pane="collaboration">
       <p class="section-title">Collaboration</p>
-      <div class="row">
+      <div class="row inspector-single">
         <div class="field"><label for="f-assignee">Assignee</label><input id="f-assignee" value="${escapeHtml(post.assignee || "")}" /></div>
         <div class="field"><label for="f-reviewer">Reviewer</label><input id="f-reviewer" value="${escapeHtml(post.reviewer || "")}" /></div>
       </div>
@@ -653,9 +723,9 @@ export function renderInspector(root, post, handlers) {
       <p class="section-title">Comments</p>
       ${commentHtml || `<div class="subtle">No comments yet.</div>`}
       <div id="comment-error" class="comment-error hidden"></div>
-      <div class="row" class="mt-8">
+      <div class="row inspector-single mt-8">
         <div class="field"><label for="c-author">Author</label><input id="c-author" placeholder="Name" /></div>
-        <div class="field"><label for="c-text">Comment</label><input id="c-text" placeholder="Write a comment" /></div>
+        <div class="field"><label for="c-text">Comment</label><textarea id="c-text" placeholder="Write a comment"></textarea></div>
       </div>
       <button class="add-btn" id="add-comment">Add Comment</button>
     </section>
@@ -664,7 +734,7 @@ export function renderInspector(root, post, handlers) {
     <div class="inspector-actions">
       <button class="save" id="save-post">Save Changes</button>
       <button class="btn-secondary" id="duplicate-post" title="Duplicate post">Duplicate</button>
-      <button class="btn-danger" id="delete-post" title="Delete post">Delete</button>
+      <button class="btn-danger" id="delete-post" title="Delete post">Delete Post</button>
     </div>
   `;
 
@@ -874,6 +944,44 @@ export function renderInspector(root, post, handlers) {
     const file = mediaInput.files?.[0];
     await processMediaFile(file);
     mediaInput.value = "";
+  });
+
+  let mediaOrder = postMedia.map((item) => item.id).filter(Boolean);
+  root.querySelectorAll("[data-media-delete]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const mediaId = button.getAttribute("data-media-delete") || "";
+      if (!mediaId || !handlers.onRemoveMedia) return;
+      mediaStatus.textContent = "Removing...";
+      try {
+        await handlers.onRemoveMedia(mediaId);
+        mediaStatus.textContent = "Removed.";
+      } catch (error) {
+        mediaStatus.textContent = `Remove failed: ${error.message || "Unknown error"}`;
+      }
+    });
+  });
+
+  root.querySelectorAll("[data-media-move]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const mediaId = button.getAttribute("data-media-id") || "";
+      const direction = button.getAttribute("data-media-move") || "";
+      if (!mediaId || !direction || !handlers.onReorderMedia) return;
+      const index = mediaOrder.indexOf(mediaId);
+      if (index < 0) return;
+      const target = direction === "up" ? index - 1 : index + 1;
+      if (target < 0 || target >= mediaOrder.length) return;
+
+      const next = [...mediaOrder];
+      [next[index], next[target]] = [next[target], next[index]];
+      mediaOrder = next;
+      mediaStatus.textContent = "Reordering...";
+      try {
+        await handlers.onReorderMedia(next);
+        mediaStatus.textContent = "Reordered.";
+      } catch (error) {
+        mediaStatus.textContent = `Reorder failed: ${error.message || "Unknown error"}`;
+      }
+    });
   });
 
   initInspectorCarouselPreview(root);

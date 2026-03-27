@@ -827,3 +827,63 @@
 - **By:** Claude Code
 - **Reason:** Logged carousel preview parity hardening (slide ratio list, IG/TT realism updates, and styling coverage).
 - 2026-03-26: Added new post type taxonomy (Photo, Video, Shorts, Carousel, Text), normalized legacy types, and implemented inspector carousel preview behavior inspired by inspo/CAROUSEL preview.html with Soci-branded styling.
+
+### Implementation Snapshot Addendum 31 (2026-03-26)
+- Improved media management and carousel preview sync for editor usability:
+  - `src/main.js`
+    - wired new inspector callbacks:
+      - `onRemoveMedia(mediaId)`
+      - `onReorderMedia(orderedMediaIds)`
+    - these route directly to existing store actions and preserve non-breaking save/update flow
+  - `src/render.js`
+    - media list now renders in post order (`post.mediaIds`) instead of unordered filter order
+    - upgraded media row actions:
+      - explicit **Download original** button-style link
+      - per-item **Delete** action
+      - per-item **move up/down** controls for ordering carousel slides
+    - added inline event handling for remove and reorder actions with status feedback
+    - carousel preview now receives serialized caption payload and keeps preview copy synchronized with:
+      - base caption (`#f-caption`)
+      - platform caption variants (`#variant-instagram`, `#variant-tiktok`)
+    - Instagram carousel preview now includes caption text block under the post chrome
+    - TikTok carousel overlay copy/audio now updates live from caption fields
+  - `styles.css`
+    - added dedicated media action row styling (`.media-item-row`, `.media-item-actions`, `.btn-media`)
+    - added emphasized download control style (`.btn-download-original`)
+    - added danger treatment for delete action
+    - added IG caption clamp styling in carousel preview (`.carousel-ig-caption`)
+- Validation:
+  - syntax checks pass for modified frontend modules via `node --check`
+  - API health check successful (`GET /health` returned ok)
+  - browser launch checks completed on local static host after UI updates
+
+## Last Memory Update
+- **Updated:** 2026-03-26 (latest)
+- **By:** Claude Code
+- **Reason:** Logged media-management UX improvements (delete/reorder/download controls) and live caption-sync behavior for carousel previews across Instagram/TikTok mock shells.
+
+### Implementation Snapshot Addendum 32 (2026-03-26)
+- Inspector responsiveness and hierarchy polish pass completed:
+  - `src/render.js`
+    - moved carousel phone preview above slide list in the inspector carousel block
+    - normalized “Platform Captions” to section-title hierarchy (`section-title`) for parity with “Caption & Content”
+    - switched collaboration/settings form rows to one-field-per-line via scoped row class usage (`.inspector-single`)
+    - upgraded comment input from single-line `<input>` to `<textarea>` for better editor ergonomics
+    - clarified destructive action label from `Delete` to `Delete Post`
+  - `styles.css`
+    - added scoped single-column inspector row utility (`.row.inspector-single`)
+    - tightened section spacing for caption/tags/variant area with `section-title-tight` and tag-input spacing tweak
+    - improved carousel shell presentation:
+      - larger phone corner radius
+      - rounded/contained inner screen
+      - refined shadow and spacing
+      - slide list wrapped in subtle surfaced container
+    - improved destructive button styling (`.btn-danger`) for clearer affordance and stronger visual hierarchy
+- Validation:
+  - syntax checks pass: `node --check src/render.js` and `node --check src/main.js`
+  - browser launch smoke-check executed on `http://localhost:4174/index.html` after UI updates
+
+## Last Memory Update
+- **Updated:** 2026-03-26 (latest)
+- **By:** Claude Code
+- **Reason:** Logged inspector responsiveness/layout polish and carousel preview ordering/radius updates, including delete-action visual improvements.
