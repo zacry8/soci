@@ -909,3 +909,24 @@
 - **Updated:** 2026-03-26 (latest)
 - **By:** Claude Code
 - **Reason:** Logged per-client profile simulator mapping, Instagram carousel metadata fix, and draggable left-handle slide reorder update.
+
+### Implementation Snapshot Addendum 34 (2026-03-26)
+- Completed follow-up simulator/UI refinement pass for Instagram carousel realism and media action controls:
+  - `src/render.js`
+    - improved Instagram carousel interaction reactivity by throttling scroll index updates with `requestAnimationFrame` and clamped slide index math
+    - tightened Instagram shell hierarchy mapping to profile settings (handle/display/likes) with reduced fallback hardcoding
+    - normalized TikTok carousel audio fallback seed to active profile handle (no stale `your_brand` fallback)
+    - updated IG action-row structure to improve icon/likes/caption spacing rhythm
+    - removed media-list up/down arrow reorder controls under upload area
+    - replaced media delete text button with icon-only trash action (`lucide: trash-2`)
+  - `styles.css`
+    - tuned Instagram carousel footer/likes/caption spacing and icon gaps for more natural visual rhythm
+    - added icon-only media action button treatment for compact trash delete control
+- Validation:
+  - syntax checks pass (`node --check src/main.js`, `node --check src/render.js`)
+  - browser launch smoke-check completed locally (`http://localhost:4174/index.html`) after layout/interaction updates
+
+## Last Memory Update
+- **Updated:** 2026-03-26 (latest)
+- **By:** Claude Code
+- **Reason:** Logged IG carousel spacing/reactivity fixes plus media-card action cleanup (trash icon delete, arrows removed).

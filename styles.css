@@ -748,16 +748,22 @@ body.share-mode .main {
 }
 
 .carousel-ig-footer {
-  padding: 10px;
+  padding: 8px 12px 2px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .carousel-ig-actions {
   display: flex;
-  gap: 10px;
+  gap: 14px;
+}
+
+.carousel-ig-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .carousel-dots {
@@ -1909,7 +1915,7 @@ body.share-mode .main {
 }
 
 .carousel-ig-caption {
-  margin: 8px 12px 0;
+  margin: 6px 12px 0;
   font-size: var(--fs-xs);
   line-height: 1.35;
   color: var(--text);
@@ -1921,8 +1927,20 @@ body.share-mode .main {
 }
 
 .carousel-ig-likes {
-  margin: 2px 12px 0;
+  margin: 0 12px 0;
   font-size: 11px;
   font-weight: 700;
   color: var(--text);
+}
+
+.btn-media.icon-only {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+.btn-media.icon-only i {
+  width: 14px;
+  height: 14px;
 }

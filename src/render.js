@@ -170,9 +170,9 @@ function initInspectorCarouselPreview(root, options = {}) {
   let media = [];
   let captionPayload = { instagram: "", tiktok: "" };
   const profileSettings = {
-    handle: "your_brand",
-    displayName: "Your Brand",
-    likes: "1,234",
+    handle: "zacdeck",
+    displayName: "Zac Deck",
+    likes: "24.2M",
     ...(options?.profileSettings || {})
   };
   const postDetails = options?.postDetails || {};
@@ -198,7 +198,7 @@ function initInspectorCarouselPreview(root, options = {}) {
   const compactText = (value = "") => String(value || "").replace(/\s+/g, " ").trim();
   const normalizeHandle = (value = "") => {
     const clean = compactText(value).replace(/^@+/, "");
-    return clean || "your_brand";
+    return clean || "zacdeck";
   };
   const formatLikes = (value = "") => {
     const raw = compactText(String(value || ""));
@@ -231,7 +231,7 @@ function initInspectorCarouselPreview(root, options = {}) {
     }
     const audioNode = stage.querySelector("[data-carousel-audio]");
     if (audioNode) {
-      const audioSeed = compactText(caption).replace(/^#/, "").slice(0, 34) || "your_brand";
+      const audioSeed = compactText(caption).replace(/^#/, "").slice(0, 34) || normalizeHandle(profileSettings.handle);
       audioNode.textContent = `Original sound - ${audioSeed}`;
     }
   };
@@ -357,14 +357,21 @@ function initInspectorCarouselPreview(root, options = {}) {
   const attachScroller = () => {
     const scroller = stage.querySelector("[data-carousel-scroller]");
     if (!scroller) return;
+    let ticking = false;
     scroller.addEventListener("scroll", (event) => {
-      const node = event.target;
-      const width = node.offsetWidth || 1;
-      const nextIndex = Math.round(node.scrollLeft / width);
-      if (nextIndex !== currentSlideIndex) {
-        currentSlideIndex = nextIndex;
-        setActiveDots();
-      }
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        const node = event.target;
+        const width = node.offsetWidth || 1;
+        const rawIndex = Math.round(node.scrollLeft / width);
+        const nextIndex = Math.max(0, Math.min(media.length - 1, rawIndex));
+        if (nextIndex !== currentSlideIndex) {
+          currentSlideIndex = nextIndex;
+          setActiveDots();
+        }
+        ticking = false;
+      });
     });
     setupDragToScroll(scroller);
   };
@@ -397,7 +404,7 @@ function initInspectorCarouselPreview(root, options = {}) {
             <i data-lucide="send"></i>
           </div>
           <div class="carousel-dots">${dots}</div>
-          <i data-lucide="bookmark"></i>
+          <span class="carousel-ig-save"><i data-lucide="bookmark"></i></span>
         </div>
         <p class="carousel-ig-likes">${escapeHtml(likes)} likes</p>
         <p class="carousel-ig-caption" data-carousel-caption><strong>${escapeHtml(displayName)}</strong> ${instagramCaption}</p>
@@ -429,7 +436,7 @@ function initInspectorCarouselPreview(root, options = {}) {
     const handle = normalizeHandle(profileSettings.handle);
     const tiktokCaptionRaw = readCaptionForPlatform("tiktok");
     const tiktokCaption = escapeHtml(tiktokCaptionRaw);
-    const tiktokAudio = escapeHtml(`Original sound - ${compactText(tiktokCaptionRaw).replace(/^#/, "").slice(0, 34) || "your_brand"}`);
+    const tiktokAudio = escapeHtml(`Original sound - ${compactText(tiktokCaptionRaw).replace(/^#/, "").slice(0, 34) || normalizeHandle(profileSettings.handle)}`);
     const slides = media.map((item) => {
       const bgUrl = escapeHtml(item.urlPath || "");
       return `
@@ -676,9 +683,7 @@ export function renderInspector(root, post, handlers) {
           </div>
           <div class="media-item-actions">
             <a href="${downloadUrl}" target="_blank" rel="noreferrer" download class="btn-media btn-download-original">Download original</a>
-            <button type="button" class="btn-media" data-media-move="up" data-media-id="${escapeHtml(item.id || "")}" aria-label="Move slide up">↑</button>
-            <button type="button" class="btn-media" data-media-move="down" data-media-id="${escapeHtml(item.id || "")}" aria-label="Move slide down">↓</button>
-            <button type="button" class="btn-media danger" data-media-delete="${escapeHtml(item.id || "")}" aria-label="Delete media">Delete</button>
+            <button type="button" class="btn-media danger icon-only" data-media-delete="${escapeHtml(item.id || "")}" aria-label="Delete media" title="Delete media"><i data-lucide="trash-2" aria-hidden="true"></i></button>
           </div>
         </li>
       `;
@@ -1030,7 +1035,6 @@ export function renderInspector(root, post, handlers) {
     mediaInput.value = "";
   });
 
-  let mediaOrder = postMedia.map((item) => item.id).filter(Boolean);
   root.querySelectorAll("[data-media-delete]").forEach((button) => {
     button.addEventListener("click", async () => {
       const mediaId = button.getAttribute("data-media-delete") || "";
@@ -1041,29 +1045,6 @@ export function renderInspector(root, post, handlers) {
         mediaStatus.textContent = "Removed.";
       } catch (error) {
         mediaStatus.textContent = `Remove failed: ${error.message || "Unknown error"}`;
-      }
-    });
-  });
-
-  root.querySelectorAll("[data-media-move]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const mediaId = button.getAttribute("data-media-id") || "";
-      const direction = button.getAttribute("data-media-move") || "";
-      if (!mediaId || !direction || !handlers.onReorderMedia) return;
-      const index = mediaOrder.indexOf(mediaId);
-      if (index < 0) return;
-      const target = direction === "up" ? index - 1 : index + 1;
-      if (target < 0 || target >= mediaOrder.length) return;
-
-      const next = [...mediaOrder];
-      [next[index], next[target]] = [next[target], next[index]];
-      mediaOrder = next;
-      mediaStatus.textContent = "Reordering...";
-      try {
-        await handlers.onReorderMedia(next);
-        mediaStatus.textContent = "Reordered.";
-      } catch (error) {
-        mediaStatus.textContent = `Reorder failed: ${error.message || "Unknown error"}`;
       }
     });
   });
