@@ -930,3 +930,41 @@
 - **Updated:** 2026-03-26 (latest)
 - **By:** Claude Code
 - **Reason:** Logged IG carousel spacing/reactivity fixes plus media-card action cleanup (trash icon delete, arrows removed).
+
+### Implementation Snapshot Addendum 35 (2026-03-26)
+- Verified and corrected Instagram carousel preview spacing/placement behavior in `inspo/CAROUSEL preview.html`:
+  - Non-square slide placement:
+    - ensured IG slides are explicitly `h-full` + `overflow-hidden` so media is cropped cleanly inside locked first-slide ratio container
+    - set image positioning to `object-cover object-center` for centered crop behavior on mixed-aspect images
+  - Action/dots/caption spacing rhythm:
+    - made footer action row `relative` and reduced bottom margin for tighter like/caption spacing
+    - kept dots centered with absolute middle placement and non-interactive pointer behavior
+    - tightened likes/caption vertical spacing (`mb-0.5`, `leading-snug`) to better match inspo layout density
+- Verification status:
+  - browser launch smoke-check completed on local file preview (`file:///.../inspo/CAROUSEL preview.html`)
+  - no console errors observed during verification launch
+
+## Last Memory Update
+- **Updated:** 2026-03-26 (latest)
+- **By:** Claude Code
+- **Reason:** Logged IG carousel preview parity fix in `inspo/CAROUSEL preview.html` (non-square crop centering + footer spacing alignment).
+
+### Implementation Snapshot Addendum 36 (2026-03-26)
+- Corrected scope to the real app inspector carousel preview (not just the inspo reference file):
+  - `src/render.js`
+    - moved platform toggle block to render **under** the phone preview in `renderCarouselPreview()`
+    - updated Instagram footer structure in `renderInstagram()`:
+      - added dedicated centered-dot class hook (`carousel-ig-dots`)
+      - wrapped likes + caption in `carousel-ig-meta` for tighter spacing control
+  - `styles.css`
+    - improved non-square IG slide behavior via explicit clipping/centering (`.carousel-slide-ig` + `object-position:center` on cover media)
+    - tightened IG footer rhythm and centered dots reliably (`.carousel-ig-footer` relative, `.carousel-ig-dots` absolute center)
+    - reduced spacing between action row, likes, and caption (`.carousel-ig-meta`, likes/caption margins)
+- Verification:
+  - app smoke-check run at `http://localhost:4174/index.html` after patch
+  - no console errors observed during browser session
+
+## Last Memory Update
+- **Updated:** 2026-03-26 (latest)
+- **By:** Claude Code
+- **Reason:** Logged real inspector carousel preview fix (IG non-square placement + action/dot/caption spacing) and moved IG/TikTok toggle under preview phone.

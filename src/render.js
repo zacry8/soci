@@ -111,15 +111,15 @@ function renderCarouselPreview(postMedia = [], captionPayload = {}) {
   };
   return `
     <section class="carousel-preview" data-carousel-preview data-carousel-media="${escapeHtml(JSON.stringify(payload))}" data-carousel-captions="${escapeHtml(JSON.stringify(textPayload))}">
+      <div class="carousel-phone">
+        <div class="carousel-phone-notch"></div>
+        <div class="carousel-phone-screen" data-carousel-stage></div>
+      </div>
       <div class="carousel-platform-toggle">
         <button type="button" class="carousel-toggle-btn active" data-carousel-platform="instagram">Instagram</button>
         <button type="button" class="carousel-toggle-btn" data-carousel-platform="tiktok">TikTok</button>
       </div>
       <div class="carousel-logic" data-carousel-logic><strong>IG Rule:</strong> The aspect ratio of the 1st slide is locked. Following slides center-crop to match it.</div>
-      <div class="carousel-phone">
-        <div class="carousel-phone-notch"></div>
-        <div class="carousel-phone-screen" data-carousel-stage></div>
-      </div>
       <div class="carousel-slide-list" data-carousel-slide-list></div>
     </section>
   `;
@@ -403,11 +403,13 @@ function initInspectorCarouselPreview(root, options = {}) {
             <i data-lucide="message-circle"></i>
             <i data-lucide="send"></i>
           </div>
-          <div class="carousel-dots">${dots}</div>
+          <div class="carousel-dots carousel-ig-dots">${dots}</div>
           <span class="carousel-ig-save"><i data-lucide="bookmark"></i></span>
         </div>
-        <p class="carousel-ig-likes">${escapeHtml(likes)} likes</p>
-        <p class="carousel-ig-caption" data-carousel-caption><strong>${escapeHtml(displayName)}</strong> ${instagramCaption}</p>
+        <div class="carousel-ig-meta">
+          <p class="carousel-ig-likes">${escapeHtml(likes)} likes</p>
+          <p class="carousel-ig-caption" data-carousel-caption><strong>${escapeHtml(displayName)}</strong> ${instagramCaption}</p>
+        </div>
       </section>
     `;
     const firstItem = media[0];
