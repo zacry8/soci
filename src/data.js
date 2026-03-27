@@ -17,6 +17,13 @@ export const STATUS_LABELS = {
 
 export const PLATFORM_OPTIONS = ["Instagram", "TikTok", "LinkedIn", "X"];
 export const PROFILE_MODES = ["instagram", "tiktok"];
+export const POST_TYPE_OPTIONS = [
+  { value: "photo", label: "Photo" },
+  { value: "video", label: "Video" },
+  { value: "shorts", label: "Shorts" },
+  { value: "carousel", label: "Carousel" },
+  { value: "text", label: "Text / Blog" }
+];
 
 export function makeSeedClients() {
   return [
@@ -66,7 +73,7 @@ export function makeSeedPosts(clients = makeSeedClients()) {
       scheduledAt: "",
       scheduleDate: new Date(new Date().getFullYear(), new Date().getMonth(), 15).toISOString().slice(0, 10),
       platforms: ["Instagram", "TikTok"],
-      postType: "reel",
+      postType: "shorts",
       platformVariants: { Instagram: "IG cut", TikTok: "Short hook version" },
       tags: ["design", "portfolio"],
       caption: "Riding the wave of nostalgia with our latest branding project.",
@@ -89,7 +96,7 @@ export function makeSeedPosts(clients = makeSeedClients()) {
       scheduledAt: daysFromNow(3),
       scheduleDate: new Date(new Date().getFullYear(), new Date().getMonth(), 20).toISOString().slice(0, 10),
       platforms: ["LinkedIn", "Instagram"],
-      postType: "reel",
+      postType: "shorts",
       platformVariants: { LinkedIn: "Business tone", Instagram: "Visual-first caption" },
       tags: ["agency", "video"],
       caption: "Everything we touched in Q1. Sound on.",
@@ -112,7 +119,7 @@ export function makeSeedPosts(clients = makeSeedClients()) {
       scheduledAt: "",
       scheduleDate: "",
       platforms: ["Instagram"],
-      postType: "static",
+      postType: "photo",
       platformVariants: { Instagram: "BTS lifestyle angle" },
       tags: ["bts", "photo"],
       caption: "Behind the scenes at the morning shoot.",
@@ -140,7 +147,7 @@ export function createEmptyPost(clientId = "") {
     scheduledAt: "",
     scheduleDate: "",
     platforms: ["Instagram"],
-    postType: "static",
+    postType: "photo",
     platformVariants: { Instagram: "" },
     tags: [],
     caption: "",

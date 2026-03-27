@@ -34,6 +34,11 @@ function normalizeClient(client) {
 
 function normalizePost(post, clients) {
   const fallbackClientId = clients[0]?.id || "";
+  const normalizedType = post?.postType === "static"
+    ? "photo"
+    : post?.postType === "reel"
+    ? "shorts"
+    : post?.postType || "photo";
   return {
     ...post,
     clientId: post.clientId || fallbackClientId,
@@ -41,7 +46,7 @@ function normalizePost(post, clients) {
     publishState: post.publishState || "draft",
     publishedAt: post.publishedAt || "",
     scheduledAt: post.scheduledAt || "",
-    postType: post.postType || "static",
+    postType: normalizedType,
     mediaIds: Array.isArray(post.mediaIds) ? post.mediaIds : [],
     comments: Array.isArray(post.comments) ? post.comments : [],
     checklist: post.checklist && typeof post.checklist === "object"

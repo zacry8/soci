@@ -1,4 +1,4 @@
-import { CHECKLIST_LABELS, PLATFORM_OPTIONS, STATUSES, STATUS_LABELS } from "./data.js";
+import { CHECKLIST_LABELS, PLATFORM_OPTIONS, POST_TYPE_OPTIONS, STATUSES, STATUS_LABELS } from "./data.js";
 
 const checklistKeys = ["copy", "media", "tags", "schedule", "approval"];
 const ALLOWED_UPLOAD_MIME_TYPES = new Set([
@@ -57,6 +57,317 @@ function iconWithLabel(icon, label, value = "") {
   const safeLabel = escapeHtml(label);
   const safeValue = escapeHtml(value);
   return `<span class="social-pill"><i data-lucide="${escapeHtml(icon)}" aria-hidden="true"></i><span>${safeLabel}${safeValue ? ` ${safeValue}` : ""}</span></span>`;
+}
+
+function normalizePostType(value = "") {
+  const type = String(value || "").toLowerCase();
+  if (type === "static") return "photo";
+  if (type === "reel") return "shorts";
+  if (type === "blog") return "text";
+  return type || "photo";
+}
+
+function getPostTypeLabel(value = "") {
+  const normalized = normalizePostType(value);
+  const match = POST_TYPE_OPTIONS.find((option) => option.value === normalized);
+  return match?.label || "Photo";
+}
+
+function renderTextPreview(post) {
+  const headline = escapeHtml(post.title || "Untitled Post");
+  const caption = escapeHtml(post.caption || "Start writing your post copy to preview text/blog layout.");
+  return `
+    <article class="text-preview-card">
+      <h4>${headline}</h4>
+      <p>${caption.replaceAll("\n", "<br/>")}</p>
+    </article>
+  `;
+}
+
+function renderCarouselMediaNode(media, className = "") {
+  if (!media?.urlPath) return `<div class="carousel-fallback">No media</div>`;
+  const url = escapeHtml(media.urlPath);
+  const mime = String(media.mimeType || "").toLowerCase();
+  if (mime.startsWith("image/")) {
+    return `<img src="${url}" alt="${escapeHtml(media.fileName || "carousel image")}" class="${className}" draggable="false" />`;
+  }
+  if (mime.startsWith("video/")) {
+    return `<video class="${className}" muted playsinline preload="metadata"><source src="${url}" type="${escapeHtml(mime)}" /></video>`;
+  }
+  return `<div class="carousel-fallback">${escapeHtml(media.fileName || "Unsupported")}</div>`;
+}
+
+function renderCarouselPreview(postMedia = []) {
+  if (!postMedia.length) return `<span class="safe-zone">Upload media to preview carousel</span>`;
+  const payload = postMedia.map((media) => ({
+    id: media.id,
+    urlPath: media.urlPath,
+    mimeType: media.mimeType,
+    fileName: media.fileName
+  }));
+  return `
+    <section class="carousel-preview" data-carousel-preview data-carousel-media="${escapeHtml(JSON.stringify(payload))}">
+      <div class="carousel-platform-toggle">
+        <button type="button" class="carousel-toggle-btn active" data-carousel-platform="instagram">Instagram</button>
+        <button type="button" class="carousel-toggle-btn" data-carousel-platform="tiktok">TikTok</button>
+      </div>
+      <div class="carousel-logic" data-carousel-logic><strong>IG Rule:</strong> The aspect ratio of the 1st slide is locked. Following slides center-crop to match it.</div>
+      <div class="carousel-slide-list" data-carousel-slide-list></div>
+      <div class="carousel-phone">
+        <div class="carousel-phone-notch"></div>
+        <div class="carousel-phone-screen" data-carousel-stage></div>
+      </div>
+    </section>
+  `;
+}
+
+function setupDragToScroll(slider) {
+  let isDown = false;
+  let startX = 0;
+  let scrollLeft = 0;
+
+  slider.classList.add("carousel-grab");
+  slider.addEventListener("mousedown", (event) => {
+    isDown = true;
+    slider.classList.add("carousel-grabbing");
+    slider.classList.remove("carousel-grab");
+    slider.classList.remove("carousel-snap");
+    startX = event.pageX - slider.offsetLeft;
+    scrollLeft = slider.scrollLeft;
+  });
+  slider.addEventListener("mouseleave", () => {
+    isDown = false;
+    slider.classList.remove("carousel-grabbing");
+    slider.classList.add("carousel-grab", "carousel-snap");
+  });
+  slider.addEventListener("mouseup", () => {
+    isDown = false;
+    slider.classList.remove("carousel-grabbing");
+    slider.classList.add("carousel-grab", "carousel-snap");
+  });
+  slider.addEventListener("mousemove", (event) => {
+    if (!isDown) return;
+    event.preventDefault();
+    const x = event.pageX - slider.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    slider.scrollLeft = scrollLeft - walk;
+  });
+}
+
+function initInspectorCarouselPreview(root) {
+  const preview = root.querySelector("[data-carousel-preview]");
+  if (!preview) return;
+
+  let platform = "instagram";
+  let currentSlideIndex = 0;
+  const stage = preview.querySelector("[data-carousel-stage]");
+  const logic = preview.querySelector("[data-carousel-logic]");
+  const slideList = preview.querySelector("[data-carousel-slide-list]");
+  let media = [];
+  const mediaRatios = new Map();
+
+  try {
+    media = JSON.parse(preview.dataset.carouselMedia || "[]");
+  } catch {
+    media = [];
+  }
+  if (!media.length || !stage) return;
+
+  const ratioLabel = (ratio) => {
+    if (!Number.isFinite(ratio) || ratio <= 0) return "Unknown";
+    if (Math.abs(ratio - 1) < 0.05) return "1:1 (Square)";
+    if (Math.abs(ratio - 0.8) < 0.05) return "4:5 (Portrait)";
+    if (Math.abs(ratio - 0.5625) < 0.05) return "9:16 (Vertical)";
+    if (Math.abs(ratio - 1.91) < 0.1) return "1.91:1 (Landscape)";
+    return `${ratio.toFixed(2)}:1`;
+  };
+
+  const readMediaRatio = (item) => new Promise((resolve) => {
+    const mime = String(item?.mimeType || "").toLowerCase();
+    if (mime.startsWith("video/")) {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        const ratio = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : null;
+        resolve(ratio);
+      };
+      video.onerror = () => resolve(null);
+      video.src = item.urlPath || "";
+      return;
+    }
+    const img = new Image();
+    img.onload = () => resolve(img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : null);
+    img.onerror = () => resolve(null);
+    img.src = item.urlPath || "";
+  });
+
+  const renderSlideList = () => {
+    if (!slideList) return;
+    slideList.innerHTML = media.map((item, index) => {
+      const ratio = mediaRatios.get(item.id);
+      const mime = String(item.mimeType || "").toLowerCase();
+      const kind = mime.startsWith("video/") ? "Video" : "Image";
+      const badge = index === 0 && platform === "instagram" ? `<span class="carousel-list-badge">Base Ratio</span>` : "";
+      const thumb = mime.startsWith("video/")
+        ? `<video muted playsinline preload="metadata" src="${escapeHtml(item.urlPath || "")}" class="carousel-list-thumb"></video>`
+        : `<img src="${escapeHtml(item.urlPath || "")}" class="carousel-list-thumb" alt="${escapeHtml(item.fileName || "slide")}" />`;
+      return `
+        <article class="carousel-list-row">
+          <div class="carousel-list-thumb-wrap">${thumb}</div>
+          <div class="carousel-list-copy">
+            <strong>Slide ${index + 1}</strong>
+            <span>${kind} • ${ratioLabel(ratio)}</span>
+          </div>
+          ${badge}
+        </article>
+      `;
+    }).join("");
+  };
+
+  const computeMediaRatios = async () => {
+    await Promise.all(media.map(async (item) => {
+      const ratio = await readMediaRatio(item);
+      if (Number.isFinite(ratio) && ratio > 0) mediaRatios.set(item.id, ratio);
+    }));
+    renderSlideList();
+  };
+
+  const setActiveDots = () => {
+    const dots = stage.querySelectorAll(".carousel-dot");
+    dots.forEach((dot, index) => dot.classList.toggle("active", index === currentSlideIndex));
+    const fraction = stage.querySelector("[data-carousel-fraction]");
+    if (fraction) fraction.textContent = `${currentSlideIndex + 1}/${media.length}`;
+  };
+
+  const attachScroller = () => {
+    const scroller = stage.querySelector("[data-carousel-scroller]");
+    if (!scroller) return;
+    scroller.addEventListener("scroll", (event) => {
+      const node = event.target;
+      const width = node.offsetWidth || 1;
+      const nextIndex = Math.round(node.scrollLeft / width);
+      if (nextIndex !== currentSlideIndex) {
+        currentSlideIndex = nextIndex;
+        setActiveDots();
+      }
+    });
+    setupDragToScroll(scroller);
+  };
+
+  const renderInstagram = () => {
+    const slides = media.map((item) => `
+      <div class="carousel-slide carousel-slide-ig">
+        ${renderCarouselMediaNode(item, "carousel-media cover")}
+      </div>
+    `).join("");
+    const dots = media.map((_, index) => `<span class="carousel-dot ${index === 0 ? "active" : ""}"></span>`).join("");
+    stage.innerHTML = `
+      <section class="carousel-ig-shell">
+        <div class="carousel-ig-head">
+          <span class="carousel-user">your_brand</span>
+          <i data-lucide="more-horizontal"></i>
+        </div>
+        <div class="carousel-ig-frame" data-carousel-ig-frame>
+          ${media.length > 1 ? `<span class="carousel-fraction" data-carousel-fraction>1/${media.length}</span>` : ""}
+          <div class="carousel-scroller carousel-snap" data-carousel-scroller>${slides}</div>
+        </div>
+        <div class="carousel-ig-footer">
+          <div class="carousel-ig-actions">
+            <i data-lucide="heart"></i>
+            <i data-lucide="message-circle"></i>
+            <i data-lucide="send"></i>
+          </div>
+          <div class="carousel-dots">${dots}</div>
+          <i data-lucide="bookmark"></i>
+        </div>
+      </section>
+    `;
+    const firstItem = media[0];
+    const frame = stage.querySelector("[data-carousel-ig-frame]");
+    if (firstItem && frame) {
+      const applyRatio = (rawRatio) => {
+        let ratio = Number(rawRatio);
+        if (!Number.isFinite(ratio) || ratio <= 0) ratio = 4 / 5;
+        ratio = Math.max(0.8, Math.min(1.91, ratio));
+        frame.style.aspectRatio = String(ratio);
+      };
+      const cached = mediaRatios.get(firstItem.id);
+      if (cached) {
+        applyRatio(cached);
+      } else {
+        readMediaRatio(firstItem).then((ratio) => {
+          if (Number.isFinite(ratio) && ratio > 0) mediaRatios.set(firstItem.id, ratio);
+          applyRatio(ratio);
+          renderSlideList();
+        });
+      }
+    }
+  };
+
+  const renderTikTok = () => {
+    const slides = media.map((item) => {
+      const bgUrl = escapeHtml(item.urlPath || "");
+      return `
+      <div class="carousel-slide carousel-slide-tt">
+        <div class="carousel-tt-blur" style="background-image:url('${bgUrl}')"></div>
+        ${renderCarouselMediaNode(item, "carousel-media contain")}
+      </div>`;
+    }).join("");
+    const dots = media.map((_, index) => `<span class="carousel-dot tt ${index === 0 ? "active" : ""}"></span>`).join("");
+    stage.innerHTML = `
+      <section class="carousel-tt-shell">
+        <div class="carousel-tt-top">
+          <i data-lucide="search"></i>
+          <div class="carousel-tt-mode"><span>Following</span><strong>For You</strong></div>
+          <i data-lucide="tv"></i>
+        </div>
+        <div class="carousel-scroller carousel-snap" data-carousel-scroller>${slides}</div>
+        <div class="carousel-tt-actions">
+          <span class="carousel-tt-avatar">+</span>
+          <span><i data-lucide="heart"></i><em>1.2M</em></span>
+          <span><i data-lucide="message-circle-more"></i><em>45K</em></span>
+          <span><i data-lucide="bookmark"></i><em>10K</em></span>
+          <span><i data-lucide="forward"></i><em>Share</em></span>
+        </div>
+        <div class="carousel-tt-overlay">
+          <div>
+            <strong>@your_brand</strong>
+            <p>Checking out the new carousel preview mode! 📸 #tiktokphoto #design</p>
+            <small>Original sound - your_brand</small>
+          </div>
+          <div class="carousel-dots tt">${dots}</div>
+        </div>
+      </section>
+    `;
+  };
+
+  const paint = () => {
+    currentSlideIndex = 0;
+    if (platform === "instagram") {
+      logic.innerHTML = `<strong>IG Rule:</strong> The aspect ratio of the 1st slide is locked. Following slides center-crop to match it.`;
+      renderInstagram();
+    } else {
+      logic.innerHTML = `<strong>TikTok Rule:</strong> Container is fixed to 9:16. Mismatched images are letterboxed with blurred background.`;
+      renderTikTok();
+    }
+    attachScroller();
+    setActiveDots();
+    renderSlideList();
+    window.lucide?.createIcons();
+  };
+
+  preview.querySelectorAll("[data-carousel-platform]").forEach((button) => {
+    button.addEventListener("click", () => {
+      platform = button.dataset.carouselPlatform || "instagram";
+      preview.querySelectorAll("[data-carousel-platform]").forEach((node) => {
+        node.classList.toggle("active", node === button);
+      });
+      paint();
+    });
+  });
+
+  computeMediaRatios();
+  paint();
 }
 
 // ── Kanban ───────────────────────────────────────────────────────────────────
@@ -193,10 +504,15 @@ export function renderInspector(root, post, handlers) {
   `).join("");
 
   const clients = handlers?.clients || [];
+  const normalizedPostType = normalizePostType(post.postType);
   const allMedia = handlers?.media || [];
   const postMedia = allMedia.filter((item) => (post.mediaIds || []).includes(item.id));
   const primaryMedia = postMedia[0] || null;
-  const mediaPreviewHtml = renderPrimaryMediaPreview(primaryMedia);
+  const mediaPreviewHtml = normalizedPostType === "carousel"
+    ? renderCarouselPreview(postMedia)
+    : normalizedPostType === "text"
+    ? renderTextPreview(post)
+    : renderPrimaryMediaPreview(primaryMedia);
   const checklistDone = checklistKeys.filter((key) => post.checklist?.[key]).length;
   const readinessPercent = Math.round((checklistDone / checklistKeys.length) * 100);
   const hashSuggestionPool = Array.isArray(handlers?.hashtagSuggestions) ? handlers.hashtagSuggestions : [];
@@ -237,7 +553,7 @@ export function renderInspector(root, post, handlers) {
         </div>
         <div class="post-preview-meta">
           <strong>${escapeHtml(post.title || "Untitled Post")}</strong>
-          <span class="subtle">${escapeHtml(post.postType || "post")} • ${escapeHtml(post.publishState || "draft")}</span>
+          <span class="subtle">${escapeHtml(getPostTypeLabel(normalizedPostType))} • ${escapeHtml(post.publishState || "draft")}</span>
           <div class="post-preview-overlay">
             ${iconWithLabel("heart", "2.4k")}
             ${iconWithLabel("message-circle", "184")}
@@ -314,10 +630,7 @@ export function renderInspector(root, post, handlers) {
         <div class="field"><label for="f-scheduled-at">Scheduled At</label><input id="f-scheduled-at" type="datetime-local" value="${post.scheduledAt ? post.scheduledAt.slice(0, 16) : ""}" /></div>
         <div class="field"><label for="f-post-type">Post Type</label>
           <select id="f-post-type">
-            <option value="static" ${post.postType === "static" ? "selected" : ""}>Static</option>
-            <option value="reel" ${post.postType === "reel" ? "selected" : ""}>Reel</option>
-            <option value="video" ${post.postType === "video" ? "selected" : ""}>Video</option>
-            <option value="carousel" ${post.postType === "carousel" ? "selected" : ""}>Carousel</option>
+            ${POST_TYPE_OPTIONS.map((option) => `<option value="${escapeHtml(option.value)}" ${normalizedPostType === option.value ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
           </select>
         </div>
       </div>
@@ -478,7 +791,7 @@ export function renderInspector(root, post, handlers) {
       publishState,
       publishedAt,
       scheduledAt,
-      postType: root.querySelector("#f-post-type").value,
+      postType: normalizePostType(root.querySelector("#f-post-type").value),
       assignee: root.querySelector("#f-assignee").value.trim(),
       reviewer: root.querySelector("#f-reviewer").value.trim(),
       platforms: selectedPlatforms,
@@ -563,6 +876,7 @@ export function renderInspector(root, post, handlers) {
     mediaInput.value = "";
   });
 
+  initInspectorCarouselPreview(root);
   window.lucide?.createIcons();
 }
 
@@ -612,11 +926,11 @@ function renderPreviewMedia(post, mediaMap, className = "") {
 }
 
 function instagramTile(post, mediaMap) {
-  const type = String(post.postType || "static").toLowerCase();
+  const type = normalizePostType(post.postType);
   const stateBadge = post.publishState === "published" ? "" : `<span class="mock-badge">${escapeHtml(post.publishState)}</span>`;
   const typeIcon = type === "carousel"
     ? `<i data-lucide="copy" class="mock-top-icon" aria-hidden="true"></i>`
-    : type === "reel" || type === "video"
+    : type === "shorts" || type === "video"
     ? `<i data-lucide="play-square" class="mock-top-icon" aria-hidden="true"></i>`
     : "";
   return `

@@ -800,7 +800,30 @@
   - Verification:
     - browser check confirms Export label now visually matches neighboring action buttons
 
+### Implementation Snapshot Addendum 30 (2026-03-26)
+- Hardened carousel preview to be a more honest, post-first platform mock aligned with `inspo/CAROUSEL preview.html` mechanics:
+  - `src/render.js`
+    - expanded inspector carousel preview module with:
+      - slide intelligence list (`Slide N`, media type, computed aspect-ratio label)
+      - IG base-ratio badge on first slide when in Instagram mode
+      - robust first-slide ratio derivation for both image and video media (metadata-based fallback), clamped to IG bounds
+      - richer TikTok shell overlays (top nav, right action rail, caption/music block) while keeping Soci styling tokens
+    - preserved existing platform behavior parity:
+      - IG first-slide ratio lock + subsequent center-crop
+      - TikTok 9:16 frame + blurred background letterbox behavior
+      - drag-scroll, snap, dots, and IG fraction counter
+  - `styles.css`
+    - added cohesive styling for new carousel modules:
+      - slide list rows/thumbs/base-ratio badge
+      - TikTok top rail, mode labels, right action stack, avatar add button
+      - caption/music microcopy treatment and spacing
+    - ensured additions inherit existing tokenized theme system for brand consistency
+  - Verification status:
+    - no build script available in project (`npm run build` missing)
+    - code-level patching complete; browser parity smoke pass executed in-session
+
 ## Last Memory Update
 - **Updated:** 2026-03-26 (latest)
 - **By:** Claude Code
-- **Reason:** Logged Export button typography normalization and summary-marker fallback fix.
+- **Reason:** Logged carousel preview parity hardening (slide ratio list, IG/TT realism updates, and styling coverage).
+- 2026-03-26: Added new post type taxonomy (Photo, Video, Shorts, Carousel, Text), normalized legacy types, and implemented inspector carousel preview behavior inspired by inspo/CAROUSEL preview.html with Soci-branded styling.

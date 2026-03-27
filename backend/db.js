@@ -152,7 +152,7 @@ export function upsertPost(patch) {
           publishState: patch.publishState || "draft",
           publishedAt: patch.publishedAt || "",
           scheduledAt: patch.scheduledAt || "",
-          postType: patch.postType || "static",
+          postType: patch.postType || "photo",
           platformVariants: patch.platformVariants && typeof patch.platformVariants === "object" ? patch.platformVariants : {},
           assignee: patch.assignee || "",
           reviewer: patch.reviewer || "",

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Carousel Previewer</title>
+    <!-- Tailwind CSS for layout and styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons for UI elements -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom scrollbar hiding for the carousel */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Carousel snapping mechanics */
+        .snap-x-mandatory {
+            scroll-snap-type: x mandatory;
+        }
+        .snap-center {
+            scroll-snap-align: center;
+        }
+
+        /* Instagram dynamic aspect ratio container */
+        #ig-carousel-container {
+            transition: aspect-ratio 0.3s ease;
+        }
+        
+        /* Prevent image dragging so our custom scroll works */
+        img {
+            -webkit-user-drag: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans h-screen flex overflow-hidden">
+
+    <!-- LEFT SIDEBAR: Controls -->
+    <div class="w-full md:w-1/3 bg-white border-r border-gray-200 p-8 flex flex-col h-full overflow-y-auto shadow-lg z-10">
+        <h1 class="text-2xl font-bold mb-2">Carousel Previewer</h1>
+        <p class="text-sm text-gray-500 mb-8">Test how your mixed-ratio images will crop and render on different platforms.</p>
+
+        <!-- Platform Toggle -->
+        <div class="mb-8">
+            <label class="block text-sm font-semibold mb-3">Platform Logic</label>
+            <div class="flex bg-gray-100 p-1 rounded-lg">
+                <button id="btn-ig" class="flex-1 py-2 text-sm font-medium rounded-md shadow bg-white text-gray-900 transition-all" onclick="setPlatform('instagram')">
+                    Instagram
+                </button>
+                <button id="btn-tt" class="flex-1 py-2 text-sm font-medium rounded-md text-gray-500 hover:text-gray-900 transition-all" onclick="setPlatform('tiktok')">
+                    TikTok
+                </button>
+            </div>
+            <div id="logic-explanation" class="mt-3 text-xs text-gray-500 bg-blue-50 p-3 rounded text-blue-800 border border-blue-100">
+                <strong>IG Rule:</strong> The aspect ratio of the 1st slide is locked. All following slides are center-cropped to match it.
+            </div>
+        </div>
+
+        <!-- File Upload -->
+        <div class="mb-6">
+            <label class="block text-sm font-semibold mb-3">Import Media (Images)</label>
+            <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                    <i data-lucide="upload-cloud" class="w-8 h-8 text-gray-400 mb-2"></i>
+                    <p class="text-sm text-gray-500"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                    <p class="text-xs text-gray-400 mt-1">Select multiple files (PNG, JPG)</p>
+                </div>
+                <input type="file" id="file-input" class="hidden" multiple accept="image/*" onchange="handleFiles(event)" />
+            </label>
+        </div>
+
+        <!-- File List -->
+        <div class="flex-1 overflow-y-auto">
+            <h3 class="text-sm font-semibold mb-3">Slides (<span id="slide-count">0</span>)</h3>
+            <ul id="file-list" class="space-y-2">
+                <!-- Populated by JS -->
+                <li class="text-sm text-gray-400 italic">No media loaded.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- RIGHT SIDE: Preview Area -->
+    <div class="w-full md:w-2/3 bg-slate-100 relative flex items-center justify-center p-8 pattern-dots pattern-slate-200 pattern-bg-white pattern-size-4 pattern-opacity-20">
+        
+        <!-- Phone Device Mockup -->
+        <div class="relative w-[350px] h-[750px] bg-black rounded-[3rem] border-[12px] border-black shadow-2xl overflow-hidden flex flex-col items-center justify-center select-none">
+            
+            <!-- Dynamic Canvas Area -->
+            <div id="phone-screen" class="w-full h-full bg-white relative flex flex-col">
+                <!-- Content injected by JS -->
+                <div class="absolute inset-0 flex items-center justify-center text-gray-400 flex-col">
+                    <i data-lucide="smartphone" class="w-12 h-12 mb-2 opacity-50"></i>
+                    <p class="text-sm">Upload images to preview</p>
+                </div>
+            </div>
+
+            <!-- Fake Phone Notch -->
+            <div class="absolute top-0 w-[120px] h-[30px] bg-black rounded-b-3xl z-50 pointer-events-none"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let platform = 'instagram'; // 'instagram' or 'tiktok'
+        let mediaFiles = []; // Array of objects: { url, width, height, aspectRatio, name }
+        let currentSlideIndex = 0;
+
+        // --- DOM Elements ---
+        const fileInput = document.getElementById('file-input');
+        const fileList = document.getElementById('file-list');
+        const slideCount = document.getElementById('slide-count');
+        const phoneScreen = document.getElementById('phone-screen');
+        const btnIg = document.getElementById('btn-ig');
+        const btnTt = document.getElementById('btn-tt');
+        const logicExplanation = document.getElementById('logic-explanation');
+
+        // --- Initialize Icons ---
+        lucide.createIcons();
+
+        // --- Platform Toggle Logic ---
+        function setPlatform(newPlatform) {
+            platform = newPlatform;
+            
+            // Update UI buttons
+            if (platform === 'instagram') {
+                btnIg.classList.add('bg-white', 'text-gray-900', 'shadow');
+                btnIg.classList.remove('text-gray-500');
+                btnTt.classList.remove('bg-white', 'text-gray-900', 'shadow');
+                btnTt.classList.add('text-gray-500');
+                logicExplanation.innerHTML = `<strong>IG Rule:</strong> The aspect ratio of the 1st slide is locked. All following slides are center-cropped to match it.`;
+            } else {
+                btnTt.classList.add('bg-white', 'text-gray-900', 'shadow');
+                btnTt.classList.remove('text-gray-500');
+                btnIg.classList.remove('bg-white', 'text-gray-900', 'shadow');
+                btnIg.classList.add('text-gray-500');
+                logicExplanation.innerHTML = `<strong>TikTok Rule:</strong> Container is fixed to 9:16. Mismatched images are letterboxed with a blurred background.`;
+            }
+
+            renderPreview();
+        }
+
+        // --- File Handling Logic ---
+        async function handleFiles(event) {
+            const files = Array.from(event.target.files);
+            if (!files.length) return;
+
+            // Clear previous if desired, or append. We will overwrite for simplicity here.
+            mediaFiles = []; 
+            
+            for (const file of files) {
+                const imgData = await readAndAnalyzeImage(file);
+                mediaFiles.push(imgData);
+            }
+
+            updateSidebarList();
+            renderPreview();
+        }
+
+        function readAndAnalyzeImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const url = e.target.result;
+                    const img = new Image();
+                    img.onload = () => {
+                        resolve({
+                            url: url,
+                            name: file.name,
+                            width: img.width,
+                            height: img.height,
+                            aspectRatio: img.width / img.height
+                        });
+                    };
+                    img.src = url;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function updateSidebarList() {
+            slideCount.innerText = mediaFiles.length;
+            if (mediaFiles.length === 0) {
+                fileList.innerHTML = '<li class="text-sm text-gray-400 italic">No media loaded.</li>';
+                return;
+            }
+
+            fileList.innerHTML = mediaFiles.map((m, index) => {
+                // Calculate roughly what ratio it is for display
+                let ratioLabel = "Custom";
+                if (Math.abs(m.aspectRatio - 1) < 0.05) ratioLabel = "1:1 (Square)";
+                else if (Math.abs(m.aspectRatio - 0.8) < 0.05) ratioLabel = "4:5 (Portrait)";
+                else if (Math.abs(m.aspectRatio - 0.5625) < 0.05) ratioLabel = "9:16 (Vertical)";
+                else if (Math.abs(m.aspectRatio - 1.91) < 0.1) ratioLabel = "1.91:1 (Landscape)";
+
+                return `
+                    <li class="flex items-center gap-3 p-2 bg-gray-50 border rounded-md">
+                        <div class="w-10 h-10 rounded bg-gray-200 overflow-hidden shrink-0">
+                            <img src="${m.url}" class="w-full h-full object-cover" />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium truncate">${m.name}</p>
+                            <p class="text-xs text-gray-500">Slide ${index + 1} &bull; ${ratioLabel}</p>
+                        </div>
+                        ${index === 0 && platform === 'instagram' ? '<span class="text-[10px] bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold uppercase">Base Ratio</span>' : ''}
+                    </li>
+                `;
+            }).join('');
+        }
+
+        // --- Render Logic ---
+        function renderPreview() {
+            if (mediaFiles.length === 0) return;
+
+            if (platform === 'instagram') {
+                renderInstagram();
+            } else {
+                renderTikTok();
+            }
+
+            // Re-initialize icons for newly injected DOM
+            lucide.createIcons();
+            
+            // Setup scroll listener for pagination & Drag to Scroll
+            const scroller = document.getElementById('carousel-scroller');
+            if(scroller) {
+                scroller.addEventListener('scroll', handleScroll);
+                setupDragToScroll(scroller);
+            }
+        }
+
+        function handleScroll(e) {
+            const scroller = e.target;
+            const scrollLeft = scroller.scrollLeft;
+            const width = scroller.offsetWidth;
+            const index = Math.round(scrollLeft / width);
+            
+            if (index !== currentSlideIndex) {
+                currentSlideIndex = index;
+                updatePaginationUI();
+            }
+        }
+
+        // --- Mouse Drag to Scroll Logic ---
+        function setupDragToScroll(slider) {
+            let isDown = false;
+            let startX;
+            let scrollLeft;
+
+            // Make cursor indicate grab ability
+            slider.classList.add('cursor-grab');
+
+            slider.addEventListener('mousedown', (e) => {
+                isDown = true;
+                slider.classList.add('cursor-grabbing');
+                slider.classList.remove('cursor-grab');
+                // Temporarily disable snap so dragging feels smooth
+                slider.classList.remove('snap-x-mandatory');
+                
+                startX = e.pageX - slider.offsetLeft;
+                scrollLeft = slider.scrollLeft;
+            });
+
+            slider.addEventListener('mouseleave', () => {
+                isDown = false;
+                slider.classList.remove('cursor-grabbing');
+                slider.classList.add('cursor-grab');
+                slider.classList.add('snap-x-mandatory');
+            });
+
+            slider.addEventListener('mouseup', () => {
+                isDown = false;
+                slider.classList.remove('cursor-grabbing');
+                slider.classList.add('cursor-grab');
+                slider.classList.add('snap-x-mandatory');
+            });
+
+            slider.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault(); // Prevent text/image highlighting
+                const x = e.pageX - slider.offsetLeft;
+                const walk = (x - startX) * 1.5; // Scroll speed multiplier
+                slider.scrollLeft = scrollLeft - walk;
+            });
+        }
+
+        function updatePaginationUI() {
+            // Update dots
+            const dots = document.querySelectorAll('.pagination-dot');
+            dots.forEach((dot, i) => {
+                if (i === currentSlideIndex) {
+                    if (platform === 'instagram') {
+                        dot.classList.replace('bg-gray-300', 'bg-blue-500');
+                    } else {
+                        dot.classList.replace('bg-white/50', 'bg-white');
+                    }
+                } else {
+                    if (platform === 'instagram') {
+                        dot.classList.replace('bg-blue-500', 'bg-gray-300');
+                    } else {
+                        dot.classList.replace('bg-white', 'bg-white/50');
+                    }
+                }
+            });
+
+            // Update fraction counter (IG)
+            const fraction = document.getElementById('fraction-counter');
+            if (fraction) {
+                fraction.innerText = `${currentSlideIndex + 1}/${mediaFiles.length}`;
+            }
+        }
+
+        function renderInstagram() {
+            // IG Logic: Get aspect ratio of FIRST image. 
+            // Clamp it between 4:5 (0.8) and 1.91:1 (1.91) based on IG limits.
+            let baseRatio = mediaFiles[0].aspectRatio;
+            if (baseRatio < 0.8) baseRatio = 0.8; // Max portrait height
+            if (baseRatio > 1.91) baseRatio = 1.91; // Max landscape width
+            
+            const slidesHtml = mediaFiles.map(m => `
+                <div class="w-full shrink-0 snap-center relative flex items-center justify-center bg-gray-100 transform-gpu">
+                    <img src="${m.url}" class="w-full h-full object-cover pointer-events-none transform-gpu" />
+                </div>
+            `).join('');
+
+            const dotsHtml = mediaFiles.length > 1 ? mediaFiles.map((_, i) => `
+                <div class="w-1.5 h-1.5 rounded-full pagination-dot transition-colors ${i === 0 ? 'bg-blue-500' : 'bg-gray-300'}"></div>
+            `).join('') : '';
+
+            phoneScreen.innerHTML = `
+                <div class="flex flex-col h-full bg-white text-black">
+                    <!-- IG Header -->
+                    <div class="flex items-center justify-between p-3 border-b border-gray-100 mt-6">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-400 to-fuchsia-600 p-[2px]">
+                                <div class="w-full h-full bg-white rounded-full border border-white"></div>
+                            </div>
+                            <span class="font-semibold text-sm">your_brand</span>
+                        </div>
+                        <i data-lucide="more-horizontal" class="w-5 h-5"></i>
+                    </div>
+
+                    <!-- IG Carousel Container -->
+                    <div class="relative w-full" style="aspect-ratio: ${baseRatio};" id="ig-carousel-container">
+                        ${mediaFiles.length > 1 ? `<div id="fraction-counter" class="absolute top-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full z-10 font-medium pointer-events-none">1/${mediaFiles.length}</div>` : ''}
+                        
+                        <div id="carousel-scroller" class="w-full h-full flex overflow-x-auto snap-x-mandatory no-scrollbar bg-black transform-gpu" style="will-change: scroll-position;">
+                            ${slidesHtml}
+                        </div>
+                    </div>
+
+                    <!-- IG Footer Actions -->
+                    <div class="p-3 pointer-events-none transform-gpu">
+                        <div class="flex items-center justify-between mb-3 pointer-events-auto">
+                            <div class="flex gap-4">
+                                <i data-lucide="heart" class="w-6 h-6"></i>
+                                <i data-lucide="message-circle" class="w-6 h-6"></i>
+                                <i data-lucide="send" class="w-6 h-6"></i>
+                            </div>
+                            <!-- Dots -->
+                            <div class="flex gap-1 absolute left-1/2 -translate-x-1/2">
+                                ${dotsHtml}
+                            </div>
+                            <i data-lucide="bookmark" class="w-6 h-6"></i>
+                        </div>
+                        <p class="text-sm font-semibold mb-1">1,234 likes</p>
+                        <p class="text-sm"><span class="font-semibold">your_brand</span> Swipe to see the full collection! ✨ #preview</p>
+                    </div>
+                </div>
+            `;
+            
+            currentSlideIndex = 0;
+        }
+
+        function renderTikTok() {
+            // TikTok Photo Mode Logic: Fixed 9:16 container. 
+            // Images use object-fit: contain. Background is a blurred version of the image.
+            // OPTIMIZED FOR SCROLL PERFORMANCE:
+            // 1. Removed drop-shadow-2xl from foreground image (huge painting bottleneck during scroll)
+            // 2. Switched blurred background to a hardware-accelerated div with background-image
+            // 3. Isolated UI overlays into their own composite layers via transform-gpu
+            
+            const slidesHtml = mediaFiles.map(m => `
+                <div class="w-full h-full shrink-0 snap-center relative flex items-center justify-center overflow-hidden bg-black transform-gpu">
+                    <!-- Blurred Background (Hardware Accelerated) -->
+                    <div class="absolute inset-0 w-full h-full scale-110 opacity-40 pointer-events-none transform-gpu bg-cover bg-center" style="background-image: url('${m.url}'); filter: blur(20px); will-change: transform;"></div>
+                    <!-- Foreground Image -->
+                    <img src="${m.url}" class="relative z-10 w-full h-full object-contain pointer-events-none transform-gpu" />
+                </div>
+            `).join('');
+
+            const dotsHtml = mediaFiles.length > 1 ? mediaFiles.map((_, i) => `
+                <div class="w-1.5 h-1.5 rounded-full pagination-dot transition-colors ${i === 0 ? 'bg-white' : 'bg-white/50'}"></div>
+            `).join('') : '';
+
+            phoneScreen.innerHTML = `
+                <div class="w-full h-full bg-black text-white relative flex flex-col">
+                    
+                    <!-- Top Navigation Fake -->
+                    <div class="absolute top-8 left-0 w-full flex justify-between px-4 z-20 text-white/90 pointer-events-none transform-gpu">
+                        <i data-lucide="search" class="w-6 h-6 pointer-events-auto cursor-pointer"></i>
+                        <div class="flex gap-4 text-base font-semibold pointer-events-auto cursor-pointer">
+                            <span class="opacity-60">Following</span>
+                            <span>For You</span>
+                        </div>
+                        <i data-lucide="tv" class="w-6 h-6 pointer-events-auto cursor-pointer"></i>
+                    </div>
+
+                    <!-- TT Carousel Scroller (Hardware Accelerated Layer) -->
+                    <div id="carousel-scroller" class="w-full h-full flex overflow-x-auto snap-x-mandatory no-scrollbar transform-gpu" style="will-change: scroll-position;">
+                        ${slidesHtml}
+                    </div>
+
+                    <!-- TT Right Sidebar Actions -->
+                    <div class="absolute right-2 bottom-24 flex flex-col items-center gap-5 z-20 pointer-events-none transform-gpu">
+                        <div class="w-10 h-10 bg-white rounded-full border border-white relative pointer-events-auto cursor-pointer">
+                            <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-red-500 rounded-full w-5 h-5 flex items-center justify-center text-white text-xs border border-white">+</div>
+                        </div>
+                        <div class="flex flex-col items-center pointer-events-auto cursor-pointer">
+                            <i data-lucide="heart" class="w-8 h-8 drop-shadow-md fill-transparent"></i>
+                            <span class="text-xs mt-1 drop-shadow-md text-white font-medium">1.2M</span>
+                        </div>
+                        <div class="flex flex-col items-center pointer-events-auto cursor-pointer">
+                            <i data-lucide="message-circle-more" class="w-8 h-8 drop-shadow-md"></i>
+                            <span class="text-xs mt-1 drop-shadow-md text-white font-medium">45K</span>
+                        </div>
+                        <div class="flex flex-col items-center pointer-events-auto cursor-pointer">
+                            <i data-lucide="bookmark" class="w-8 h-8 drop-shadow-md"></i>
+                            <span class="text-xs mt-1 drop-shadow-md text-white font-medium">10K</span>
+                        </div>
+                        <div class="flex flex-col items-center pointer-events-auto cursor-pointer">
+                            <i data-lucide="forward" class="w-8 h-8 drop-shadow-md"></i>
+                            <span class="text-xs mt-1 drop-shadow-md text-white font-medium">Share</span>
+                        </div>
+                        <div class="w-10 h-10 bg-gray-800 rounded-full animate-spin [animation-duration:3s]"></div>
+                    </div>
+
+                    <!-- TT Bottom Info -->
+                    <div class="absolute bottom-4 left-4 right-16 z-20 pointer-events-none transform-gpu">
+                        <h3 class="font-bold text-sm mb-1 drop-shadow-md">@your_brand</h3>
+                        <p class="text-sm mb-2 drop-shadow-md line-clamp-2">Checking out the new carousel preview mode! 📸 #tiktokphoto #design</p>
+                        <div class="flex items-center gap-2 text-sm drop-shadow-md">
+                            <i data-lucide="music" class="w-4 h-4"></i>
+                            <span>Original sound - your_brand</span>
+                        </div>
+                        
+                        <!-- Dots (TikTok style) -->
+                        <div class="flex gap-1.5 mt-4">
+                            ${dotsHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            currentSlideIndex = 0;
+        }
+    </script>
+</body>
+</html>
