@@ -68,6 +68,7 @@ function normalizePost(post, clients) {
   return {
     ...post,
     clientId: post.clientId || fallbackClientId,
+    platforms: Array.isArray(post.platforms) && post.platforms.length ? post.platforms : ["Instagram"],
     visibility: post.visibility || "client-shareable",
     publishState: post.publishState || "draft",
     publishedAt: post.publishedAt || "",

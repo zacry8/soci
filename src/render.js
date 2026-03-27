@@ -498,14 +498,18 @@ function initInspectorCarouselPreview(root, options = {}) {
     window.lucide?.createIcons();
   };
 
-  root.addEventListener("input", (event) => {
+  if (root._carouselInputHandler) {
+    root.removeEventListener("input", root._carouselInputHandler);
+  }
+  root._carouselInputHandler = (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const id = target.id || "";
     if (id === "f-caption" || id === "variant-instagram" || id === "variant-tiktok") {
       syncCarouselCopy();
     }
-  });
+  };
+  root.addEventListener("input", root._carouselInputHandler);
 
   preview.querySelectorAll("[data-carousel-platform]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -713,7 +717,7 @@ export function renderInspector(root, post, handlers) {
         </li>
       `;
     }).join("")}</ul>`
-    : `<div class="subtle" class="fs-xs-fixed">No media uploaded yet.</div>`;
+    : `<div class="subtle fs-xs-fixed">No media uploaded yet.</div>`;
   const permissions = {
     canEdit: true,
     canComment: true,
@@ -767,7 +771,7 @@ export function renderInspector(root, post, handlers) {
           </div>
         </div>
         <input id="f-media-file" type="file" hidden accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm,.pdf" ${permissions.canUploadMedia ? "" : "disabled"} />
-        <div id="f-media-status" class="subtle" class="fs-xs-fixed"></div>
+        <div id="f-media-status" class="subtle fs-xs-fixed"></div>
         ${mediaListHtml}
       </div>
       <div class="field"><label for="f-caption">Caption</label><textarea id="f-caption" class="auto-grow" ${permissions.canEdit ? "" : "disabled"}>${escapeHtml(post.caption)}</textarea></div>
@@ -877,6 +881,11 @@ export function renderInspector(root, post, handlers) {
     if (target.id === "save-post") return;
     markDirty();
   });
+  root.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    markDirty();
+  });
 
   // Platform toggle logic — updates variant fields live
   const toggles = [...root.querySelectorAll(".platform-toggle")];
@@ -896,6 +905,7 @@ export function renderInspector(root, post, handlers) {
       if (!permissions.canEdit) return;
       btn.classList.toggle("active");
       refreshVariantFields();
+      markDirty();
     });
   }
 
@@ -964,7 +974,7 @@ export function renderInspector(root, post, handlers) {
     const publishedAt = publishedAtRaw ? new Date(publishedAtRaw).toISOString() : "";
     const scheduledAt = scheduledAtRaw ? new Date(scheduledAtRaw).toISOString() : "";
 
-    const checklist = Object.fromEntries(checklistKeys.map((k) => [k, root.querySelector(`#c-${k}`).checked]));
+    const checklist = Object.fromEntries(checklistKeys.map((k) => [k, root.querySelector(`#c-${k}`)?.checked ?? false]));
 
     if ((status === "in-review" || status === "ready") && !scheduleDate) {
       formErrors.push("Schedule date is required for In Review / Ready.");

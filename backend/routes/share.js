@@ -21,7 +21,11 @@ export function registerShareRoutes(router) {
     const client = state.clients.find((c) => c.id === claims.clientId);
     if (!client) return json(res, 404, { error: "Client not found" });
 
-    const posts = state.posts.filter((p) => p.clientId === client.id && p.visibility === "client-shareable");
+    const posts = state.posts
+      .filter((p) => p.clientId === client.id && p.visibility === "client-shareable")
+      .map(({ id, clientId, title, caption, tags, platforms, status, visibility, scheduleDate, publishState, publishedAt, scheduledAt, postType, platformVariants, mediaIds, createdAt, updatedAt }) => ({
+        id, clientId, title, caption, tags, platforms, status, visibility, scheduleDate, publishState, publishedAt, scheduledAt, postType, platformVariants, mediaIds, createdAt, updatedAt
+      }));
     return json(res, 200, { client, posts });
   });
 }

@@ -46,7 +46,21 @@ export function registerAdminRoutes(router, config) {
   router.get("/api/admin/state", async (req, res) => {
     if (!(await requireAdmin(req, res))) return;
     const state = await loadState();
-    return json(res, 200, state);
+    const permissionsByClient = Object.fromEntries(
+      (state.clients || []).map((c) => [c.id, "manage"])
+    );
+    return json(res, 200, {
+      ...state,
+      authContext: {
+        capabilities: {
+          canUploadMedia: true,
+          canManageUsers: true,
+          canManageClients: true,
+          canCreatePosts: true
+        },
+        permissionsByClient
+      }
+    });
   });
 
   // POST /api/admin/clients — create or update client

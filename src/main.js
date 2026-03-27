@@ -383,7 +383,11 @@ function getSelectedClient(state) {
 function getShareToken() {
   const hash = location.hash.replace(/^#/, "");
   if (!hash.startsWith("share=")) return "";
-  return decodeURIComponent(hash.slice(6));
+  try {
+    return decodeURIComponent(hash.slice(6));
+  } catch {
+    return "";
+  }
 }
 
 function toClientSharePosts(state, clientId) {
