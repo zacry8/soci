@@ -650,8 +650,8 @@ body.share-mode .main {
 }
 
 .carousel-ig-shell {
-  display: grid;
-  grid-template-rows: auto auto 1fr;
+  display: flex;
+  flex-direction: column;
   background: #fff;
   color: #161922;
 }
@@ -679,6 +679,7 @@ body.share-mode .main {
 .carousel-ig-frame {
   width: 100%;
   aspect-ratio: 4 / 5;
+  flex: 0 0 auto;
   position: relative;
   background: #0a0d14;
 }
@@ -758,6 +759,7 @@ body.share-mode .main {
 .carousel-ig-footer {
   position: relative;
   padding: 8px 12px 0;
+  flex: 0 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1950,7 +1952,8 @@ body.share-mode .main {
 }
 
 .carousel-ig-meta {
-  margin: 4px 12px 0;
+  margin: 4px 12px 8px;
+  flex: 0 0 auto;
 }
 
 .btn-media.icon-only {

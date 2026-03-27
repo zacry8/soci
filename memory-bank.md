@@ -968,3 +968,19 @@
 - **Updated:** 2026-03-26 (latest)
 - **By:** Claude Code
 - **Reason:** Logged real inspector carousel preview fix (IG non-square placement + action/dot/caption spacing) and moved IG/TikTok toggle under preview phone.
+
+### Implementation Snapshot Addendum 37 (2026-03-26)
+- Performed deep parity correction for Instagram carousel inspector preview spacing/cutoff issue:
+  - Root cause identified: IG shell used `grid-template-rows: auto auto 1fr` while rendering four content regions (head/frame/footer/meta), causing the `1fr` row to absorb remaining height and visually push/clip likes + caption.
+  - `styles.css` updates:
+    - switched `.carousel-ig-shell` from grid to `flex` column flow for inspo-like vertical stacking
+    - set `.carousel-ig-frame`, `.carousel-ig-footer`, `.carousel-ig-meta` to non-growing rows (`flex: 0 0 auto`)
+    - added bottom margin room to `.carousel-ig-meta` to prevent lower text clipping in the phone viewport
+- Verification:
+  - browser launch check completed against real app (`http://localhost:4174/index.html`)
+  - spacing/cutoff behavior improved and aligns with inspo structure expectations
+
+## Last Memory Update
+- **Updated:** 2026-03-26 (latest)
+- **By:** Claude Code
+- **Reason:** Logged IG carousel shell row-model fix that removed large footer/meta gap and caption clipping in the real inspector preview.
