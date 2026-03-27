@@ -80,6 +80,7 @@ const el = {
 const ADMIN_ROLES = new Set(["owner_admin", "admin"]);
 
 let profileMode = "instagram";
+let simulatorSettingsOpen = false;
 let calendarOffset = 0; // months from current
 let shareCalendarOffset = 0;
 let lastState = { posts: [], media: [], activePostId: null, clients: [], activeClientId: "", isBootstrapped: false };
@@ -722,6 +723,10 @@ function paint(state) {
       clientName: simulatorClient.clientName,
       media: state.media,
       profileSettings: simulatorProfileSettings,
+      settingsOpen: simulatorSettingsOpen,
+      onSettingsOpenChange: (nextOpen) => {
+        simulatorSettingsOpen = Boolean(nextOpen);
+      },
       onModeChange: (nextMode) => {
         profileMode = nextMode;
         paintProfileSimulator();

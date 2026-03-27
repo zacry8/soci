@@ -1199,9 +1199,9 @@ function toTiktokCard(posts, mediaMap, profile) {
   `;
 }
 
-function renderSettingsPanel(profile) {
+function renderSettingsPanel(profile, settingsOpen = false) {
   return `
-    <details class="simulator-settings">
+    <details class="simulator-settings" data-simulator-settings ${settingsOpen ? "open" : ""}>
       <summary>Profile Simulator Settings</summary>
       <div class="simulator-settings-grid">
         <label>Handle<input data-profile-setting="handle" value="${escapeHtml(profile.handle)}" /></label>
@@ -1222,6 +1222,8 @@ export function renderProfileSimulator(root, posts, options) {
   const mode = options?.mode || "instagram";
   const onModeChange = options?.onModeChange;
   const onProfileSettingsChange = options?.onProfileSettingsChange;
+  const onSettingsOpenChange = options?.onSettingsOpenChange;
+  const settingsOpen = Boolean(options?.settingsOpen);
   const mediaMap = buildMediaMap(options?.media || []);
   const profile = {
     handle: "brand",
@@ -1246,17 +1248,24 @@ export function renderProfileSimulator(root, posts, options) {
       </div>
       <span class="subtle">${escapeHtml(options?.clientName || "All Clients")} • ${eligiblePosts.length} mapped thumbnails</span>
     </div>
-    ${renderSettingsPanel(profile)}
+    ${renderSettingsPanel(profile, settingsOpen)}
     ${mode === "instagram" ? toInstagramCard(eligiblePosts, mediaMap, profile) : toTiktokCard(eligiblePosts, mediaMap, profile)}
   `;
 
   root.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => onModeChange?.(button.dataset.mode));
   });
+  const settingsDetails = root.querySelector("[data-simulator-settings]");
+  settingsDetails?.addEventListener("toggle", () => {
+    onSettingsOpenChange?.(settingsDetails.open);
+  });
+
   root.querySelectorAll("[data-profile-setting]").forEach((field) => {
-    field.addEventListener("input", () => {
+    const emitChange = () => {
       onProfileSettingsChange?.({ [field.dataset.profileSetting]: field.value });
-    });
+    };
+    field.addEventListener("change", emitChange);
+    field.addEventListener("blur", emitChange);
   });
 
   window.lucide?.createIcons();
