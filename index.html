@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Soci Planner</title>
     <link rel="preconnect" href="https://unpkg.com" />
+    <link rel="preconnect" href="https://cdn.simpleicons.org" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -219,9 +220,18 @@
       </main>
 
       <aside class="inspector" id="inspector-panel">
+        <div id="inspector-resize-handle" class="inspector-resize-handle" aria-hidden="true"></div>
         <header class="section-head inspector-head">
           <h3>Details</h3>
-          <button id="collapse-right-sidebar" class="small" type="button">Collapse</button>
+          <div class="inspector-head-actions">
+            <button id="toggle-pin-inspector" class="small icon-btn" type="button" aria-label="Pin to sidebar">
+              <span class="float-pin-icon"><i data-lucide="pin" aria-hidden="true"></i></span>
+              <span class="pinned-unpin-icon"><i data-lucide="pin-off" aria-hidden="true"></i></span>
+            </button>
+            <button id="collapse-right-sidebar" class="small icon-btn" type="button" aria-label="Close">
+              <i data-lucide="x" aria-hidden="true"></i>
+            </button>
+          </div>
         </header>
         <div class="inspector" id="inspector">
           <div class="empty">Select a post to edit</div>

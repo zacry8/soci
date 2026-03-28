@@ -1,4 +1,5 @@
 import { CHECKLIST_LABELS, PLATFORM_OPTIONS, POST_TYPE_OPTIONS, STATUSES, STATUS_LABELS } from "./data.js";
+import { initSocialMockupPreview, renderSocialMockupPreview } from "./render/inspector/socialMockups.js";
 
 const checklistKeys = ["copy", "media", "tags", "schedule", "approval"];
 const ALLOWED_UPLOAD_MIME_TYPES = new Set([
@@ -58,12 +59,6 @@ function renderPrimaryMediaPreview(media) {
     return `<video controls preload="metadata" class="media-preview-video"><source src="${url}" type="${escapeHtml(mime)}"/>Your browser does not support video preview.</video>`;
   }
   return `<a href="${url}" target="_blank" rel="noreferrer">${name}</a>`;
-}
-
-function iconWithLabel(icon, label, value = "") {
-  const safeLabel = escapeHtml(label);
-  const safeValue = escapeHtml(value);
-  return `<span class="social-pill"><i data-lucide="${escapeHtml(icon)}" aria-hidden="true"></i><span>${safeLabel}${safeValue ? ` ${safeValue}` : ""}</span></span>`;
 }
 
 function normalizePostType(value = "") {
@@ -592,62 +587,127 @@ export function renderKanban(root, posts, onOpen, onDropStatus) {
 // ── Calendar ─────────────────────────────────────────────────────────────────
 
 export function renderCalendar(root, posts, onOpen, offset = 0, onOffsetChange, options = {}) {
+  const viewMode = options?.viewMode === "week" ? "week" : "month";
+  const weekOffset = Number.isInteger(options?.weekOffset) ? options.weekOffset : 0;
   const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const year = now.getFullYear();
   const month = now.getMonth() + offset;
   const target = new Date(year, month, 1);
   const displayYear = target.getFullYear();
   const displayMonth = target.getMonth();
-  const first = new Date(displayYear, displayMonth, 1).getDay();
-  const days = new Date(displayYear, displayMonth + 1, 0).getDate();
-  const total = 35;
+
+  const startOfWeek = (date) => {
+    const value = new Date(date);
+    value.setHours(0, 0, 0, 0);
+    value.setDate(value.getDate() - value.getDay());
+    return value;
+  };
+  const toIsoDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
   const monthLabel = target.toLocaleString("default", { month: "long", year: "numeric" });
-  const postsInDisplayedMonth = posts.filter((post) => {
+  const weekStart = startOfWeek(now);
+  weekStart.setDate(weekStart.getDate() + weekOffset * 7);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const weekLabel = `${weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${weekEnd.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  })}`;
+  const label = viewMode === "week" ? weekLabel : monthLabel;
+
+  const postsInDisplayedRange = posts.filter((post) => {
     if (!post.scheduleDate) return false;
     const d = new Date(`${post.scheduleDate}T00:00:00`);
+    d.setHours(0, 0, 0, 0);
+    if (viewMode === "week") {
+      return d >= weekStart && d <= weekEnd;
+    }
     return d.getFullYear() === displayYear && d.getMonth() === displayMonth;
   }).length;
-  const nextEventButton = options?.nextEvent && postsInDisplayedMonth === 0
-    ? `<button id="cal-next-event" class="calendar-next-event" type="button">Next scheduled: ${escapeHtml(options.nextEvent.label)} →</button>`
+  const nextEventButton = options?.nextEvent && postsInDisplayedRange === 0
+    ? `<button id="cal-next-event" class="calendar-next-event icon-only" type="button" title="Jump to Next Scheduled" aria-label="Jump to Next Scheduled"><i data-lucide="calendar-days" aria-hidden="true"></i></button>`
     : "";
 
   root.innerHTML = `
     <div class="calendar-nav">
-      <button id="cal-prev" aria-label="Previous month">&#8249;</button>
-      <h4>${monthLabel}</h4>
-      <div>
+      <div class="calendar-nav-primary">
+        <div class="calendar-nav-segment">
+          <button id="cal-prev" class="calendar-arrow" title="${viewMode === "week" ? "Previous Week" : "Previous Month"}" aria-label="${viewMode === "week" ? "Previous Week" : "Previous Month"}">&#8249;</button>
+          <h4 class="calendar-nav-label">${label}</h4>
+          <button id="cal-next" class="calendar-arrow" title="${viewMode === "week" ? "Next Week" : "Next Month"}" aria-label="${viewMode === "week" ? "Next Week" : "Next Month"}">&#8250;</button>
+        </div>
+      </div>
+      <div class="calendar-nav-secondary">
+        <div class="calendar-view-mode" role="group" aria-label="Calendar view mode">
+          <button id="cal-mode-month" class="calendar-view-btn ${viewMode === "month" ? "active" : ""}" type="button">Month</button>
+          <button id="cal-mode-week" class="calendar-view-btn ${viewMode === "week" ? "active" : ""}" type="button">Week</button>
+        </div>
         ${nextEventButton}
-        <button id="cal-next" aria-label="Next month">&#8250;</button>
       </div>
     </div>
     <div class="calendar-grid"></div>
   `;
 
-  root.querySelector("#cal-prev").addEventListener("click", () => onOffsetChange?.(-1));
-  root.querySelector("#cal-next").addEventListener("click", () => onOffsetChange?.(1));
+  root.querySelector("#cal-prev").addEventListener("click", () => {
+    if (viewMode === "week") {
+      options?.onWeekOffsetChange?.(-1);
+      return;
+    }
+    onOffsetChange?.(-1);
+  });
+  root.querySelector("#cal-next").addEventListener("click", () => {
+    if (viewMode === "week") {
+      options?.onWeekOffsetChange?.(1);
+      return;
+    }
+    onOffsetChange?.(1);
+  });
+  root.querySelector("#cal-mode-month")?.addEventListener("click", () => options?.onViewModeChange?.("month"));
+  root.querySelector("#cal-mode-week")?.addEventListener("click", () => options?.onViewModeChange?.("week"));
   root.querySelector("#cal-next-event")?.addEventListener("click", () => {
     options?.onJumpToDate?.(options.nextEvent?.date || "");
   });
 
   const grid = root.querySelector(".calendar-grid");
 
-  for (let i = 1; i <= total; i++) {
+  const renderDayChips = (box, date) => {
+    for (const post of posts.filter((p) => p.scheduleDate === date)) {
+      const chip = document.createElement("div");
+      chip.className = "chip";
+      const platformAbbr = post.platforms[0]?.slice(0, 2).toUpperCase() || "–";
+      chip.innerHTML = `<div>${escapeHtml(post.title.slice(0, 20) || "Untitled")}</div><div class="chip-meta">${platformAbbr} · ${STATUS_LABELS[post.status] || post.status}</div>`;
+      chip.addEventListener("click", () => onOpen(post.id));
+      box.append(chip);
+    }
+  };
+
+  if (viewMode === "week") {
+    for (let i = 0; i < 7; i += 1) {
+      const day = new Date(weekStart);
+      day.setDate(weekStart.getDate() + i);
+      const box = document.createElement("div");
+      box.className = "day";
+      box.innerHTML = `<div class="day-weekday">${day.toLocaleDateString(undefined, { weekday: "short" })}</div><div class="day-number">${day.getDate()}</div>`;
+      renderDayChips(box, toIsoDate(day));
+      grid.append(box);
+    }
+    return;
+  }
+
+  const first = new Date(displayYear, displayMonth, 1).getDay();
+  const days = new Date(displayYear, displayMonth + 1, 0).getDate();
+  const total = 35;
+
+  for (let i = 1; i <= total; i += 1) {
     const box = document.createElement("div");
     box.className = "day";
     const dayNum = i - first;
     box.innerHTML = `<div class="day-number">${dayNum > 0 && dayNum <= days ? dayNum : ""}</div>`;
-
     if (dayNum > 0 && dayNum <= days) {
       const date = `${displayYear}-${String(displayMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-      for (const post of posts.filter((p) => p.scheduleDate === date)) {
-        const chip = document.createElement("div");
-        chip.className = "chip";
-        const platformAbbr = post.platforms[0]?.slice(0, 2).toUpperCase() || "–";
-        chip.innerHTML = `<div>${escapeHtml(post.title.slice(0, 20) || "Untitled")}</div><div class="chip-meta">${platformAbbr} · ${STATUS_LABELS[post.status] || post.status}</div>`;
-        chip.addEventListener("click", () => onOpen(post.id));
-        box.append(chip);
-      }
+      renderDayChips(box, date);
     }
     grid.append(box);
   }
@@ -683,10 +743,22 @@ export function renderInspector(root, post, handlers) {
     instagram: post.platformVariants?.Instagram || post.caption || "",
     tiktok: post.platformVariants?.TikTok || post.caption || ""
   };
+  const mediaMap = buildMediaMap(allMedia);
+  const previewPlatform = handlers?.previewPlatform || "instagram";
   const mediaPreviewHtml = normalizedPostType === "carousel"
     ? renderCarouselPreview(postMedia, captionPayload)
     : normalizedPostType === "text"
-    ? renderTextPreview(post)
+    ? renderSocialMockupPreview(post, {
+        previewPlatform,
+        mediaMap,
+        profileSettings: handlers?.profileSettings || {}
+      })
+    : normalizedPostType === "photo" || normalizedPostType === "video" || normalizedPostType === "shorts"
+    ? renderSocialMockupPreview(post, {
+        previewPlatform,
+        mediaMap,
+        profileSettings: handlers?.profileSettings || {}
+      })
     : renderPrimaryMediaPreview(primaryMedia);
   const checklistDone = checklistKeys.filter((key) => post.checklist?.[key]).length;
   const readinessPercent = Math.round((checklistDone / checklistKeys.length) * 100);
@@ -743,42 +815,43 @@ export function renderInspector(root, post, handlers) {
         <div class="readiness-meter"><div class="readiness-meter-fill ${readinessPercent < 10 ? "low" : ""}" style="width:${readinessVisualPercent}%"></div></div>
       </div>
 
-      <p class="section-title">Post Preview</p>
-      <section class="post-preview-card">
-        <div class="post-preview-media">
-          ${mediaPreviewHtml}
+      <div class="content-pane-grid">
+        <div class="content-pane-preview">
+          <p class="section-title">Post Preview</p>
+          <section class="post-preview-card">
+            <div class="post-preview-media">
+              ${mediaPreviewHtml}
+            </div>
+            <div class="post-preview-meta">
+              <strong>${escapeHtml(post.title || "Untitled Post")}</strong>
+              <span class="subtle">${escapeHtml(getPostTypeLabel(normalizedPostType))} • ${escapeHtml(post.publishState || "draft")}</span>
+              <span class="preview-pill">Preview only</span>
+            </div>
+          </section>
         </div>
-        <div class="post-preview-meta">
-          <strong>${escapeHtml(post.title || "Untitled Post")}</strong>
-          <span class="subtle">${escapeHtml(getPostTypeLabel(normalizedPostType))} • ${escapeHtml(post.publishState || "draft")}</span>
-          <span class="preview-pill">Preview only</span>
-          <div class="post-preview-overlay">
-            ${iconWithLabel("heart", "2.4k")}
-            ${iconWithLabel("message-circle", "184")}
-            ${iconWithLabel("send", "Share")}
-          </div>
-        </div>
-      </section>
 
-      <p class="section-title">Caption &amp; Content</p>
-      <div class="field"><label for="f-title">Title</label><input id="f-title" value="${escapeHtml(post.title)}" ${permissions.canEdit ? "" : "disabled"} /></div>
-      <div class="field">
-        <label for="f-media-file">Media Upload</label>
-        <div class="media-dropzone" id="f-media-dropzone" tabindex="0" role="button" aria-label="Upload media" ${permissions.canUploadMedia ? "" : "aria-disabled=\"true\""}>
-          <div>
-            <strong>Drop media here</strong>
-            <div class="subtle">or click to browse image/video/PDF</div>
+        <div class="content-pane-fields">
+          <p class="section-title">Caption &amp; Content</p>
+          <div class="field"><label for="f-title">Title</label><input id="f-title" value="${escapeHtml(post.title)}" ${permissions.canEdit ? "" : "disabled"} /></div>
+          <div class="field">
+            <label for="f-media-file">Media Upload</label>
+            <div class="media-dropzone" id="f-media-dropzone" tabindex="0" role="button" aria-label="Upload media" ${permissions.canUploadMedia ? "" : "aria-disabled=\"true\""}>
+              <div>
+                <strong>Drop media here</strong>
+                <div class="subtle">or click to browse image/video/PDF</div>
+              </div>
+            </div>
+            <input id="f-media-file" type="file" hidden accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm,.pdf" ${permissions.canUploadMedia ? "" : "disabled"} />
+            <div id="f-media-status" class="subtle fs-xs-fixed"></div>
+            ${mediaListHtml}
+          </div>
+          <div class="field"><label for="f-caption">Caption</label><textarea id="f-caption" class="auto-grow" ${permissions.canEdit ? "" : "disabled"}>${escapeHtml(post.caption)}</textarea></div>
+          ${suggestionHtml ? `<div class="hashtag-suggestions">${suggestionHtml}</div>` : ""}
+          <div class="field">
+            <p class="section-title section-title-tight">Platform Captions</p>
+            <div class="variant-fields">${variantFieldsHtml || '<div class="subtle" class="fs-xs-fixed">Select platforms above to add per-platform captions.</div>'}</div>
           </div>
         </div>
-        <input id="f-media-file" type="file" hidden accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm,.pdf" ${permissions.canUploadMedia ? "" : "disabled"} />
-        <div id="f-media-status" class="subtle fs-xs-fixed"></div>
-        ${mediaListHtml}
-      </div>
-      <div class="field"><label for="f-caption">Caption</label><textarea id="f-caption" class="auto-grow" ${permissions.canEdit ? "" : "disabled"}>${escapeHtml(post.caption)}</textarea></div>
-      ${suggestionHtml ? `<div class="hashtag-suggestions">${suggestionHtml}</div>` : ""}
-      <div class="field">
-        <p class="section-title section-title-tight">Platform Captions</p>
-        <div class="variant-fields">${variantFieldsHtml || '<div class="subtle" class="fs-xs-fixed">Select platforms above to add per-platform captions.</div>'}</div>
       </div>
     </section>
 
@@ -859,11 +932,10 @@ export function renderInspector(root, post, handlers) {
       <button class="add-btn" id="add-comment" ${permissions.canComment ? "" : "disabled"}>Add Comment</button>
     </section>
 
-    <hr>
     <div class="inspector-actions">
-      <button class="save" id="save-post" ${permissions.canEdit ? "" : "disabled"}>Save Changes</button>
-      <button class="btn-secondary" id="duplicate-post" title="Duplicate post" ${permissions.canDuplicate ? "" : "disabled"}>Duplicate</button>
-      <button class="btn-danger" id="delete-post" title="Delete post" ${permissions.canDelete ? "" : "disabled"}>Delete Post</button>
+      <button class="save icon-btn" id="save-post" title="Save changes" aria-label="Save changes" ${permissions.canEdit ? "" : "disabled"}><i data-lucide="save" aria-hidden="true"></i></button>
+      <button class="btn-secondary icon-btn" id="duplicate-post" title="Duplicate post" aria-label="Duplicate post" ${permissions.canDuplicate ? "" : "disabled"}><i data-lucide="copy" aria-hidden="true"></i></button>
+      <button class="btn-danger icon-btn" id="delete-post" title="Delete post" aria-label="Delete post" ${permissions.canDelete ? "" : "disabled"}><i data-lucide="trash-2" aria-hidden="true"></i></button>
     </div>
   `;
 
@@ -872,7 +944,7 @@ export function renderInspector(root, post, handlers) {
   const markDirty = () => {
     if (!permissions.canEdit || isDirty) return;
     isDirty = true;
-    if (saveButton) saveButton.textContent = "Save Changes • Unsaved";
+    saveButton?.classList.add("is-dirty");
   };
 
   root.addEventListener("input", (event) => {
@@ -1139,6 +1211,14 @@ export function renderInspector(root, post, handlers) {
     },
     onReorderSlides: permissions.canReorderMedia ? handlers?.onReorderMedia : null
   });
+  if (normalizedPostType !== "carousel") {
+    initSocialMockupPreview(root, post, {
+      previewPlatform,
+      mediaMap,
+      profileSettings: handlers?.profileSettings || {},
+      onPlatformChange: handlers?.onPreviewPlatformChange
+    });
+  }
   window.lucide?.createIcons();
 }
 

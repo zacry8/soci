@@ -1226,3 +1226,325 @@
 - **Updated:** 2026-03-27 (latest)
 - **By:** Claude Code
 - **Reason:** Logged UI/UX polish implementation for layout comfort, kanban overflow discoverability, card/status clarity, details panel affordance, and profile/calendar usability improvements.
+
+### Implementation Snapshot Addendum 45 (2026-03-27)
+- Completed a full responsive hardening pass focused on phone/tablet usability and touch ergonomics:
+  - `styles.css`
+    - added staged responsive breakpoints at:
+      - `max-width: 1024px`
+      - `max-width: 900px`
+      - `max-width: 760px`
+      - `max-width: 600px`
+      - `max-width: 480px`
+    - fixed mobile shell constraints:
+      - forces `.sidebar` and `#inspector-panel` to mobile-safe sizing (`min-width: 0`, `max-width: 100%`, `width: 100%`) under narrow breakpoints
+      - disables desktop-only horizontal resize handles on tablet/mobile (`resize: none`)
+      - reduced shell spacing at small widths (`.app-shell` padding/gap tightened to `10px` then `8px`)
+    - improved touch targets and control ergonomics:
+      - set shared control min-height baseline
+      - enforced 44px tap-size floor on calendar nav buttons
+      - tightened topbar/filterbar spacing and wrapping for compact screens
+    - improved dense UI behavior on narrow viewports:
+      - inspector action bar now wraps safely with Save on its own row
+      - media action rows stack cleanly at phone widths
+      - simulator settings grid collapses to single-column on smaller screens
+      - profile header/avatar scales down for phone
+    - reduced preview domination on mobile:
+      - responsive carousel phone dimensions replace fixed-feel sizing on small screens
+      - carousel controls/list widths scale down at `760/480`
+    - calendar and kanban mobile handling improvements:
+      - mobile calendar grid gets minimum day widths and horizontal safety behavior
+      - kanban lane width tuned for touch-scrolling readability on mobile
+    - login responsiveness:
+      - added small-screen card sizing for `.lc` at `max-width: 480px`
+- Validation:
+  - local static app served and launched successfully (`http://localhost:4174/index.html`)
+  - browser smoke session completed post-change with no new console errors
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged comprehensive mobile responsiveness pass (breakpoints, shell sizing, touch targets, inspector/mobile layout fixes, and responsive carousel/login adjustments).
+
+### Implementation Snapshot Addendum 46 (2026-03-27)
+- Fixed planning-workspace responsive clipping issues in the middle section where controls and text overflowed card bounds at narrow widths:
+  - `styles.css`
+    - made top view toggle group (`.view-toggles`) fluid and width-safe:
+      - changed columns to `repeat(3, minmax(0, 1fr))`
+      - added width/flex constraints (`width: min(100%, 420px)`, `min-width: 0`, `flex: 1 1 280px`)
+    - hardened tab labels (`.tab`) against text spill:
+      - `min-width: 0`, `white-space: nowrap`, `overflow: hidden`, `text-overflow: ellipsis`
+    - improved topbar wrap behavior under phone widths:
+      - forced first topbar block, toggle group, and workspace controls to full-row basis at `max-width: 760px`
+    - relaxed icon-button label truncation on tighter tablet/mobile layouts:
+      - removed restrictive span max-width in responsive context (`max-width: none` at `max-width: 900px`)
+    - ensured calendar header helper chip (`.calendar-next-event`) does not overflow at small widths:
+      - `margin-left: 0`, `max-width: 100%` at `max-width: 480px`
+- Verification:
+  - browser launch/smoke checks were run locally on `http://localhost:3000/index.html` after the CSS patch.
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged responsive clipping fix for planning middle-section controls/toggle text overflow and calendar chip containment on narrow widths.
+
+### Implementation Snapshot Addendum 47 (2026-03-27)
+- Applied corrective follow-up for planning workspace middle-card responsiveness after user-reported oversized/off-card controls:
+  - `styles.css`
+    - restored compact control sizing for `.view-toggles` (content-fit columns via `repeat(3, minmax(88px, auto))`, removed stretch sizing)
+    - prevented control strip overflow from escaping planning card by enforcing containment on section header:
+      - `.section-head { min-width: 0; overflow: hidden; }`
+      - preserved `.workspace-section { overflow: hidden; }`
+    - corrected tablet breakpoint behavior (`max-width: 900px`) to wrap controls instead of forcing full-width oversized rows:
+      - `.topbar` now wraps in row mode
+      - heading block takes full row while toggle/control groups remain `width:auto`
+      - tightened toggle/control sizing and label truncation (`.workspace-controls .icon-btn span { max-width: 11ch; }`)
+    - retained mobile safety behavior (`max-width: 760px`/`480px`) for no-clipping/no-overflow while preserving intended visual scale.
+- Verification:
+  - browser verification pass run on local app (`http://localhost:3000/index.html`) after corrective patch.
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged corrective responsive patch ensuring planning-workspace controls stay inside the card without oversized button behavior.
+
+### Implementation Snapshot Addendum 48 (2026-03-27)
+- Added targeted calendar responsiveness hardening to prevent clipping/overflow on small widths:
+  - `styles.css`
+    - strengthened calendar grid sizing constraints:
+      - `.calendar-grid` now uses `repeat(7, minmax(0, 1fr))` with `width: 100%`
+      - `.day` now enforces `min-width: 0`, internal overflow containment, and flex column flow
+    - prevented chip text overflow in narrow cells:
+      - title/meta lines now use ellipsis truncation
+      - smallest breakpoint hides `.chip-meta` for readability
+    - refined responsive breakpoints:
+      - `max-width: 900px`: reduced day/chip density
+      - `max-width: 760px`: schedule section allows controlled horizontal scroll and keeps week layout stable via min grid width
+      - `max-width: 480px`: tighter day/chip sizing to keep cards inside section bounds
+- Verification:
+  - browser verification run on local app (`http://localhost:3000/index.html`) after patch.
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged calendar-specific responsive containment and chip-overflow fixes for mobile/tablet widths.
+
+### Implementation Snapshot Addendum 49 (2026-03-27)
+- Implemented requested calendar UX updates with minimal-file changes (`src/render.js`, `src/main.js`, `styles.css`):
+  - Next Scheduled control update:
+    - replaced text CTA with icon-only calendar button in calendar nav when jump target is available
+    - hover/focus text now uses exact tooltip label: `Jump to Next Scheduled`
+    - retained existing jump callback behavior via `onJumpToDate`
+  - Weekly calendar view support:
+    - added calendar mode toggle (`Month` / `Week`) in calendar nav
+    - added week-range rendering path (7-day grid with weekday labels)
+    - preserved existing month grid behavior as default
+    - navigation arrows now switch behavior by mode:
+      - month mode → month offset
+      - week mode → week offset
+    - jump-to-next-scheduled now updates both month and week offsets for correct landing in either mode
+  - Styling support:
+    - added calendar nav grouping classes for mode/action alignment
+    - added week/month toggle pill styles + active state
+    - added weekly day weekday label style (`.day-weekday`)
+    - added icon-only styling for next-scheduled button
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged calendar next-scheduled icon tooltip update and new week-view calendar mode with mode-aware navigation.
+
+### Implementation Snapshot Addendum 50 (2026-03-27)
+- Refined calendar header aesthetics and control clarity for month/week navigation without changing underlying scheduling logic:
+  - `src/render.js`
+    - restructured calendar nav into clearer zones:
+      - primary segmented nav (`prev` + centered range label + `next`)
+      - secondary action row (Month/Week toggle + next-scheduled icon action)
+    - improved control semantics/accessibility:
+      - dynamic arrow labels/tooltips now read `Previous/Next Month` or `Previous/Next Week` based on active mode
+  - `styles.css`
+    - introduced unified segmented-control visual language for calendar nav:
+      - new `.calendar-nav-primary`, `.calendar-nav-segment`, `.calendar-nav-secondary`, `.calendar-nav-label`, `.calendar-arrow`
+      - improved spacing rhythm, rounded surfaces, and active/hover consistency across arrows + mode toggle
+    - reduced visual noise of next-scheduled icon while keeping discoverability
+    - added mobile-specific nav layout behavior to stack controls cleanly and preserve readability at narrow widths
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged calendar nav aesthetic re-architecture (segmented arrows, clearer month/week toggle hierarchy, and responsive polish).
+
+### Implementation Snapshot Addendum 51 (2026-03-27)
+- Implemented inspector post preview expansion to support social-mockup-style previews for non-carousel post types using the provided `inspo/social mockup generator.html` direction:
+  - `src/render/inspector/socialMockups.js` (new modular inspector renderer)
+    - added platform-authored mockup renderers for:
+      - Instagram
+      - TikTok
+      - X (Twitter)
+      - Facebook
+      - LinkedIn
+      - Reddit
+    - added in-preview platform switcher and state-safe platform normalization
+    - added media fallback handling when no upload exists
+    - added runtime icon hydration support via Lucide
+  - `src/render.js`
+    - integrated social mockup renderer into inspector media preview path for non-carousel types (`photo`, `video`, `shorts`, `text`)
+    - preserved carousel preview path untouched for carousel-specific behavior
+    - wired social preview initialization and platform-change callback routing
+  - `src/main.js`
+    - added persisted in-session inspector preview platform state (`inspectorPreviewPlatform`)
+    - passed platform selection + change handler into inspector render pipeline
+  - `styles.css`
+    - added scoped `spm-*` styles for mockup cards, platform switches, media treatment, and TikTok overlay rail
+    - kept styling isolated to avoid regressions in existing carousel/profile simulator systems
+  - Modularization follow-through:
+    - added `src/render/kanban.js` as part of ongoing render-layer modular extraction and separation of concerns
+- Validation:
+  - syntax checks passed:
+    - `node --check src/main.js`
+    - `node --check src/render.js`
+    - `node --check src/render/shared.js`
+    - `node --check src/render/kanban.js`
+    - `node --check src/render/inspector/socialMockups.js`
+  - browser verification run on local static server (`http://localhost:4174/index.html`) and inspector interaction smoke-checked post-change.
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged inspector post preview social mockup expansion (IG/TikTok/X/Facebook/LinkedIn/Reddit), renderer wiring, scoped styles, and verification status.
+
+### Implementation Snapshot Addendum 52 (2026-03-27)
+- Implemented Simple Icons-based platform rail for inspector social mockup switcher with glass slider indicator and hover tooltips:
+  - `src/render/inspector/socialMockups.js`
+    - replaced text platform pills with icon-first button rendering sourced from Simple Icons CDN (`cdn.simpleicons.org`)
+    - added platform metadata map for stable label/icon slug control
+    - added tooltip labels per platform (`Instagram`, `TikTok`, `X / Twitter`, `Facebook`, `LinkedIn`, `Reddit`)
+    - added active indicator state wiring via CSS vars (`--spm-active-index`, `--spm-count`) and paint-cycle updates
+    - preserved existing platform IDs and preview persistence behavior (`instagram`, `tiktok`, `twitter`, `facebook`, `linkedin`, `reddit`)
+  - `styles.css`
+    - upgraded `.spm-switch` to glass rail treatment
+    - added gradient active slider button (`.spm-switch-indicator`) aligned to wasabi/ginger accent system
+    - added icon hover/active transition states and tooltip visuals
+  - `index.html`
+    - added preconnect hint for `https://cdn.simpleicons.org` for faster icon fetch
+- Validation:
+  - syntax checks pass:
+    - `node --check src/render/inspector/socialMockups.js`
+    - `node --check src/main.js`
+    - `node --check src/render.js`
+  - browser launched successfully on local static host (`http://localhost:4174/index.html`) after changes
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged Simple Icons platform rail conversion with gradient glass active indicator + tooltips for inspector social mockup switcher.
+
+### Implementation Snapshot Addendum 53 (2026-03-27)
+- Completed simulator cleanup and mapping reliability pass for inspector post preview based on user QA:
+  - `src/render/inspector/socialMockups.js`
+    - fixed LinkedIn platform switch icon by replacing icon dependency with inline SVG platform glyphs for all switch buttons
+    - made platform switcher icons monochrome via `currentColor` so they inherit title text color and turn white on active/hover states
+    - removed unnecessary static fake engagement copy outside core simulator content (`likes/comments/reactions/upvotes` footer-style counters)
+  - Live mapping behavior verified:
+    - social simulator now continuously reflects inspector `Title`, `Caption`, and `Platform Captions` (`variant-*`) through existing `initSocialMockupPreview` input listeners
+  - `styles.css`
+    - added explicit SVG sizing hook for switch icons (`.spm-switch-icon svg`) to keep platform glyph rendering consistent
+- Validation:
+  - syntax checks pass:
+    - `node --check src/render/inspector/socialMockups.js`
+    - `node --check src/render.js`
+    - `node --check src/main.js`
+  - source scan confirms no remaining fake engagement footer text in social mockup renderer
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged LinkedIn icon fix, monochrome platform switch behavior, fake engagement cleanup, and caption/content-to-simulator mapping verification.
+
+### Implementation Snapshot Addendum 54 (2026-03-27)
+- Standardized social platform switcher icon sizing using Simple Icons path data in vanilla renderer:
+  - `src/render/inspector/socialMockups.js`
+    - replaced ad-hoc inline icon map with normalized Simple Icons path constants for:
+      - Instagram, TikTok, X/Twitter, Facebook, LinkedIn, Reddit
+    - each icon now renders through one shared 24x24 SVG wrapper using `currentColor`, ensuring consistent monochrome behavior and uniform scale
+  - `styles.css`
+    - confirmed explicit shared sizing contract remains in place:
+      - `.spm-switch-icon { width: 18px; height: 18px; }`
+      - `.spm-switch-icon svg { width: 18px; height: 18px; }`
+- Verification:
+  - syntax checks pass:
+    - `node --check src/render/inspector/socialMockups.js`
+    - `node --check src/render.js`
+    - `node --check src/main.js`
+  - source scan confirms switcher icon sizing selectors are consistently applied in CSS
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged Simple Icons path normalization and uniform social switcher icon sizing verification.
+
+### Implementation Snapshot Addendum 55 (2026-03-27)
+- Completed inspector layout anchoring + preview parity polish requested in latest UI pass:
+  - `src/render.js`
+    - moved inspector action row (`Save`, `Duplicate`, `Delete`) to be a direct footer element without the extra divider above it, improving clean bottom docking behavior in both pinned and floating inspector modes
+  - `styles.css`
+    - made `.inspector` a flex-column container and set `.inspector-actions { margin-top: auto; position: sticky; bottom: 0; }` so the action row stays bottom-anchored even when content is short
+    - added `.inspector-pane` active-pane flex-column behavior to preserve stable vertical flow
+    - changed `.content-pane-grid` alignment to `stretch` and made preview/card containers fill available row height:
+      - `.content-pane-preview` now flex-column
+      - `.post-preview-card` now flex-column
+      - `.post-preview-media` now flexes to occupy available height
+    - this creates visual height parity between preview column and content-entry column at wide inspector widths
+    - refined social toggle spacing (`.spm-shell` gap + `.spm-switch` padding/margin) for cleaner balance under preview
+  - `src/render/inspector/socialMockups.js`
+    - reordered social mockup shell to render preview stage first and platform rail second (toggle now appears below preview)
+- Verification:
+  - syntax checks pass:
+    - `node --check src/render/inspector/socialMockups.js`
+    - `node --check src/render.js`
+    - `node --check src/main.js`
+  - source-order check confirms social toggle now renders below preview stage (`spm-stage` before `spm-switch`)
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged inspector bottom action anchoring, preview-height parity adjustments, and social toggle-under-preview layout update.
+
+### Implementation Snapshot Addendum 56 (2026-03-27)
+- Fixed floating/unpinned inspector footer overlap where action buttons blocked bottom content:
+  - `styles.css`
+    - kept sticky bottom action behavior for pinned inspector
+    - added floating-mode override so action row renders below content instead of overlaying it:
+      - `body:not(.inspector-pinned) .inspector-actions { position: static; bottom: auto; ... }`
+      - removed overlay visuals for floating mode (`border-top`, background blur) and applied simple top spacing
+    - added narrow-screen refinement (`max-width: 760px`) to keep footer spacing comfortable in floating mode
+- Validation:
+  - source scan confirms unpinned override and responsive rule are present
+  - syntax checks pass:
+    - `node --check src/render.js`
+    - `node --check src/main.js`
+    - `node --check src/render/inspector/socialMockups.js`
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged floating/unpinned inspector footer overlap fix to keep Save/Duplicate/Delete below content without clipping.
+
+### Implementation Snapshot Addendum 57 (2026-03-27)
+- Applied stricter inspector action-row mode split to fully resolve floating/unpinned overlap:
+  - `styles.css`
+    - changed `.inspector-actions` base style to non-sticky/static flow (safe default)
+    - moved sticky footer behavior to pinned mode only:
+      - `body.inspector-pinned .inspector-actions { position: sticky; bottom: 0; ... }`
+    - retained floating mode natural flow and pane scrolling behavior:
+      - `body:not(.inspector-pinned) .inspector { display: block; ... }`
+      - `body:not(.inspector-pinned) .inspector-pane:not(.hidden) { display: block; }`
+    - this eliminates any cross-mode sticky inheritance that could still pin/overlay action buttons in floating inspector.
+- Browser verification loop:
+  - relaunched local app and re-opened inspector after CSS split
+  - closed browser session cleanly after validation pass
+
+## Last Memory Update
+- **Updated:** 2026-03-27 (latest)
+- **By:** Claude Code
+- **Reason:** Logged pinned-only sticky footer architecture so floating/unpinned inspector action row always renders below content without overlap.

@@ -82,13 +82,20 @@ const el = {
 const ADMIN_ROLES = new Set(["owner_admin", "admin"]);
 
 let profileMode = "instagram";
+let inspectorPreviewPlatform = "instagram";
 let simulatorSettingsOpen = false;
 let showDraftLabels = true;
 let calendarOffset = 0; // months from current
+let calendarWeekOffset = 0; // weeks from current week
+let calendarViewMode = "month";
 let shareCalendarOffset = 0;
 let lastState = { posts: [], media: [], activePostId: null, clients: [], activeClientId: "", isBootstrapped: false };
 let visibleViews = loadJson(STORAGE_UI_VIEWS, { kanban: true, calendar: true, grid: false });
 let collapsedSections = loadJson(STORAGE_UI_SECTIONS, { workflow: false, schedule: false, preview: false, adminUser: false, leftSidebar: false, rightSidebar: false, inspector: false });
+const STORAGE_INSPECTOR_PINNED = "soci_inspector_pinned";
+let inspectorPinned = localStorage.getItem(STORAGE_INSPECTOR_PINNED) === "true";
+const STORAGE_INSPECTOR_WIDTH = "soci_inspector_width";
+let inspectorFloatWidth = Math.min(Math.max(320, parseInt(localStorage.getItem(STORAGE_INSPECTOR_WIDTH) || "420", 10)), window.innerWidth - 32);
 if (typeof collapsedSections.rightSidebar !== "boolean") {
   collapsedSections.rightSidebar = Boolean(collapsedSections.inspector);
 }
@@ -237,6 +244,28 @@ function getMonthOffsetFromDate(dateString = "") {
   const nowMonthIndex = now.getFullYear() * 12 + now.getMonth();
   const targetMonthIndex = target.getFullYear() * 12 + target.getMonth();
   return targetMonthIndex - nowMonthIndex;
+}
+
+function getWeekOffsetFromDate(dateString = "") {
+  if (!dateString) return 0;
+  const target = new Date(`${dateString}T00:00:00`);
+  if (Number.isNaN(target.getTime())) return 0;
+  target.setHours(0, 0, 0, 0);
+
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  const startOfWeek = (date) => {
+    const value = new Date(date);
+    value.setDate(value.getDate() - value.getDay());
+    value.setHours(0, 0, 0, 0);
+    return value;
+  };
+
+  const weekStartNow = startOfWeek(now);
+  const weekStartTarget = startOfWeek(target);
+  const diffMs = weekStartTarget.getTime() - weekStartNow.getTime();
+  return Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
 }
 
 function formatFriendlyDate(value = "") {
@@ -461,8 +490,9 @@ function applyUiState() {
   const rightCollapsed = Boolean(collapsedSections.rightSidebar);
 
   document.body.classList.toggle("left-collapsed", leftCollapsed);
-  document.body.classList.toggle("right-collapsed", rightCollapsed);
-  document.body.classList.toggle("both-collapsed", leftCollapsed && rightCollapsed);
+  document.body.classList.toggle("inspector-pinned", inspectorPinned);
+  document.body.classList.toggle("right-collapsed", inspectorPinned && rightCollapsed);
+  document.body.classList.toggle("both-collapsed", leftCollapsed && inspectorPinned && rightCollapsed);
 
   el.workflowSection.classList.toggle("hidden", !visibleViews.kanban);
   el.scheduleSection.classList.toggle("hidden", !visibleViews.calendar);
@@ -478,15 +508,14 @@ function applyUiState() {
   }
 
   el.leftSidebar.classList.toggle("is-collapsed", leftCollapsed);
-  el.inspectorPanel.classList.toggle("is-collapsed", rightCollapsed);
+  el.inspectorPanel.classList.toggle("is-collapsed", inspectorPinned && rightCollapsed);
   el.workflowSection.classList.toggle("is-collapsed", collapsedSections.workflow);
   el.scheduleSection.classList.toggle("is-collapsed", collapsedSections.schedule);
   el.previewSection.classList.toggle("is-collapsed", collapsedSections.preview);
 
   el.collapseLeftSidebar.textContent = leftCollapsed ? "Expand" : "Collapse";
   el.reopenLeftSidebar.classList.toggle("hidden", !leftCollapsed);
-  el.collapseRightSidebar.textContent = rightCollapsed ? "Expand" : "Collapse";
-  el.reopenRightSidebar.classList.toggle("hidden", !rightCollapsed);
+  el.reopenRightSidebar.classList.toggle("hidden", !(inspectorPinned && rightCollapsed));
 
   el.collapseWorkflow.textContent = collapsedSections.workflow ? "Expand" : "Collapse";
   el.collapseSchedule.textContent = collapsedSections.schedule ? "Expand" : "Collapse";
@@ -496,7 +525,46 @@ function applyUiState() {
     toggle.classList.toggle("active", Boolean(visibleViews[toggle.dataset.view]));
   }
 
+  applyInspectorWidth();
   syncKanbanOverflowState();
+}
+
+function applyInspectorWidth() {
+  if (inspectorPinned) {
+    el.inspectorPanel.style.width = "";
+  } else {
+    el.inspectorPanel.style.width = `${inspectorFloatWidth}px`;
+  }
+}
+
+// ── Inspector resize drag ─────────────────────────────────────────────────────
+{
+  let isResizing = false;
+  let resizeStartX = 0;
+  let resizeStartWidth = 0;
+
+  document.querySelector("#inspector-resize-handle").addEventListener("mousedown", (e) => {
+    if (inspectorPinned) return;
+    isResizing = true;
+    resizeStartX = e.clientX;
+    resizeStartWidth = el.inspectorPanel.getBoundingClientRect().width;
+    document.body.style.userSelect = "none";
+    e.preventDefault();
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!isResizing) return;
+    const delta = resizeStartX - e.clientX;
+    inspectorFloatWidth = Math.max(320, Math.min(window.innerWidth - 32, resizeStartWidth + delta));
+    el.inspectorPanel.style.width = `${inspectorFloatWidth}px`;
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (!isResizing) return;
+    isResizing = false;
+    document.body.style.userSelect = "";
+    localStorage.setItem(STORAGE_INSPECTOR_WIDTH, String(Math.round(inspectorFloatWidth)));
+  });
 }
 
 function canManageUsers() {
@@ -598,7 +666,13 @@ el.collapseSchedule.addEventListener("click", () => toggleCollapse("schedule"));
 el.collapsePreview.addEventListener("click", () => toggleCollapse("preview"));
 el.collapseAdminUser?.addEventListener("click", () => toggleCollapse("adminUser"));
 el.collapseLeftSidebar.addEventListener("click", () => toggleCollapse("leftSidebar"));
-el.collapseRightSidebar.addEventListener("click", () => toggleCollapse("rightSidebar"));
+el.collapseRightSidebar.addEventListener("click", () => {
+  if (!inspectorPinned) {
+    store.setActivePost(null);
+  } else {
+    toggleCollapse("rightSidebar");
+  }
+});
 el.reopenLeftSidebar.addEventListener("click", () => {
   collapsedSections = { ...collapsedSections, leftSidebar: false };
   persistUiState();
@@ -607,6 +681,18 @@ el.reopenLeftSidebar.addEventListener("click", () => {
 el.reopenRightSidebar.addEventListener("click", () => {
   collapsedSections = { ...collapsedSections, rightSidebar: false };
   persistUiState();
+  applyUiState();
+});
+
+document.querySelector("#toggle-pin-inspector").addEventListener("click", () => {
+  inspectorPinned = !inspectorPinned;
+  localStorage.setItem(STORAGE_INSPECTOR_PINNED, String(inspectorPinned));
+  if (inspectorPinned) {
+    document.body.classList.remove("inspector-active");
+  } else {
+    document.body.classList.toggle("inspector-active", Boolean(lastState.activePostId));
+  }
+  applyInspectorWidth();
   applyUiState();
 });
 
@@ -759,6 +845,10 @@ el.filterAssignee.addEventListener("change", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !inspectorPinned && lastState.activePostId) {
+    store.setActivePost(null);
+    return;
+  }
   if (!(event.metaKey || event.ctrlKey)) return;
   const key = event.key.toLowerCase();
   if (key === "n") {
@@ -770,6 +860,15 @@ document.addEventListener("keydown", (event) => {
     document.querySelector("#save-post")?.click();
   }
 });
+
+document.addEventListener("click", (e) => {
+  if (inspectorPinned) return;
+  if (!lastState.activePostId) return;
+  if (el.inspectorPanel.contains(e.target)) return;
+  // Clicking a card/chip opens a (different) post — don't dismiss
+  if (e.target.closest(".card, .chip")) return;
+  store.setActivePost(null);
+}, true);
 
 // ── Render / paint ───────────────────────────────────────────────────────────
 function paint(state) {
@@ -899,9 +998,20 @@ function paint(state) {
     calendarOffset += delta;
     paint(lastState);
   }, {
+    viewMode: calendarViewMode,
+    weekOffset: calendarWeekOffset,
+    onViewModeChange: (mode) => {
+      calendarViewMode = mode === "week" ? "week" : "month";
+      paint(lastState);
+    },
+    onWeekOffsetChange: (delta) => {
+      calendarWeekOffset += delta;
+      paint(lastState);
+    },
     nextEvent: getNextScheduledEvent(visiblePosts),
     onJumpToDate: (dateString) => {
       calendarOffset = getMonthOffsetFromDate(dateString);
+      calendarWeekOffset = getWeekOffsetFromDate(dateString);
       paint(lastState);
     }
   });
@@ -914,6 +1024,10 @@ function paint(state) {
     clients: state.clients,
     media: state.media,
     hashtagSuggestions,
+    previewPlatform: inspectorPreviewPlatform,
+    onPreviewPlatformChange: (platform) => {
+      inspectorPreviewPlatform = platform;
+    },
     permissions: {
       canEdit: activePost ? store.canEditPost(activePost) : false,
       canComment: activePost ? store.canCommentOnPost(activePost) : false,
@@ -957,6 +1071,8 @@ function paint(state) {
       await store.reorderPostMedia(activePost.id, orderedMediaIds);
     }
   });
+
+  document.body.classList.toggle("inspector-active", Boolean(state.activePostId) && !inspectorPinned);
 
   const scheduled = visiblePosts.filter((p) => p.scheduleDate).length;
   const selectedClient = getSelectedClient(state);
