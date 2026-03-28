@@ -1,0 +1,316 @@
+/* Comment inline error */
+.comment-error {
+  font-size: var(--fs-sm);
+  color: #a61b1b;
+  margin-bottom: 4px;
+}
+
+.admin-user-form {
+  padding: 12px;
+}
+
+#admin-user-panel .inspector-actions {
+  margin-top: 8px;
+  position: static;
+  margin-top: 10px;
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+#admin-user-panel.is-collapsed .section-body {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .app-shell {
+    grid-template-columns: minmax(200px, 260px) 1fr;
+    gap: 14px;
+    padding: 14px;
+  }
+  body.inspector-pinned #inspector-panel {
+    grid-column: 1 / -1;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    resize: none;
+  }
+  .sidebar {
+    min-width: 0;
+    max-width: 100%;
+    resize: none;
+  }
+  .workspace-controls { justify-content: flex-start; }
+  .filterbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .filterbar input,
+  .filterbar select {
+    flex: initial;
+    width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px;
+  }
+  .topbar h2 { font-size: var(--fs-xl); }
+
+  .topbar > :first-child {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .view-toggles {
+    width: auto;
+    max-width: 100%;
+    grid-template-columns: repeat(3, minmax(84px, auto));
+  }
+  .workspace-controls {
+    justify-content: flex-start;
+    gap: 6px;
+    width: auto;
+    flex: 1 1 auto;
+  }
+
+  .workspace-controls .icon-btn span {
+    max-width: 11ch;
+  }
+
+  .workspace-section {
+    margin: 10px;
+  }
+
+  .calendar-grid {
+    gap: 6px;
+  }
+
+  .day {
+    min-height: 96px;
+    padding: 6px;
+  }
+
+  .chip {
+    margin-top: 4px;
+    padding: 3px 5px;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .sidebar {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    resize: none;
+  }
+  body.inspector-pinned #inspector-panel {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    resize: none;
+  }
+
+  .sidebar { order: 1; }
+  .main { order: 2; }
+  body.inspector-pinned #inspector-panel { order: 3; }
+
+  .filterbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .topbar {
+    padding: 10px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .topbar > :first-child {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .view-toggles {
+    width: auto;
+    max-width: 100%;
+    grid-template-columns: repeat(3, minmax(76px, auto));
+  }
+
+  .workspace-controls {
+    width: auto;
+    max-width: 100%;
+    flex: 1 1 auto;
+    justify-content: flex-start;
+  }
+
+  .tab,
+  .small,
+  .btn-secondary,
+  .btn-danger,
+  .save {
+    min-height: 44px;
+  }
+
+  #kanban-view {
+    grid-template-columns: repeat(4, minmax(220px, 1fr));
+  }
+
+  .calendar-grid {
+    grid-template-columns: repeat(7, minmax(56px, 1fr));
+    min-width: 0;
+  }
+
+  .day {
+    min-height: 92px;
+  }
+
+  #schedule-section .section-body {
+    overflow-x: auto;
+  }
+
+  #schedule-section .calendar-grid {
+    min-width: 392px;
+  }
+
+  .inspector-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .inspector-actions .save {
+    flex: 1 1 100%;
+  }
+
+  .inspector-actions .btn-secondary,
+  .inspector-actions .btn-danger {
+    flex: 1 1 calc(50% - 3px);
+  }
+
+  .carousel-phone {
+    width: min(100%, 300px);
+    height: min(520px, 68vh);
+    border-width: 8px;
+    border-radius: 2.2rem;
+  }
+
+  .carousel-slide-list {
+    width: min(100%, 300px);
+    max-height: 160px;
+  }
+
+  .simulator-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inspo-profile-head {
+    grid-template-columns: 74px 1fr;
+    gap: 10px;
+  }
+
+  .inspo-avatar {
+    width: 74px;
+    height: 74px;
+  }
+
+  .platform-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-shell {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .workspace-section {
+    margin: 8px;
+    border-radius: 14px;
+  }
+
+  .view {
+    padding: 12px;
+  }
+
+  .section-head {
+    padding: 8px 10px;
+  }
+
+  .media-item-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .media-item-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar h2 {
+    font-size: var(--fs-lg);
+  }
+
+  .view-toggles {
+    padding: 3px;
+    gap: 4px;
+  }
+
+  .tab {
+    padding: 8px 10px;
+    font-size: var(--fs-xs);
+  }
+
+  .calendar-next-event {
+    margin-left: 0;
+    max-width: 100%;
+  }
+
+  .carousel-phone {
+    width: min(100%, 280px);
+    height: min(460px, 62vh);
+  }
+
+  .carousel-platform-toggle,
+  .carousel-logic,
+  .carousel-slide-list {
+    width: min(100%, 280px);
+  }
+
+  .calendar-grid {
+    grid-template-columns: repeat(7, minmax(48px, 1fr));
+  }
+
+  .day {
+    min-height: 84px;
+    padding: 4px;
+  }
+
+  .chip {
+    padding: 2px 4px;
+    margin-top: 3px;
+    font-size: 10px;
+  }
+
+  .chip-meta {
+    display: none;
+  }
+}
+

@@ -1,0 +1,84 @@
+:root {
+  color-scheme: light;
+  --bg: #f7f6f1;
+  --bg-2: #f0eee3;
+  --panel: rgba(255, 253, 247, 0.88);
+  --panel-strong: rgba(255, 252, 245, 0.96);
+  --line: rgba(190, 184, 164, 0.68);
+  --text: #222a1f;
+  --subtle: #62705f;
+  --brand: #5a7324;
+  --brand-2: #d98f4a;
+  --surface-soft: #f1efe4;
+  --surface-raised: #fffdf8;
+  --success-soft: #edf7dd;
+  --warning-soft: #fff4e6;
+  --danger-soft: #fff1ef;
+  --glow: 0 8px 24px rgba(76, 74, 50, 0.15);
+  --fs-xs: clamp(0.75rem, 0.7rem + 0.15vw, 0.8rem);
+  --fs-sm: clamp(0.875rem, 0.82rem + 0.18vw, 0.95rem);
+  --fs-md: clamp(1rem, 0.94rem + 0.2vw, 1.08rem);
+  --fs-lg: clamp(1.125rem, 1.02rem + 0.26vw, 1.25rem);
+  --fs-xl: clamp(1.5rem, 1.3rem + 0.55vw, 1.7rem);
+  --fs-2xl: clamp(1.8rem, 1.6rem + 1vw, 2.2rem);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f7f6f1;
+  --bg-2: #f0eee3;
+  --panel: rgba(255, 253, 247, 0.88);
+  --panel-strong: rgba(255, 252, 245, 0.96);
+  --line: rgba(190, 184, 164, 0.68);
+  --text: #222a1f;
+  --subtle: #62705f;
+  --brand: #5a7324;
+  --brand-2: #d98f4a;
+  --surface-soft: #f1efe4;
+  --surface-raised: #fffdf8;
+  --success-soft: #edf7dd;
+  --warning-soft: #fff4e6;
+  --danger-soft: #fff1ef;
+  --glow: 0 8px 24px rgba(76, 74, 50, 0.15);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #13151b;
+  --bg-2: #1a1d25;
+  --panel: rgba(26, 30, 38, 0.84);
+  --panel-strong: rgba(31, 35, 44, 0.92);
+  --line: rgba(119, 127, 145, 0.5);
+  --text: #e7eaf1;
+  --subtle: #a9b2c2;
+  --brand: #8ea95a;
+  --brand-2: #d49961;
+  --surface-soft: #21262f;
+  --surface-raised: #2a303b;
+  --success-soft: #20372f;
+  --warning-soft: #3a3024;
+  --danger-soft: #3b2729;
+  --glow: 0 18px 44px rgba(7, 9, 14, 0.56);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: #13151b;
+    --bg-2: #1a1d25;
+    --panel: rgba(26, 30, 38, 0.84);
+    --panel-strong: rgba(31, 35, 44, 0.92);
+    --line: rgba(119, 127, 145, 0.5);
+    --text: #e7eaf1;
+    --subtle: #a9b2c2;
+    --brand: #8ea95a;
+    --brand-2: #d49961;
+    --surface-soft: #21262f;
+    --surface-raised: #2a303b;
+    --success-soft: #20372f;
+    --warning-soft: #3a3024;
+    --danger-soft: #3b2729;
+    --glow: 0 18px 44px rgba(7, 9, 14, 0.56);
+  }
+}
+

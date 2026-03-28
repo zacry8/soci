@@ -1,34 +1,15 @@
 import { createStore, sortByProfileOrder } from "./store.js";
 import { renderCalendar, renderInspector, renderKanban, renderProfileSimulator, renderShareCalendar } from "./render.js";
 import { getAuthToken, login, setAuthToken } from "./api.js";
+import { loadJson, escapeHtml, getShareToken, toClientSharePosts, listAssignees, collectHashtagSuggestions } from "./utils.js";
+import { sanitizeProfileSettingsPatch, resolveProfileSettingsForClient } from "./profile.js";
+import { getMonthOffsetFromDate, getWeekOffsetFromDate, getNextScheduledEvent } from "./calendarUtils.js";
+import { exportCsv, exportIcs } from "./export.js";
 
 const store = createStore();
 const STORAGE_UI_VIEWS = "soci.ui.views.v1";
 const STORAGE_UI_SECTIONS = "soci.ui.sections.v1";
 const STORAGE_THEME = "soci.theme.v1";
-const PROFILE_SETTING_KEYS = new Set([
-  "handle",
-  "displayName",
-  "avatarUrl",
-  "followers",
-  "following",
-  "likes",
-  "bio",
-  "linkText",
-  "linkUrl"
-]);
-
-const DEFAULT_PROFILE_SETTINGS = {
-  handle: "brand",
-  displayName: "Client",
-  avatarUrl: "https://picsum.photos/seed/client-avatar/300/300",
-  followers: "—",
-  following: "—",
-  likes: "—",
-  bio: "Profile bio",
-  linkText: "website",
-  linkUrl: "#"
-};
 
 const el = {
   brandHome: document.querySelector("#brand-home"),
@@ -37,6 +18,7 @@ const el = {
   stats: document.querySelector("#stats"),
   activeClient: document.querySelector("#active-client"),
   newClient: document.querySelector("#new-client"),
+  deleteClient: document.querySelector("#delete-client"),
   manageUsers: document.querySelector("#manage-users"),
   copyShareLink: document.querySelector("#copy-share-link"),
   exportCsv: document.querySelector("#export-csv"),
@@ -145,62 +127,6 @@ function showToast(message, type = "") {
   }, 2500);
 }
 
-function loadJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function normalizeProfileSettings(settings = {}) {
-  return { ...DEFAULT_PROFILE_SETTINGS, ...(settings || {}) };
-}
-
-function sanitizeProfileSettingsPatch(patch = {}) {
-  if (!patch || typeof patch !== "object" || Array.isArray(patch)) return {};
-  const next = {};
-  for (const [key, value] of Object.entries(patch)) {
-    if (!PROFILE_SETTING_KEYS.has(key)) continue;
-    if (value === undefined || value === null) continue;
-    next[key] = String(value);
-  }
-  return next;
-}
-
-function toHandleFromClientName(name = "") {
-  const slug = String(name || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 40);
-  return slug || DEFAULT_PROFILE_SETTINGS.handle;
-}
-
-function buildClientDerivedProfileDefaults(client) {
-  if (!client) return { ...DEFAULT_PROFILE_SETTINGS };
-  const clientName = String(client.name || "").trim() || DEFAULT_PROFILE_SETTINGS.displayName;
-  const avatarSeed = encodeURIComponent(client.shareSlug || client.id || clientName.toLowerCase());
-  return {
-    ...DEFAULT_PROFILE_SETTINGS,
-    handle: toHandleFromClientName(clientName),
-    displayName: clientName,
-    avatarUrl: `https://picsum.photos/seed/${avatarSeed}/300/300`
-  };
-}
-
-function resolveProfileSettingsForClient(state, clientId = "") {
-  const targetClient =
-    state.clients.find((client) => client.id === clientId) ||
-    state.clients.find((client) => client.id === state.activeClientId) ||
-    state.clients[0] ||
-    null;
-  const clientDefaults = buildClientDerivedProfileDefaults(targetClient);
-  const fromClient = sanitizeProfileSettingsPatch(targetClient?.profileSettings || {});
-  return normalizeProfileSettings({ ...clientDefaults, ...fromClient });
-}
-
 function resolveSimulatorClient(state) {
   const selectedClientId = filters.clientId || state.activeClientId || state.clients[0]?.id || "";
   const selectedClient = state.clients.find((client) => client.id === selectedClientId) || null;
@@ -234,61 +160,6 @@ function applyTheme() {
     el.themeToggle.setAttribute("aria-label", `Switch to ${themeMode === "dark" ? "light" : "dark"} mode`);
     refreshIcons();
   }
-}
-
-function getMonthOffsetFromDate(dateString = "") {
-  if (!dateString) return 0;
-  const target = new Date(`${dateString}T00:00:00`);
-  if (Number.isNaN(target.getTime())) return 0;
-  const now = new Date();
-  const nowMonthIndex = now.getFullYear() * 12 + now.getMonth();
-  const targetMonthIndex = target.getFullYear() * 12 + target.getMonth();
-  return targetMonthIndex - nowMonthIndex;
-}
-
-function getWeekOffsetFromDate(dateString = "") {
-  if (!dateString) return 0;
-  const target = new Date(`${dateString}T00:00:00`);
-  if (Number.isNaN(target.getTime())) return 0;
-  target.setHours(0, 0, 0, 0);
-
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-
-  const startOfWeek = (date) => {
-    const value = new Date(date);
-    value.setDate(value.getDate() - value.getDay());
-    value.setHours(0, 0, 0, 0);
-    return value;
-  };
-
-  const weekStartNow = startOfWeek(now);
-  const weekStartTarget = startOfWeek(target);
-  const diffMs = weekStartTarget.getTime() - weekStartNow.getTime();
-  return Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
-}
-
-function formatFriendlyDate(value = "") {
-  if (!value) return "";
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
-
-function getNextScheduledEvent(posts = []) {
-  const scheduled = posts
-    .filter((post) => post.scheduleDate)
-    .map((post) => ({ ...post, _date: new Date(`${post.scheduleDate}T00:00:00`) }))
-    .filter((post) => !Number.isNaN(post._date.getTime()))
-    .sort((a, b) => a._date - b._date);
-  if (!scheduled.length) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const upcoming = scheduled.find((post) => post._date >= today) || scheduled[0];
-  return {
-    date: upcoming.scheduleDate,
-    label: formatFriendlyDate(upcoming.scheduleDate)
-  };
 }
 
 function syncKanbanOverflowState() {
@@ -327,39 +198,6 @@ el.themeToggle?.addEventListener("click", toggleTheme);
 applyTheme();
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function escapeHtml(value = "") {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function listAssignees(posts) {
-  return [...new Set(posts.map((p) => (p.assignee || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-}
-
-function collectHashtagSuggestions(posts) {
-  const counts = new Map();
-  for (const post of posts) {
-    const fromTags = Array.isArray(post.tags) ? post.tags : [];
-    for (const tag of fromTags) {
-      const normalized = String(tag || "").trim().toLowerCase().replace(/^#/, "");
-      if (!normalized) continue;
-      counts.set(normalized, (counts.get(normalized) || 0) + 1);
-    }
-    const caption = String(post.caption || "");
-    const hashMatches = [...caption.matchAll(/#([a-z0-9_]+)/gi)].map((match) => match[1].toLowerCase());
-    for (const hash of hashMatches) {
-      counts.set(hash, (counts.get(hash) || 0) + 1);
-    }
-  }
-
-  return [...counts.entries()]
-    .map(([tag, count]) => ({ tag, count }))
-    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
-}
-
 function syncAssigneeFilter(posts) {
   const assignees = listAssignees(posts);
   const selected = filters.assignee;
@@ -407,56 +245,6 @@ function applyStatusRules(patch, existing) {
 function getSelectedClient(state) {
   if (!filters.clientId) return null;
   return state.clients.find((c) => c.id === filters.clientId) || null;
-}
-
-function getShareToken() {
-  const hash = location.hash.replace(/^#/, "");
-  if (!hash.startsWith("share=")) return "";
-  try {
-    return decodeURIComponent(hash.slice(6));
-  } catch {
-    return "";
-  }
-}
-
-function toClientSharePosts(state, clientId) {
-  return sortByProfileOrder(state.posts).filter((post) => post.clientId === clientId && post.visibility === "client-shareable" && post.scheduleDate);
-}
-
-function downloadFile(name, content, type) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function exportCsv(client, posts) {
-  const header = ["title", "date", "platforms", "status", "publish_state", "caption"];
-  const rows = posts.map((p) => [p.title, p.scheduleDate, p.platforms.join("|"), p.status, p.publishState, p.caption].map((v) => `"${String(v || "").replaceAll('"', '""')}"`).join(","));
-  downloadFile(`${client.shareSlug}-calendar.csv`, [header.join(","), ...rows].join("\n"), "text/csv;charset=utf-8");
-}
-
-function exportIcs(client, posts) {
-  const events = posts.map((post) => {
-    const stamp = `${post.scheduleDate.replaceAll("-", "")}T090000`;
-    const uid = `${post.id}@soci.local`;
-    const summary = (post.title || "Untitled").replace(/[,;\\]/g, "");
-    const desc = (post.caption || "").replace(/\n/g, "\\n").replace(/[,;\\]/g, "");
-    return [
-      "BEGIN:VEVENT",
-      `UID:${uid}`,
-      `DTSTART:${stamp}`,
-      `DTEND:${stamp}`,
-      `SUMMARY:${summary}`,
-      `DESCRIPTION:${desc}`,
-      "END:VEVENT"
-    ].join("\n");
-  });
-  const file = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Soci//Calendar//EN", ...events, "END:VCALENDAR"].join("\n");
-  downloadFile(`${client.shareSlug}-calendar.ics`, file, "text/calendar;charset=utf-8");
 }
 
 function setViewVisible(view, nextValue) {
@@ -591,6 +379,10 @@ function syncActionPermissions(state) {
     el.newClient.disabled = !canManageClients;
     el.newClient.title = canManageClients ? "" : "You do not have permission to create clients.";
   }
+  if (el.deleteClient) {
+    el.deleteClient.disabled = !canManageClients;
+    el.deleteClient.title = canManageClients ? "" : "You do not have permission to delete clients.";
+  }
   if (el.copyShareLink) el.copyShareLink.disabled = !canManageUsers();
   if (el.exportCsv) el.exportCsv.disabled = !canManageUsers();
   if (el.exportIcs) el.exportIcs.disabled = !canManageUsers();
@@ -713,6 +505,20 @@ el.newClient.addEventListener("click", () => {
   if (!name?.trim()) return;
   store.createClient(name.trim());
   showToast("Client added.", "success");
+});
+
+el.deleteClient?.addEventListener("click", () => {
+  if (typeof store.canManageClients === "function" && !store.canManageClients()) {
+    showToast("You do not have permission to delete clients.", "warning");
+    return;
+  }
+  const client = getSelectedClient(lastState);
+  if (!client) return showToast("Select a client first.", "warning");
+  if (!confirm(`Delete client "${client.name}"? This will remove all their posts and media. This cannot be undone.`)) return;
+  store.deleteClient(client.id);
+  filters.clientId = "";
+  el.activeClient.value = "";
+  showToast("Client deleted.", "success");
 });
 
 el.manageUsers?.addEventListener("click", () => {

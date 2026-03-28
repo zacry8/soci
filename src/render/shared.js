@@ -1,3 +1,5 @@
+export const checklistKeys = ["copy", "media", "tags", "schedule", "approval"];
+
 export function escapeHtml(value = "") {
   return String(value)
     .replaceAll("&", "&amp;")
