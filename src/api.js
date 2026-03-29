@@ -80,6 +80,20 @@ export async function login(email, password) {
   return data;
 }
 
+export async function register({ email, password, name, workspaceName }) {
+  const data = await request("/api/auth/register", {
+    method: "POST",
+    body: { email, password, name, workspaceName }
+  });
+  setAuthToken(data.token || "");
+  if (data.user && typeof data.user === "object") {
+    localStorage.setItem(STORAGE_AUTH_USER, JSON.stringify(data.user));
+  } else {
+    localStorage.removeItem(STORAGE_AUTH_USER);
+  }
+  return data;
+}
+
 export async function ensureAdminToken() {
   const token = getAuthToken();
   if (!token) throw new Error("Not authenticated");
@@ -128,6 +142,30 @@ export async function createUser(token, payload) {
 
 export async function assignMembership(token, payload) {
   return request("/api/admin/memberships", { method: "POST", token, body: payload });
+}
+
+export async function getAdminUsers(token) {
+  return request("/api/admin/users", { token });
+}
+
+export async function getAdminUserStats(token) {
+  return request("/api/admin/users/stats", { token });
+}
+
+export async function disableAdminUser(token, userId) {
+  return request(`/api/admin/users/${userId}/disable`, { method: "POST", token });
+}
+
+export async function enableAdminUser(token, userId) {
+  return request(`/api/admin/users/${userId}/enable`, { method: "POST", token });
+}
+
+export async function resetAdminUserPassword(token, userId, password) {
+  return request(`/api/admin/users/${userId}/reset-password`, {
+    method: "POST",
+    token,
+    body: { password }
+  });
 }
 
 export async function getMyState(token) {

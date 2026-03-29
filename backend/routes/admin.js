@@ -1,10 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createAuthToken, hashPassword, verifyAuthToken } from "../auth.js";
-import { addMedia, createShareLink, deleteClient, deletePost, loadState, removeMedia, reorderPostMedia, upsertClient, upsertMembership, upsertPost, upsertUser } from "../db.js";
+import { addMedia, createShareLink, deleteClient, deletePost, findUserByEmail, loadState, removeMedia, reorderPostMedia, upsertClient, upsertMembership, upsertPost, upsertUser } from "../db.js";
+import { sendUserInviteEmail } from "../email.js";
 import { id, json, readJsonBody, sanitizeFileName, validateFilePath } from "../utils.js";
 import { validateClient, validateMembership, validatePost, validateUser } from "../validators.js";
 
+const OWNER_EMAILS = new Set(["zac@hommemade.xyz"]);
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg", "image/png", "image/gif", "image/webp",
   "video/mp4", "video/quicktime", "video/webm",
@@ -30,6 +32,69 @@ function checkMagicBytes(buf, mimeType) {
   return false;
 }
 
+function normalizeEmail(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isOwnerEmail(email, config) {
+  const candidate = normalizeEmail(email);
+  if (!candidate) return false;
+  if (OWNER_EMAILS.has(candidate)) return true;
+  return candidate === normalizeEmail(config.adminEmail);
+}
+
+function toPublicUser(user = {}) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name || "",
+    role: user.role || "client_user",
+    disabledAt: user.disabledAt || "",
+    createdAt: user.createdAt || "",
+    updatedAt: user.updatedAt || ""
+  };
+}
+
+function buildUserStats(state) {
+  const users = Array.isArray(state?.users) ? state.users : [];
+  const memberships = Array.isArray(state?.memberships) ? state.memberships : [];
+  const roleCounts = {
+    owner_admin: 0,
+    admin: 0,
+    helper_staff: 0,
+    client_user: 0
+  };
+  const membershipByUserId = memberships.reduce((acc, membership) => {
+    if (!membership?.userId) return acc;
+    acc[membership.userId] = (acc[membership.userId] || 0) + 1;
+    return acc;
+  }, {});
+
+  let activeUsers = 0;
+  let disabledUsers = 0;
+  let usersWithoutMembership = 0;
+
+  for (const user of users) {
+    const role = String(user?.role || "client_user");
+    if (roleCounts[role] !== undefined) roleCounts[role] += 1;
+    if (user?.disabledAt) {
+      disabledUsers += 1;
+    } else {
+      activeUsers += 1;
+    }
+    if (!membershipByUserId[user?.id]) usersWithoutMembership += 1;
+  }
+
+  return {
+    totalUsers: users.length,
+    activeUsers,
+    disabledUsers,
+    usersWithoutMembership,
+    totalMemberships: memberships.length,
+    roleCounts
+  };
+}
+
 async function requireAdmin(req, res) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
@@ -41,26 +106,71 @@ async function requireAdmin(req, res) {
   return claims;
 }
 
+async function requireOwner(req, res, config) {
+  const claims = await requireAdmin(req, res);
+  if (!claims) return null;
+  if (!isOwnerEmail(claims.email, config)) {
+    json(res, 403, { error: "Owner-only endpoint" });
+    return null;
+  }
+  return claims;
+}
+
+function canAssignRole(claims, targetRole = "client_user") {
+  const role = String(targetRole || "client_user");
+  if (role === "owner_admin") return false;
+  if (role === "admin") return claims.role === "owner_admin";
+  return ["helper_staff", "client_user"].includes(role);
+}
+
 export function registerAdminRoutes(router, config) {
   // GET /api/admin/state — full app state
   router.get("/api/admin/state", async (req, res) => {
-    if (!(await requireAdmin(req, res))) return;
+    const claims = await requireAdmin(req, res);
+    if (!claims) return;
     const state = await loadState();
     const permissionsByClient = Object.fromEntries(
       (state.clients || []).map((c) => [c.id, "manage"])
     );
+    const ownerOnly = isOwnerEmail(claims.email, config);
+    const users = (state.users || []).map(toPublicUser);
+    const userStats = buildUserStats({ ...state, users });
     return json(res, 200, {
       ...state,
+      users,
+      userStats,
       authContext: {
         capabilities: {
           canUploadMedia: true,
           canManageUsers: true,
           canManageClients: true,
-          canCreatePosts: true
+          canCreatePosts: true,
+          canUseOwnerConsole: ownerOnly
         },
         permissionsByClient
       }
     });
+  });
+
+  // GET /api/admin/users — owner-only user + membership view
+  router.get("/api/admin/users", async (req, res) => {
+    if (!(await requireOwner(req, res, config))) return;
+    const state = await loadState();
+    const users = (state.users || [])
+      .map(toPublicUser)
+      .sort((a, b) => normalizeEmail(a.email).localeCompare(normalizeEmail(b.email)));
+    return json(res, 200, {
+      users,
+      memberships: state.memberships || [],
+      stats: buildUserStats({ ...state, users })
+    });
+  });
+
+  // GET /api/admin/users/stats — owner-only user stats
+  router.get("/api/admin/users/stats", async (req, res) => {
+    if (!(await requireOwner(req, res, config))) return;
+    const state = await loadState();
+    return json(res, 200, { stats: buildUserStats(state) });
   });
 
   // POST /api/admin/clients — create or update client
@@ -87,20 +197,56 @@ export function registerAdminRoutes(router, config) {
 
   // POST /api/admin/users — create or update helper/client user
   router.post("/api/admin/users", async (req, res) => {
-    if (!(await requireAdmin(req, res))) return;
+    const claims = await requireOwner(req, res, config);
+    if (!claims) return;
     const body = await readJsonBody(req, config.maxJsonBytes).catch((e) => ({ __error: e?.message || "Invalid JSON" }));
     if (body?.__error) return json(res, body.__error === "Payload too large" ? 413 : 400, { error: body.__error });
     const err = validateUser(body);
     if (err) return json(res, 400, { error: err });
 
-    const user = await upsertUser({
-      id: body.id,
-      email: body.email,
-      name: body.name,
-      role: body.role,
-      disabledAt: body.disabledAt || "",
-      passwordHash: body.password ? hashPassword(body.password) : body.passwordHash
-    });
+    const existingUser = body.id ? (await loadState()).users.find((value) => value.id === body.id) : null;
+    const requestedRole = String(body.role || existingUser?.role || "client_user");
+    if (!canAssignRole(claims, requestedRole)) {
+      return json(res, 403, { error: "Insufficient privileges for requested role" });
+    }
+    if (existingUser?.role === "owner_admin") {
+      return json(res, 403, { error: "Owner account cannot be modified via this endpoint" });
+    }
+
+    const requestedEmail = String(body.email || existingUser?.email || "").trim().toLowerCase();
+    const duplicate = requestedEmail ? await findUserByEmail(requestedEmail) : null;
+    if (duplicate && duplicate.id !== body.id) {
+      return json(res, 409, { error: "Email already in use" });
+    }
+
+    let user;
+    try {
+      user = await upsertUser({
+        id: body.id,
+        email: body.email,
+        name: body.name,
+        role: body.role,
+        disabledAt: body.disabledAt || "",
+        passwordHash: body.password ? hashPassword(body.password) : body.passwordHash
+      });
+    } catch (error) {
+      if (error?.code === "EMAIL_ALREADY_IN_USE") {
+        return json(res, 409, { error: "Email already in use" });
+      }
+      throw error;
+    }
+
+    let emailSent = false;
+    if (!existingUser) {
+      const invite = await sendUserInviteEmail({
+        to: user.email,
+        name: user.name,
+        inviterName: claims.email || "Admin",
+        temporaryPassword: body.password || ""
+      });
+      emailSent = Boolean(invite?.ok);
+    }
+
     return json(res, 200, {
       user: {
         id: user.id,
@@ -108,13 +254,14 @@ export function registerAdminRoutes(router, config) {
         name: user.name,
         role: user.role,
         disabledAt: user.disabledAt || ""
-      }
+      },
+      emailSent
     });
   });
 
   // POST /api/admin/memberships — assign user to client with permissions
   router.post("/api/admin/memberships", async (req, res) => {
-    if (!(await requireAdmin(req, res))) return;
+    if (!(await requireOwner(req, res, config))) return;
     const body = await readJsonBody(req, config.maxJsonBytes).catch((e) => ({ __error: e?.message || "Invalid JSON" }));
     if (body?.__error) return json(res, body.__error === "Payload too large" ? 413 : 400, { error: body.__error });
     const err = validateMembership(body);
@@ -132,6 +279,65 @@ export function registerAdminRoutes(router, config) {
       permissions: body.permissions
     });
     return json(res, 200, { membership });
+  });
+
+  // POST /api/admin/users/:userId/disable — owner-only
+  router.post("/api/admin/users/:userId/disable", async (req, res, params) => {
+    const claims = await requireOwner(req, res, config);
+    if (!claims) return;
+    if (!params?.userId) return json(res, 400, { error: "userId required" });
+
+    const state = await loadState();
+    const existing = state.users.find((user) => user.id === params.userId);
+    if (!existing) return json(res, 404, { error: "User not found" });
+    if (isOwnerEmail(existing.email, config)) {
+      return json(res, 403, { error: "Cannot disable owner account" });
+    }
+
+    const user = await upsertUser({ id: existing.id, email: existing.email, disabledAt: new Date().toISOString() });
+    return json(res, 200, { user: toPublicUser(user) });
+  });
+
+  // POST /api/admin/users/:userId/enable — owner-only
+  router.post("/api/admin/users/:userId/enable", async (req, res, params) => {
+    if (!(await requireOwner(req, res, config))) return;
+    if (!params?.userId) return json(res, 400, { error: "userId required" });
+
+    const state = await loadState();
+    const existing = state.users.find((user) => user.id === params.userId);
+    if (!existing) return json(res, 404, { error: "User not found" });
+
+    const user = await upsertUser({ id: existing.id, email: existing.email, disabledAt: "" });
+    return json(res, 200, { user: toPublicUser(user) });
+  });
+
+  // POST /api/admin/users/:userId/reset-password — owner-only
+  router.post("/api/admin/users/:userId/reset-password", async (req, res, params) => {
+    const claims = await requireOwner(req, res, config);
+    if (!claims) return;
+    if (!params?.userId) return json(res, 400, { error: "userId required" });
+
+    const body = await readJsonBody(req, config.maxJsonBytes).catch((e) => ({ __error: e?.message || "Invalid JSON" }));
+    if (body?.__error) return json(res, body.__error === "Payload too large" ? 413 : 400, { error: body.__error });
+
+    const password = String(body.password || "");
+    if (password.length < 8 || password.length > 200) {
+      return json(res, 400, { error: "password must be between 8 and 200 characters" });
+    }
+
+    const state = await loadState();
+    const existing = state.users.find((user) => user.id === params.userId);
+    if (!existing) return json(res, 404, { error: "User not found" });
+    if (isOwnerEmail(existing.email, config) && normalizeEmail(existing.email) !== normalizeEmail(claims.email)) {
+      return json(res, 403, { error: "Cannot reset another owner account password" });
+    }
+
+    const user = await upsertUser({
+      id: existing.id,
+      email: existing.email,
+      passwordHash: hashPassword(password)
+    });
+    return json(res, 200, { user: toPublicUser(user) });
   });
 
   // DELETE /api/admin/posts/:postId

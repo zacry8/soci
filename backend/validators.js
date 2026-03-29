@@ -53,6 +53,31 @@ const VALID_VISIBILITIES = new Set(["client-shareable", "internal"]);
 const VALID_USER_ROLES = new Set(["owner_admin", "admin", "helper_staff", "client_user"]);
 const VALID_MEMBERSHIP_PERMISSIONS = new Set(["view", "comment", "edit", "manage"]);
 
+export function validateRegistration(body) {
+  if (!body || typeof body !== "object") return "Invalid payload";
+
+  const email = String(body.email || "").trim().toLowerCase();
+  if (!email) return "email is required";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
+    return "email must be a valid email up to 200 characters";
+  }
+
+  const name = String(body.name || "").trim();
+  if (!name) return "name is required";
+  if (name.length > 100) return "name must be a string up to 100 characters";
+
+  const password = String(body.password || "");
+  if (password.length < 8 || password.length > 200) {
+    return "password must be a string between 8 and 200 characters";
+  }
+
+  const workspaceName = String(body.workspaceName || name || "").trim();
+  if (!workspaceName) return "workspaceName is required";
+  if (workspaceName.length > 100) return "workspaceName must be a string up to 100 characters";
+
+  return null;
+}
+
 export function validatePost(body) {
   if (!body.id && !body.clientId) return "clientId is required";
   if (body.title !== undefined && (typeof body.title !== "string" || body.title.length > 200))

@@ -3,15 +3,20 @@ import {
   assignMembership,
   createShareLink,
   createUser,
+  disableAdminUser,
   deleteMyPostMedia,
   deleteClient as apiDeleteClient,
   deletePostMedia as apiDeletePostMedia,
   deletePost as apiDeletePost,
+  enableAdminUser,
   ensureAdminToken,
+  getAdminUsers,
+  getAdminUserStats,
   getAdminState,
   getAuthUser,
   getMyState,
   reorderPostMedia as apiReorderPostMedia,
+  resetAdminUserPassword,
   getShareCalendar,
   upsertMyPost,
   reorderMyPostMedia as apiReorderMyPostMedia,
@@ -546,6 +551,51 @@ export function createStore() {
         return await assignMembership(authToken, payload);
       } catch (error) {
         reportSyncError("Could not assign membership.", error);
+        throw error;
+      }
+    },
+    async adminGetUsers() {
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+        return await getAdminUsers(authToken);
+      } catch (error) {
+        reportSyncError("Could not load users.", error);
+        throw error;
+      }
+    },
+    async adminGetUserStats() {
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+        return await getAdminUserStats(authToken);
+      } catch (error) {
+        reportSyncError("Could not load user stats.", error);
+        throw error;
+      }
+    },
+    async adminDisableUser(userId) {
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+        return await disableAdminUser(authToken, userId);
+      } catch (error) {
+        reportSyncError("Could not disable user.", error);
+        throw error;
+      }
+    },
+    async adminEnableUser(userId) {
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+        return await enableAdminUser(authToken, userId);
+      } catch (error) {
+        reportSyncError("Could not enable user.", error);
+        throw error;
+      }
+    },
+    async adminResetUserPassword(userId, password) {
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+        return await resetAdminUserPassword(authToken, userId, password);
+      } catch (error) {
+        reportSyncError("Could not reset user password.", error);
         throw error;
       }
     }

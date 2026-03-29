@@ -434,6 +434,70 @@ body:not(.inspector-pinned).inspector-active .inspector-resize-handle {
 .workspace-section.is-collapsed .section-body { display: none; }
 .workspace-section.is-collapsed { margin-bottom: 8px; }
 
+.owner-console {
+  padding: 10px 12px 0;
+  display: grid;
+  gap: 10px;
+}
+
+.owner-stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.owner-stat {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px;
+  background: color-mix(in srgb, var(--surface-soft) 74%, transparent);
+  display: grid;
+  gap: 4px;
+}
+
+.owner-stat span {
+  font-size: var(--fs-xs);
+  color: var(--subtle);
+}
+
+.owner-stat strong {
+  font-size: var(--fs-lg);
+  line-height: 1;
+}
+
+.owner-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.owner-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.owner-table th,
+.owner-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.owner-table th {
+  font-size: var(--fs-xs);
+  color: var(--subtle);
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.owner-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 body.share-mode .sidebar,
 body.share-mode #inspector-panel,
 body.share-mode .filterbar,

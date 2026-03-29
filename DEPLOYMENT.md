@@ -71,6 +71,24 @@ cp .env.example .env
 
 Edit `.env` with production values (especially `AUTH_SECRET`, `ADMIN_PASSWORD`, and URLs).
 
+### User management + email hardening envs
+
+Set these explicitly before go-live:
+
+```bash
+ALLOW_SELF_REGISTER=true   # set false to disable public signups
+
+EMAIL_ENABLED=true
+RESEND_API_KEY=re_xxxxx
+EMAIL_FROM="Soci <noreply@yourdomain.com>"
+EMAIL_REPLY_TO="support@yourdomain.com"  # optional
+```
+
+Notes:
+- If `EMAIL_ENABLED=true`, API startup will fail unless `RESEND_API_KEY` and `EMAIL_FROM` are set.
+- Registration + admin-created user invites send transactional email when enabled.
+- If email delivery fails, the user action still succeeds and API returns `emailSent: false`.
+
 ### Start API with PM2
 ```bash
 pm2 start backend/server.js --name soci-api
@@ -190,3 +208,13 @@ In browser (`https://app.yourdomain.com`):
 4. Upload media
 5. Generate share link
 6. Open share link in incognito and verify read-only calendar
+
+### User + email smoke checks
+
+1. Register a new user with a unique email
+   - Expect `200` and `emailSent: true` (when email is enabled/configured).
+2. Attempt same email registration again
+   - Expect `409` conflict.
+3. Admin create a helper/client user
+   - Expect `200` and `emailSent: true`.
+4. If `ALLOW_SELF_REGISTER=false`, register endpoint should return `403`.

@@ -18,6 +18,9 @@ if (config.authSecret === "replace-this-in-production") {
 if (config.adminPassword === "change-me-now") {
   throw new Error("[soci] ADMIN_PASSWORD is still the default. Set a strong password in .env (copy .env.example).");
 }
+if (config.emailEnabled && (!config.resendApiKey || !config.emailFrom)) {
+  throw new Error("[soci] EMAIL_ENABLED is true but RESEND_API_KEY or EMAIL_FROM is missing.");
+}
 
 async function ensureStorageLayout() {
   await fs.mkdir(path.dirname(config.dataFile), { recursive: true });
@@ -79,8 +82,13 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  const handled = await router.dispatch(req, res, pathname);
-  if (!handled) return json(res, 404, { error: "Not found" });
+  try {
+    const handled = await router.dispatch(req, res, pathname);
+    if (!handled) return json(res, 404, { error: "Not found" });
+  } catch (error) {
+    console.error("[soci] unhandled route error", error);
+    return json(res, 500, { error: "Internal server error" });
+  }
 });
 
 // eslint-disable-next-line no-console

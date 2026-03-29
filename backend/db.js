@@ -326,23 +326,42 @@ export function upsertUser(patch) {
   return enqueue(async () => {
     const state = await loadState();
     const existing = state.users.find((u) => u.id === patch.id);
-    const user = existing
-      ? {
-          ...existing,
-          ...patch,
-          email: String(patch.email || existing.email || "").trim().toLowerCase(),
-          updatedAt: now()
-        }
-      : {
-          id: patch.id || id(),
-          email: String(patch.email || "").trim().toLowerCase(),
-          name: String(patch.name || "").trim() || "User",
-          role: patch.role || "client_user",
-          passwordHash: patch.passwordHash || "",
-          disabledAt: patch.disabledAt || "",
-          createdAt: now(),
-          updatedAt: now()
-        };
+    const normalizedEmail = String(patch.email || existing?.email || "").trim().toLowerCase();
+
+    const duplicate = state.users.find((u) => {
+      if (!u?.email) return false;
+      if (existing && u.id === existing.id) return false;
+      return String(u.email).trim().toLowerCase() === normalizedEmail;
+    });
+
+    if (duplicate) {
+      const error = new Error("Email already in use");
+      error.code = "EMAIL_ALREADY_IN_USE";
+      throw error;
+    }
+
+    const hasPasswordHash = typeof patch.passwordHash === "string" && patch.passwordHash.length > 0;
+    const base = existing ? { ...existing } : {
+      id: patch.id || id(),
+      email: normalizedEmail,
+      name: "User",
+      role: "client_user",
+      passwordHash: "",
+      disabledAt: "",
+      createdAt: now(),
+      updatedAt: now()
+    };
+
+    const user = {
+      ...base,
+      ...(patch.name !== undefined ? { name: String(patch.name || "").trim() || base.name || "User" } : {}),
+      ...(patch.role !== undefined ? { role: patch.role || base.role || "client_user" } : {}),
+      ...(patch.disabledAt !== undefined ? { disabledAt: patch.disabledAt || "" } : {}),
+      ...(patch.email !== undefined ? { email: normalizedEmail } : {}),
+      ...(hasPasswordHash ? { passwordHash: patch.passwordHash } : {}),
+      updatedAt: now()
+    };
+
     state.users = existing ? state.users.map((u) => (u.id === user.id ? user : u)) : [user, ...state.users];
     await saveState(state);
     return user;

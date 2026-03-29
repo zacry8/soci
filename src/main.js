@@ -1,6 +1,6 @@
 import { createStore, sortByProfileOrder } from "./store.js";
 import { renderCalendar, renderInspector, renderKanban, renderProfileSimulator, renderShareCalendar } from "./render.js";
-import { getAuthToken, login, setAuthToken } from "./api.js";
+import { getAuthToken, login, register, setAuthToken } from "./api.js";
 import { loadJson, escapeHtml, getShareToken, toClientSharePosts, listAssignees, collectHashtagSuggestions } from "./utils.js";
 import { sanitizeProfileSettingsPatch, resolveProfileSettingsForClient } from "./profile.js";
 import { getMonthOffsetFromDate, getWeekOffsetFromDate, getNextScheduledEvent } from "./calendarUtils.js";
@@ -28,6 +28,9 @@ const el = {
   filterStatus: document.querySelector("#filter-status"),
   filterAssignee: document.querySelector("#filter-assignee"),
   adminUserPanel: document.querySelector("#admin-user-panel"),
+  ownerConsolePanel: document.querySelector("#owner-console-panel"),
+  ownerConsoleStats: document.querySelector("#owner-console-stats"),
+  ownerUsersBody: document.querySelector("#owner-users-body"),
   collapseAdminUser: document.querySelector("#collapse-admin-user"),
   adminUserForm: document.querySelector("#admin-user-form"),
   adminUserName: document.querySelector("#admin-user-name"),
@@ -62,6 +65,7 @@ const el = {
 };
 
 const ADMIN_ROLES = new Set(["owner_admin", "admin"]);
+const OWNER_EMAILS = new Set(["zac@hommemade.xyz"]);
 
 let profileMode = "instagram";
 let inspectorPreviewPlatform = "instagram";
@@ -103,6 +107,114 @@ const shareState = {
   error: ""
 };
 
+const ownerConsoleState = {
+  loading: false,
+  users: [],
+  memberships: [],
+  stats: null,
+  loadedAt: 0
+};
+
+function normalizeEmail(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isOwnerConsoleUser() {
+  const user = store.getCurrentUser?.() || null;
+  const email = normalizeEmail(user?.email);
+  if (!email) return false;
+  if (OWNER_EMAILS.has(email)) return true;
+  const authContext = store.getAuthContext?.() || {};
+  return Boolean(authContext?.capabilities?.canUseOwnerConsole);
+}
+
+function canUseOwnerConsole() {
+  return canManageUsers() && isOwnerConsoleUser();
+}
+
+function membershipCountByUserId() {
+  return (ownerConsoleState.memberships || []).reduce((acc, membership) => {
+    if (!membership?.userId) return acc;
+    acc[membership.userId] = (acc[membership.userId] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function renderOwnerConsole() {
+  if (!el.ownerConsolePanel || !el.ownerConsoleStats || !el.ownerUsersBody) return;
+  const enabled = canUseOwnerConsole();
+  el.ownerConsolePanel.classList.toggle("hidden", !enabled);
+  if (!enabled) {
+    el.ownerConsoleStats.innerHTML = "";
+    el.ownerUsersBody.innerHTML = "";
+    return;
+  }
+
+  const stats = ownerConsoleState.stats || {};
+  const roleCounts = stats.roleCounts || {};
+  el.ownerConsoleStats.innerHTML = `
+    <div class="owner-stat"><span>Total</span><strong>${Number(stats.totalUsers || 0)}</strong></div>
+    <div class="owner-stat"><span>Active</span><strong>${Number(stats.activeUsers || 0)}</strong></div>
+    <div class="owner-stat"><span>Disabled</span><strong>${Number(stats.disabledUsers || 0)}</strong></div>
+    <div class="owner-stat"><span>Admins</span><strong>${Number(roleCounts.owner_admin || 0) + Number(roleCounts.admin || 0)}</strong></div>
+    <div class="owner-stat"><span>No Membership</span><strong>${Number(stats.usersWithoutMembership || 0)}</strong></div>
+  `;
+
+  const membershipCounts = membershipCountByUserId();
+  const rows = (ownerConsoleState.users || []).map((user) => {
+    const email = normalizeEmail(user.email);
+    const isOwner = user.role === "owner_admin" || OWNER_EMAILS.has(email) || email === normalizeEmail(store.getCurrentUser?.()?.email);
+    const disabled = Boolean(user.disabledAt);
+    const status = disabled ? "Disabled" : "Active";
+    const action = isOwner
+      ? `<span class="subtle">Protected</span>`
+      : disabled
+      ? `<button class="small" data-owner-action="enable" data-user-id="${user.id}">Enable</button>`
+      : `<button class="small" data-owner-action="disable" data-user-id="${user.id}">Disable</button>`;
+    const resetBtn = isOwner
+      ? ""
+      : `<button class="small" data-owner-action="reset-password" data-user-id="${user.id}">Reset Password</button>`;
+    return `
+      <tr>
+        <td><strong>${escapeHtml(user.name || "User")}</strong><br/><span class="subtle">${escapeHtml(user.email || "")}</span></td>
+        <td>${escapeHtml(user.role || "client_user")}</td>
+        <td>${status}</td>
+        <td>${membershipCounts[user.id] || 0}</td>
+        <td class="owner-actions">
+          ${action}
+          ${resetBtn}
+        </td>
+      </tr>
+    `;
+  });
+  el.ownerUsersBody.innerHTML = rows.join("") || `<tr><td colspan="5" class="subtle">No users found.</td></tr>`;
+}
+
+async function refreshOwnerConsole(force = false) {
+  if (!canUseOwnerConsole()) {
+    renderOwnerConsole();
+    return;
+  }
+  if (!force && Date.now() - ownerConsoleState.loadedAt < 15000 && ownerConsoleState.users.length) {
+    renderOwnerConsole();
+    return;
+  }
+
+  ownerConsoleState.loading = true;
+  try {
+    const data = await store.adminGetUsers();
+    ownerConsoleState.users = Array.isArray(data?.users) ? data.users : [];
+    ownerConsoleState.memberships = Array.isArray(data?.memberships) ? data.memberships : [];
+    ownerConsoleState.stats = data?.stats || null;
+    ownerConsoleState.loadedAt = Date.now();
+  } catch {
+    // centralized error handler already shows toast
+  } finally {
+    ownerConsoleState.loading = false;
+    renderOwnerConsole();
+  }
+}
+
 let themeMode = ["light", "dark"].includes(localStorage.getItem(STORAGE_THEME))
   ? localStorage.getItem(STORAGE_THEME)
   : "";
@@ -132,7 +244,7 @@ function resolveSimulatorClient(state) {
   const selectedClient = state.clients.find((client) => client.id === selectedClientId) || null;
   return {
     clientId: selectedClient?.id || "",
-    clientName: selectedClient?.name || "All Clients"
+    clientName: selectedClient?.name || "All Workspaces"
   };
 }
 
@@ -208,7 +320,7 @@ function syncAssigneeFilter(posts) {
 
 function syncClientFilter(clients, activeClientId) {
   const selected = filters.clientId || activeClientId || "";
-  el.activeClient.innerHTML = `<option value="">All Clients</option>${clients.map((client) => `<option value="${client.id}">${escapeHtml(client.name)}</option>`).join("")}`;
+  el.activeClient.innerHTML = `<option value="">All Workspaces</option>${clients.map((client) => `<option value="${client.id}">${escapeHtml(client.name)}</option>`).join("")}`;
   el.activeClient.value = clients.some((c) => c.id === selected) ? selected : "";
   filters.clientId = el.activeClient.value;
 }
@@ -228,7 +340,7 @@ function matchesFilters(post) {
 function applyStatusRules(patch, existing) {
   const next = { ...patch };
   if (!next.clientId) {
-    showToast("Assign a client before saving.", "error");
+    showToast("Assign a workspace before saving.", "error");
     return null;
   }
   if ((next.status === "in-review" || next.status === "ready") && !next.scheduleDate) {
@@ -362,10 +474,12 @@ function canManageUsers() {
 }
 
 function syncRoleActions() {
-  if (el.manageUsers) el.manageUsers.classList.toggle("hidden", !canManageUsers());
-  if (!canManageUsers()) {
+  const showOwnerConsole = canUseOwnerConsole();
+  if (el.manageUsers) el.manageUsers.classList.toggle("hidden", !showOwnerConsole);
+  if (!showOwnerConsole) {
     el.adminUserPanel?.classList.add("hidden");
   }
+  renderOwnerConsole();
 }
 
 function syncActionPermissions(state) {
@@ -377,11 +491,11 @@ function syncActionPermissions(state) {
   }
   if (el.newClient) {
     el.newClient.disabled = !canManageClients;
-    el.newClient.title = canManageClients ? "" : "You do not have permission to create clients.";
+    el.newClient.title = canManageClients ? "" : "You do not have permission to create workspaces.";
   }
   if (el.deleteClient) {
     el.deleteClient.disabled = !canManageClients;
-    el.deleteClient.title = canManageClients ? "" : "You do not have permission to delete clients.";
+    el.deleteClient.title = canManageClients ? "" : "You do not have permission to delete workspaces.";
   }
   if (el.copyShareLink) el.copyShareLink.disabled = !canManageUsers();
   if (el.exportCsv) el.exportCsv.disabled = !canManageUsers();
@@ -408,7 +522,7 @@ function setAdminUserError(message = "") {
 function syncAdminMembershipClientOptions(clients) {
   if (!el.adminMembershipClient) return;
   const selected = el.adminMembershipClient.value;
-  el.adminMembershipClient.innerHTML = `<option value="">Select client...</option>${clients
+  el.adminMembershipClient.innerHTML = `<option value="">Select workspace...</option>${clients
     .map((client) => `<option value="${client.id}">${escapeHtml(client.name)}</option>`)
     .join("")}`;
   el.adminMembershipClient.value = clients.some((client) => client.id === selected) ? selected : "";
@@ -427,13 +541,14 @@ function syncMembershipControls() {
 }
 
 function openAdminUserPanel() {
-  if (!canManageUsers()) {
-    showToast("Only admins can manage users.", "warning");
+  if (!canUseOwnerConsole()) {
+    showToast("Owner-only console.", "warning");
     return;
   }
   el.adminUserPanel?.classList.remove("hidden");
   setAdminUserError("");
   applyUiState();
+  void refreshOwnerConsole();
   el.adminUserName?.focus();
 }
 
@@ -498,27 +613,27 @@ el.createBtn.addEventListener("click", () => {
 
 el.newClient.addEventListener("click", () => {
   if (typeof store.canManageClients === "function" && !store.canManageClients()) {
-    showToast("You do not have permission to create clients.", "warning");
+    showToast("You do not have permission to create workspaces.", "warning");
     return;
   }
-  const name = prompt("Client name:");
+  const name = prompt("Workspace name:");
   if (!name?.trim()) return;
   store.createClient(name.trim());
-  showToast("Client added.", "success");
+  showToast("Workspace added.", "success");
 });
 
 el.deleteClient?.addEventListener("click", () => {
   if (typeof store.canManageClients === "function" && !store.canManageClients()) {
-    showToast("You do not have permission to delete clients.", "warning");
+    showToast("You do not have permission to delete workspaces.", "warning");
     return;
   }
   const client = getSelectedClient(lastState);
-  if (!client) return showToast("Select a client first.", "warning");
-  if (!confirm(`Delete client "${client.name}"? This will remove all their posts and media. This cannot be undone.`)) return;
+  if (!client) return showToast("Select a workspace first.", "warning");
+  if (!confirm(`Delete workspace "${client.name}"? This will remove all their posts and media. This cannot be undone.`)) return;
   store.deleteClient(client.id);
   filters.clientId = "";
   el.activeClient.value = "";
-  showToast("Client deleted.", "success");
+  showToast("Workspace deleted.", "success");
 });
 
 el.manageUsers?.addEventListener("click", () => {
@@ -549,8 +664,8 @@ el.adminAssignMembership?.addEventListener("change", syncMembershipControls);
 
 el.adminUserForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!canManageUsers()) {
-    setAdminUserError("Only admins can manage users.");
+  if (!canUseOwnerConsole()) {
+    setAdminUserError("Owner-only console.");
     return;
   }
 
@@ -567,9 +682,10 @@ el.adminUserForm?.addEventListener("submit", async (event) => {
 
   if (!name) return setAdminUserError("Display name is required.");
   if (!email) return setAdminUserError("Email is required.");
-  if (!["helper_staff", "client_user"].includes(role)) return setAdminUserError("Invalid role selection.");
+  const allowedRoles = isOwnerConsoleUser() ? ["helper_staff", "client_user", "admin"] : ["helper_staff", "client_user"];
+  if (!allowedRoles.includes(role)) return setAdminUserError("Invalid role selection.");
   if (password.length < 8) return setAdminUserError("Password must be at least 8 characters.");
-  if (assignMembership && !membershipClientId) return setAdminUserError("Select a client for membership assignment.");
+  if (assignMembership && !membershipClientId) return setAdminUserError("Select a workspace for membership assignment.");
 
   setAdminUserError("");
   let created;
@@ -596,6 +712,37 @@ el.adminUserForm?.addEventListener("submit", async (event) => {
 
   el.adminUserForm?.reset();
   syncMembershipControls();
+  void refreshOwnerConsole(true);
+});
+
+el.ownerUsersBody?.addEventListener("click", async (event) => {
+  const target = event.target.closest("button[data-owner-action]");
+  if (!target || !canUseOwnerConsole()) return;
+  const action = target.getAttribute("data-owner-action");
+  const userId = target.getAttribute("data-user-id");
+  if (!action || !userId) return;
+
+  try {
+    if (action === "disable") {
+      await store.adminDisableUser(userId);
+      showToast("User disabled.", "success");
+    } else if (action === "enable") {
+      await store.adminEnableUser(userId);
+      showToast("User enabled.", "success");
+    } else if (action === "reset-password") {
+      const nextPassword = prompt("Enter new temporary password (min 8 chars):", "");
+      if (!nextPassword) return;
+      if (nextPassword.length < 8) {
+        showToast("Password must be at least 8 characters.", "warning");
+        return;
+      }
+      await store.adminResetUserPassword(userId, nextPassword);
+      showToast("Password reset saved.", "success");
+    }
+    await refreshOwnerConsole(true);
+  } catch {
+    // centralized error handler handles toasts
+  }
 });
 
 el.activeClient.addEventListener("change", () => {
@@ -606,7 +753,7 @@ el.activeClient.addEventListener("change", () => {
 
 el.copyShareLink.addEventListener("click", async () => {
   const client = getSelectedClient(lastState);
-  if (!client) return showToast("Select a client first.", "warning");
+  if (!client) return showToast("Select a workspace first.", "warning");
   let shareUrl = `${location.origin}${location.pathname}#share=${encodeURIComponent(client.shareSlug)}`;
   try {
     const response = await store.createClientShareLink(client.id);
@@ -621,14 +768,14 @@ el.copyShareLink.addEventListener("click", async () => {
 
 el.exportCsv.addEventListener("click", () => {
   const client = getSelectedClient(lastState);
-  if (!client) return showToast("Select a client first.", "warning");
+  if (!client) return showToast("Select a workspace first.", "warning");
   exportCsv(client, toClientSharePosts(lastState, client.id));
   showToast("CSV exported.", "success");
 });
 
 el.exportIcs.addEventListener("click", () => {
   const client = getSelectedClient(lastState);
-  if (!client) return showToast("Select a client first.", "warning");
+  if (!client) return showToast("Select a workspace first.", "warning");
   exportIcs(client, toClientSharePosts(lastState, client.id));
   showToast("ICS exported.", "success");
 });
@@ -764,7 +911,7 @@ function paint(state) {
       },
       onProfileSettingsChange: (patch) => {
         if (!simulatorClient.clientId) {
-          showToast("Select a client before editing preview settings.", "warning");
+          showToast("Select a workspace before editing preview settings.", "warning");
           return;
         }
         const safePatch = sanitizeProfileSettingsPatch(patch);
@@ -786,7 +933,7 @@ function paint(state) {
         return;
       }
       if (!post.clientId) {
-        showToast("Assign a client before moving status.", "error");
+        showToast("Assign a workspace before moving status.", "error");
         return;
       }
       if (status === "ready" && !post.checklist?.approval) {
@@ -890,6 +1037,29 @@ function paint(state) {
 // ── Auth guard ───────────────────────────────────────────────────────────────
 const loginScreen = document.getElementById("login-screen");
 const appEl = document.getElementById("app");
+const loginForm = document.getElementById("login-form");
+const loginModeToggle = document.getElementById("l-toggle-mode");
+const loginNameWrap = document.getElementById("l-name-wrap");
+const loginWorkspaceWrap = document.getElementById("l-workspace-wrap");
+const loginNameInput = document.getElementById("l-name");
+const loginWorkspaceInput = document.getElementById("l-workspace");
+const loginEmailInput = document.getElementById("l-email");
+const loginPasswordInput = document.getElementById("l-pass");
+const loginErrorEl = document.getElementById("l-error");
+const loginSubmitBtn = document.getElementById("l-btn");
+let authMode = "login";
+
+function applyAuthMode() {
+  const isRegister = authMode === "register";
+  loginNameWrap.hidden = !isRegister;
+  loginWorkspaceWrap.hidden = !isRegister;
+  loginNameInput.required = isRegister;
+  loginWorkspaceInput.required = isRegister;
+  loginPasswordInput.setAttribute("autocomplete", isRegister ? "new-password" : "current-password");
+  loginSubmitBtn.textContent = isRegister ? "Create account" : "Sign in";
+  loginModeToggle.textContent = isRegister ? "Back to sign in" : "Create account";
+  loginErrorEl.hidden = true;
+}
 
 function showLogin() {
   loginScreen.hidden = false;
@@ -912,27 +1082,41 @@ function initApp() {
   void loadSharedCalendarFromHash();
 }
 
-document.getElementById("login-form").addEventListener("submit", async (e) => {
+loginModeToggle?.addEventListener("click", () => {
+  authMode = authMode === "register" ? "login" : "register";
+  applyAuthMode();
+});
+
+loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const errEl = document.getElementById("l-error");
-  const btn = document.getElementById("l-btn");
-  errEl.hidden = true;
-  btn.disabled = true;
-  btn.textContent = "Signing in…";
+  loginErrorEl.hidden = true;
+  loginSubmitBtn.disabled = true;
+  loginSubmitBtn.textContent = authMode === "register" ? "Creating account…" : "Signing in…";
   try {
-    const email = document.getElementById("l-email").value.trim();
-    const password = document.getElementById("l-pass").value;
-    await login(email, password);
+    const email = loginEmailInput.value.trim();
+    const password = loginPasswordInput.value;
+    if (authMode === "register") {
+      await register({
+        email,
+        password,
+        name: loginNameInput.value.trim(),
+        workspaceName: loginWorkspaceInput.value.trim()
+      });
+    } else {
+      await login(email, password);
+    }
     showApp();
     initApp();
   } catch (err) {
-    errEl.textContent = err.message || "Invalid credentials";
-    errEl.hidden = false;
+    loginErrorEl.textContent = err.message || (authMode === "register" ? "Could not create account" : "Invalid credentials");
+    loginErrorEl.hidden = false;
   } finally {
-    btn.disabled = false;
-    btn.textContent = "Sign in";
+    loginSubmitBtn.disabled = false;
+    loginSubmitBtn.textContent = authMode === "register" ? "Create account" : "Sign in";
   }
 });
+
+applyAuthMode();
 
 document.getElementById("sign-out").addEventListener("click", () => {
   setAuthToken(null);
