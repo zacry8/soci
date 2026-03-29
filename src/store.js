@@ -22,6 +22,8 @@ import {
   reorderMyPostMedia as apiReorderMyPostMedia,
   resolveApiUrl,
   uploadMedia,
+  uploadMyMedia,
+  createMyClient,
   upsertClient,
   upsertPost
 } from "./api.js";
@@ -210,10 +212,16 @@ export function createStore() {
 
   const syncClient = async (client) => {
     if (!authToken) return;
+    const isNewForUser = !canManageAsAdmin() && !authContext?.permissionsByClient?.[client.id];
     try {
-      const res = await upsertClient(authToken, client);
+      const res = canManageAsAdmin()
+        ? await upsertClient(authToken, client)
+        : await createMyClient(authToken, client);
       const persisted = normalizeClient(res.client || client);
       clients = clients.map((c) => (c.id === persisted.id ? persisted : c));
+      if (isNewForUser && authContext?.permissionsByClient) {
+        authContext.permissionsByClient[persisted.id] = "manage";
+      }
       notify();
     } catch (error) {
       reportSyncError("Client save failed on server.", error);
@@ -279,6 +287,9 @@ export function createStore() {
       if (canManageAsAdmin()) return true;
       return Boolean(authContext?.capabilities?.canManageClients);
     },
+    canCreateClients() {
+      return Boolean(authContext?.capabilities?.canCreateClients) || canManageAsAdmin();
+    },
     canCreatePosts() {
       if (canManageAsAdmin()) return true;
       if (typeof authContext?.capabilities?.canCreatePosts === "boolean") {
@@ -301,7 +312,7 @@ export function createStore() {
       void syncPost(post);
     },
     createClient(name) {
-      if (!this.canManageClients()) return;
+      if (!this.canCreateClients()) return;
       const client = createEmptyClient(name?.trim() || "New Client");
       setClients([client, ...clients]);
       activeClientId = client.id;
@@ -445,7 +456,9 @@ export function createStore() {
 
       let result;
       try {
-        result = await uploadMedia(authToken, { postId, file });
+        result = canManageAsAdmin()
+          ? await uploadMedia(authToken, { postId, file })
+          : await uploadMyMedia(authToken, { postId, file });
       } catch (error) {
         reportSyncError("Media upload failed on server.", error);
         throw error;

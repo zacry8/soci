@@ -220,6 +220,29 @@
   background: linear-gradient(90deg, var(--brand), var(--brand-2));
 }
 
+/* Full-board empty state */
+.kanban-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--subtle);
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-soft) 50%, transparent);
+  width: 100%;
+}
+.kanban-empty p { margin: 0; font-size: var(--fs-sm); }
+.kanban-empty .kanban-empty-headline {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
 /* Empty Kanban lane */
 .empty-lane {
   color: var(--subtle);

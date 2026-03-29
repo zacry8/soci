@@ -183,10 +183,8 @@ export function renderInspector(root, post, handlers) {
           <div class="field">
             <label for="f-media-file">Media Upload</label>
             <div class="media-dropzone" id="f-media-dropzone" tabindex="0" role="button" aria-label="Upload media" ${permissions.canUploadMedia ? "" : "aria-disabled=\"true\""}>
-              <div>
-                <strong>Drop media here</strong>
-                <div class="subtle">or click to browse image/video/PDF</div>
-              </div>
+              <strong>${permissions.canUploadMedia ? "＋ Add Photo / Video" : "No upload permission"}</strong>
+              ${permissions.canUploadMedia ? `<div class="subtle">or drag &amp; drop a file here</div>` : ""}
             </div>
             <input id="f-media-file" type="file" hidden accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm,.pdf" ${permissions.canUploadMedia ? "" : "disabled"} />
             <div id="f-media-status" class="subtle fs-xs-fixed"></div>
@@ -467,11 +465,15 @@ export function renderInspector(root, post, handlers) {
   });
 
   // Delete with confirmation
-  root.querySelector("#delete-post").addEventListener("click", () => {
+  root.querySelector("#delete-post").addEventListener("click", async () => {
     if (!permissions.canDelete) return;
-    if (confirm(`Delete "${post.title}"? This cannot be undone.`)) {
-      handlers.onDelete?.(post.id);
-    }
+    const confirmFn = handlers.confirm ?? ((title, msg) => Promise.resolve(confirm(`${title}\n${msg || ""}`)));
+    const ok = await confirmFn(
+      `Delete "${post.title}"?`,
+      "This cannot be undone.",
+      { danger: true, okLabel: "Delete" }
+    );
+    if (ok) handlers.onDelete?.(post.id);
   });
 
   const mediaInput = root.querySelector("#f-media-file");

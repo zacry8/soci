@@ -36,6 +36,16 @@ export function renderKanban(root, posts, onOpen, onDropStatus) {
   const cardTpl = document.querySelector("#card-template");
   root.innerHTML = "";
 
+  if (posts.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "kanban-empty";
+    empty.innerHTML = `
+      <p class="kanban-empty-headline">No posts yet</p>
+      <p>Click <strong>+ New Post</strong> in the sidebar to create your first post.</p>`;
+    root.append(empty);
+    return;
+  }
+
   for (const status of STATUSES) {
     const col = columnTpl.content.firstElementChild.cloneNode(true);
     col.dataset.status = status;

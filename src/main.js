@@ -239,6 +239,49 @@ function showToast(message, type = "") {
   }, 2500);
 }
 
+// ── Dialog system ─────────────────────────────────────────────────────────────
+const _dlg = document.getElementById("soci-dialog");
+function _dialogShow({ title, message, placeholder, okLabel = "OK", danger = false }) {
+  return new Promise((resolve) => {
+    const titleEl = _dlg.querySelector(".soci-dialog-title");
+    const msgEl = _dlg.querySelector(".soci-dialog-msg");
+    const inputEl = _dlg.querySelector(".soci-dialog-input");
+    const okBtn = _dlg.querySelector(".soci-dialog-ok");
+    const cancelBtn = _dlg.querySelector(".soci-dialog-cancel");
+
+    const isPrompt = placeholder !== undefined;
+    titleEl.textContent = title;
+    okBtn.textContent = okLabel;
+    okBtn.classList.toggle("danger", danger);
+    msgEl.hidden = !message;
+    if (message) msgEl.textContent = message;
+    inputEl.hidden = !isPrompt;
+    if (isPrompt) { inputEl.placeholder = placeholder; inputEl.value = ""; }
+
+    let settled = false;
+    function settle(value) {
+      if (settled) return;
+      settled = true;
+      _dlg.close();
+      resolve(value);
+    }
+
+    okBtn.onclick = () => settle(isPrompt ? (inputEl.value.trim() || null) : true);
+    cancelBtn.onclick = () => settle(null);
+    _dlg.oncancel = () => settle(null);
+    if (isPrompt) inputEl.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); settle(inputEl.value.trim() || null); } };
+
+    _dlg.showModal();
+    if (isPrompt) requestAnimationFrame(() => inputEl.focus());
+  });
+}
+function showPromptDialog(title, placeholder = "") {
+  return _dialogShow({ title, placeholder });
+}
+function showConfirmDialog(title, message, { danger = false, okLabel = "Confirm" } = {}) {
+  return _dialogShow({ title, message, danger, okLabel });
+}
+
 function resolveSimulatorClient(state) {
   const selectedClientId = filters.clientId || state.activeClientId || state.clients[0]?.id || "";
   const selectedClient = state.clients.find((client) => client.id === selectedClientId) || null;
@@ -485,13 +528,14 @@ function syncRoleActions() {
 function syncActionPermissions(state) {
   const canCreatePosts = typeof store.canCreatePosts === "function" ? store.canCreatePosts() : true;
   const canManageClients = typeof store.canManageClients === "function" ? store.canManageClients() : true;
+  const canCreateClients = typeof store.canCreateClients === "function" ? store.canCreateClients() : canManageClients;
   if (el.createBtn) {
     el.createBtn.disabled = !canCreatePosts;
     el.createBtn.title = canCreatePosts ? "" : "You do not have permission to create posts.";
   }
   if (el.newClient) {
-    el.newClient.disabled = !canManageClients;
-    el.newClient.title = canManageClients ? "" : "You do not have permission to create workspaces.";
+    el.newClient.disabled = !canCreateClients;
+    el.newClient.title = canCreateClients ? "" : "You do not have permission to create workspaces.";
   }
   if (el.deleteClient) {
     el.deleteClient.disabled = !canManageClients;
@@ -611,25 +655,30 @@ el.createBtn.addEventListener("click", () => {
   store.createPost();
 });
 
-el.newClient.addEventListener("click", () => {
-  if (typeof store.canManageClients === "function" && !store.canManageClients()) {
+el.newClient.addEventListener("click", async () => {
+  if (typeof store.canCreateClients === "function" && !store.canCreateClients()) {
     showToast("You do not have permission to create workspaces.", "warning");
     return;
   }
-  const name = prompt("Workspace name:");
-  if (!name?.trim()) return;
-  store.createClient(name.trim());
-  showToast("Workspace added.", "success");
+  const name = await showPromptDialog("New Account", "e.g. Macy's Brand");
+  if (!name) return;
+  store.createClient(name);
+  showToast("Account added.", "success");
 });
 
-el.deleteClient?.addEventListener("click", () => {
+el.deleteClient?.addEventListener("click", async () => {
   if (typeof store.canManageClients === "function" && !store.canManageClients()) {
     showToast("You do not have permission to delete workspaces.", "warning");
     return;
   }
   const client = getSelectedClient(lastState);
   if (!client) return showToast("Select a workspace first.", "warning");
-  if (!confirm(`Delete workspace "${client.name}"? This will remove all their posts and media. This cannot be undone.`)) return;
+  const ok = await showConfirmDialog(
+    `Delete "${client.name}"?`,
+    "This will permanently remove all posts and media. This cannot be undone.",
+    { danger: true, okLabel: "Delete" }
+  );
+  if (!ok) return;
   store.deleteClient(client.id);
   filters.clientId = "";
   el.activeClient.value = "";
@@ -730,7 +779,7 @@ el.ownerUsersBody?.addEventListener("click", async (event) => {
       await store.adminEnableUser(userId);
       showToast("User enabled.", "success");
     } else if (action === "reset-password") {
-      const nextPassword = prompt("Enter new temporary password (min 8 chars):", "");
+      const nextPassword = await showPromptDialog("Set new password", "Minimum 8 characters");
       if (!nextPassword) return;
       if (nextPassword.length < 8) {
         showToast("Password must be at least 8 characters.", "warning");
@@ -1001,6 +1050,7 @@ function paint(state) {
       if (!activePost) return;
       store.addComment(activePost.id, author, text);
     },
+    confirm: showConfirmDialog,
     onDelete: (id) => {
       store.deletePost(id);
       showToast("Post deleted.", "");

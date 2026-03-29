@@ -214,6 +214,24 @@ export async function uploadMedia(token, { postId, file }) {
   });
 }
 
+export async function uploadMyMedia(token, { postId, file }) {
+  const contentBase64 = await toBase64(file);
+  return request("/api/me/media", {
+    method: "POST",
+    token,
+    body: {
+      postId,
+      fileName: file.name,
+      mimeType: file.type,
+      contentBase64
+    }
+  });
+}
+
+export async function createMyClient(token, payload) {
+  return request("/api/me/clients", { method: "POST", token, body: payload });
+}
+
 export async function getShareCalendar(token) {
   return request("/api/share/calendar", { token });
 }

@@ -1,8 +1,35 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { verifyAuthToken } from "../auth.js";
-import { addPostComment, loadState, removeMedia, reorderPostMedia, upsertPost } from "../db.js";
-import { id, json, readJsonBody } from "../utils.js";
-import { validateComment, validatePost } from "../validators.js";
+import { addMedia, addPostComment, loadState, removeMedia, reorderPostMedia, upsertClient, upsertMembership, upsertPost } from "../db.js";
+import { id, json, readJsonBody, sanitizeFileName, validateFilePath } from "../utils.js";
+import { validateClient, validateComment, validatePost } from "../validators.js";
 import { ADMIN_ROLES, buildAccessContext, canAccessClient, canAccessPost, getCapabilities } from "../permissions.js";
+
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg", "image/png", "image/gif", "image/webp",
+  "video/mp4", "video/quicktime", "video/webm",
+  "application/pdf",
+]);
+
+function checkMagicBytes(buf, mimeType) {
+  if (buf.length < 4) return false;
+  if (mimeType === "image/jpeg") return buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF;
+  if (mimeType === "image/png") return buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+  if (mimeType === "image/gif") return buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38;
+  if (mimeType === "image/webp") {
+    if (buf.length < 12) return false;
+    return buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+           buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50;
+  }
+  if (mimeType === "video/mp4" || mimeType === "video/quicktime") {
+    if (buf.length < 8) return false;
+    return buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70;
+  }
+  if (mimeType === "video/webm") return buf[0] === 0x1A && buf[1] === 0x45 && buf[2] === 0xDF && buf[3] === 0xA3;
+  if (mimeType === "application/pdf") return buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46;
+  return false;
+}
 
 function toPublicUser(user) {
   return {
@@ -203,5 +230,92 @@ export function registerMeRoutes(router, config) {
     const updated = await reorderPostMedia(params.postId, body.mediaIds);
     if (!updated) return json(res, 404, { error: "Post not found" });
     return json(res, 200, { post: updated });
+  });
+
+  // POST /api/me/clients — create or update an owned client (account)
+  router.post("/api/me/clients", async (req, res) => {
+    const auth = await requireUser(req, res);
+    if (!auth) return;
+    const { user, state } = auth;
+    if (user.disabledAt) return json(res, 403, { error: "User disabled" });
+
+    const body = await readJsonBody(req, config.maxJsonBytes).catch((e) => ({ __error: e?.message || "Invalid JSON" }));
+    if (body?.__error) return json(res, body.__error === "Payload too large" ? 413 : 400, { error: body.__error });
+    const err = validateClient(body);
+    if (err) return json(res, 400, { error: err });
+
+    const access = buildAccessContext(state, user);
+
+    if (body.id) {
+      // Update — user must have manage permission on this client
+      if (!canAccessClient(access, body.id, "manage")) {
+        return json(res, 403, { error: "Insufficient permissions" });
+      }
+      const client = await upsertClient(body);
+      return json(res, 200, { client });
+    }
+
+    // Create — auto-assign manage membership to creator
+    const client = await upsertClient(body);
+    if (!access.isAdmin) {
+      await upsertMembership({
+        userId: user.id,
+        clientId: client.id,
+        permissions: ["view", "comment", "edit", "manage"]
+      });
+    }
+    return json(res, 200, { client });
+  });
+
+  // POST /api/me/media — upload media to a post in an owned client
+  router.post("/api/me/media", async (req, res) => {
+    const auth = await requireUser(req, res);
+    if (!auth) return;
+    const { user, state } = auth;
+    if (user.disabledAt) return json(res, 403, { error: "User disabled" });
+
+    const body = await readJsonBody(req, config.maxUploadBytes).catch((e) => ({ __error: e?.message || "Invalid JSON" }));
+    if (body?.__error) return json(res, body.__error === "Payload too large" ? 413 : 400, { error: body.__error });
+    if (!body.postId || !body.contentBase64) return json(res, 400, { error: "postId and contentBase64 are required" });
+
+    if (!ALLOWED_MIME_TYPES.has(body.mimeType)) {
+      return json(res, 415, { error: "Unsupported media type" });
+    }
+
+    const post = state.posts.find((p) => p.id === body.postId);
+    if (!post) return json(res, 404, { error: "Post not found" });
+
+    const access = buildAccessContext(state, user);
+    if (!canAccessPost(access, post, "edit")) {
+      return json(res, 403, { error: "Insufficient permissions" });
+    }
+
+    const bytes = Buffer.from(body.contentBase64, "base64");
+    if (!checkMagicBytes(bytes, body.mimeType)) {
+      return json(res, 415, { error: "File content does not match declared type or file is corrupted" });
+    }
+
+    const safeName = sanitizeFileName(body.fileName || "media.bin");
+    const ext = path.extname(safeName) || ".bin";
+    const fileName = `${id()}${ext}`;
+    const absolute = validateFilePath(fileName, config.uploadDir);
+    if (!absolute) return json(res, 400, { error: "Invalid file path" });
+
+    try {
+      await fs.mkdir(config.uploadDir, { recursive: true });
+      await fs.writeFile(absolute, bytes);
+    } catch (err) {
+      console.error("[soci] media write failed:", err);
+      return json(res, 500, { error: "Failed to save media file." });
+    }
+
+    const media = await addMedia({
+      postId: body.postId,
+      fileName: safeName,
+      mimeType: body.mimeType,
+      sizeBytes: bytes.length,
+      urlPath: `/uploads/${fileName}`
+    });
+    return json(res, 200, { media, publicUrl: `${config.apiBaseUrl}${media.urlPath}` });
   });
 }

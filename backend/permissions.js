@@ -73,14 +73,14 @@ export function canAccessPost(context, post, required = "view") {
 }
 
 export function getCapabilities(context) {
+  const hasEditOnAnyClient = Object.keys(context.permissionsByClient).some((clientId) => canUsePermission([context.permissionsByClient[clientId]], "edit"));
   return {
     canManageUsers: context.isAdmin,
     canManageClients: context.isAdmin,
-    canCreatePosts: context.isAdmin || Object.keys(context.permissionsByClient).some((clientId) => canUsePermission([context.permissionsByClient[clientId]], "edit")),
+    canCreateClients: true,
+    canCreatePosts: context.isAdmin || hasEditOnAnyClient,
     canDeletePosts: context.isAdmin,
-    // Upload endpoint is currently admin-scoped (/api/admin/media).
-    // Keep this explicit so UI and route capabilities remain aligned.
-    canUploadMedia: context.isAdmin
+    canUploadMedia: context.isAdmin || hasEditOnAnyClient
   };
 }
 

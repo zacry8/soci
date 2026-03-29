@@ -113,6 +113,69 @@
   background: color-mix(in srgb, var(--danger-soft) 92%, var(--surface-raised));
 }
 
+/* ── In-app dialog ──────────────────────────────────────────────────────────── */
+.soci-dialog {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel-strong);
+  color: var(--text);
+  padding: 0;
+  max-width: 400px;
+  width: 90vw;
+  box-shadow: var(--glow);
+}
+.soci-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(3px);
+}
+.soci-dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+}
+.soci-dialog-title {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  margin: 0;
+}
+.soci-dialog-msg {
+  font-size: var(--fs-sm);
+  color: var(--subtle);
+  margin: 0;
+  line-height: 1.5;
+}
+.soci-dialog-input {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--text);
+  padding: 9px 12px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  width: 100%;
+  box-sizing: border-box;
+}
+.soci-dialog-input:focus {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+.soci-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.soci-dialog-ok.danger {
+  background:
+    linear-gradient(155deg, color-mix(in srgb, #ffffff 18%, transparent), transparent 58%),
+    linear-gradient(135deg, #c0392b, #9b1e1e);
+  border-color: color-mix(in srgb, #db868a 42%, var(--line));
+  color: #fff;
+}
+.soci-dialog-ok.danger:hover {
+  filter: brightness(1.08);
+}
+
 .carousel-ig-caption {
   margin: 4px 0 0;
   font-size: var(--fs-xs);
