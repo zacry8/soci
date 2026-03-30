@@ -2,6 +2,13 @@
 
 ## 2026-03-29
 
+### Owner Console Action UX (Icon + Row Reactive)
+- Refined owner user-management action controls to be icon-first and more responsive per-row.
+  - `src/main.js`: converted Enable/Disable/Reset/Resend/Delete to compact icon buttons with accessibility labels.
+  - `src/main.js`: added row-scoped busy/disabled locking during async actions to prevent double-click races.
+  - `src/main.js`: ensured Lucide icons hydrate after owner table render.
+  - `styles/layout.css`: added `.owner-icon-btn` compact styling and busy/disabled states.
+
 ### UX Defaults + Owner Invite Resend
 - Set **light mode as default** when no theme preference is saved.
   - Updated `src/main.js` theme initialization + fallback handling.

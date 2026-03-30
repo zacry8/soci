@@ -163,4 +163,4 @@
 ## Last Memory Update
 - **Updated:** 2026-03-29
 - **By:** Claude Code
-- **Reason:** Implemented UX and admin-console improvements: light mode is now the default when no theme preference exists, inspector no longer auto-opens on initial load (`activePostId` defaults to null), and owner-only resend invite flow was added (`POST /api/admin/users/:userId/resend-invite`) with frontend button/action wiring and toast feedback.
+- **Reason:** Refined owner user-management actions for cleaner interaction: switched to icon-only controls, added row-scoped busy/disabled locking for async actions, and introduced compact action-button styling for better per-row responsiveness.

@@ -496,6 +496,36 @@ body:not(.inspector-pinned).inspector-active .inspector-resize-handle {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.owner-actions .owner-icon-btn {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.owner-actions .owner-icon-btn i {
+  width: 14px;
+  height: 14px;
+}
+
+.owner-actions .owner-icon-btn:active {
+  transform: translateY(0);
+}
+
+.owner-actions .owner-icon-btn.is-busy,
+.owner-actions .owner-icon-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+  pointer-events: none;
+  transform: none;
+  box-shadow: none;
 }
 
 body.share-mode .sidebar,

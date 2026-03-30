@@ -173,16 +173,16 @@ function renderOwnerConsole() {
     const action = isOwner
       ? `<span class="subtle">Protected</span>`
       : disabled
-      ? `<button class="small" data-owner-action="enable" data-user-id="${user.id}">Enable</button>`
-      : `<button class="small" data-owner-action="disable" data-user-id="${user.id}">Disable</button>`;
+      ? `<button class="small owner-icon-btn" data-owner-action="enable" data-user-id="${user.id}" title="Enable user" aria-label="Enable user"><i data-lucide="user-check" aria-hidden="true"></i></button>`
+      : `<button class="small owner-icon-btn" data-owner-action="disable" data-user-id="${user.id}" title="Disable user" aria-label="Disable user"><i data-lucide="user-x" aria-hidden="true"></i></button>`;
     const resetBtn = isOwner
       ? ""
-      : `<button class="small" data-owner-action="reset-password" data-user-id="${user.id}">Reset Password</button>`;
+      : `<button class="small owner-icon-btn" data-owner-action="reset-password" data-user-id="${user.id}" title="Reset password" aria-label="Reset password"><i data-lucide="key" aria-hidden="true"></i></button>`;
     const resendBtn = isOwner
       ? ""
-      : `<button class="small" data-owner-action="resend-invite" data-user-id="${user.id}">Resend Invite</button>`;
+      : `<button class="small owner-icon-btn" data-owner-action="resend-invite" data-user-id="${user.id}" title="Resend invite" aria-label="Resend invite"><i data-lucide="mail" aria-hidden="true"></i></button>`;
     const deleteBtn = !isOwner && disabled
-      ? `<button class="small btn-danger" data-owner-action="delete" data-user-id="${user.id}">Delete</button>`
+      ? `<button class="small btn-danger owner-icon-btn" data-owner-action="delete" data-user-id="${user.id}" title="Delete user" aria-label="Delete user"><i data-lucide="trash-2" aria-hidden="true"></i></button>`
       : "";
     return `
       <tr>
@@ -200,6 +200,7 @@ function renderOwnerConsole() {
     `;
   });
   el.ownerUsersBody.innerHTML = rows.join("") || `<tr><td colspan="5" class="subtle">No users found.</td></tr>`;
+  refreshIcons();
 }
 
 async function refreshOwnerConsole(force = false) {
@@ -782,9 +783,19 @@ el.adminUserForm?.addEventListener("submit", async (event) => {
 el.ownerUsersBody?.addEventListener("click", async (event) => {
   const target = event.target.closest("button[data-owner-action]");
   if (!target || !canUseOwnerConsole()) return;
+  if (target.disabled || target.classList.contains("is-busy")) return;
   const action = target.getAttribute("data-owner-action");
   const userId = target.getAttribute("data-user-id");
   if (!action || !userId) return;
+
+  const row = target.closest("tr");
+  const rowButtons = row
+    ? [...row.querySelectorAll("button[data-owner-action]")]
+    : [target];
+  for (const button of rowButtons) {
+    button.disabled = true;
+  }
+  target.classList.add("is-busy");
 
   try {
     if (action === "disable") {
@@ -822,6 +833,11 @@ el.ownerUsersBody?.addEventListener("click", async (event) => {
     await refreshOwnerConsole(true);
   } catch {
     // centralized error handler handles toasts
+  } finally {
+    target.classList.remove("is-busy");
+    for (const button of rowButtons) {
+      button.disabled = false;
+    }
   }
 });
 
