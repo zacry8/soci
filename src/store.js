@@ -3,6 +3,7 @@ import {
   assignMembership,
   createShareLink,
   createUser,
+  deleteAdminUser,
   disableAdminUser,
   deleteMyPostMedia,
   deleteClient as apiDeleteClient,
@@ -17,6 +18,7 @@ import {
   getAuthUser,
   getMyState,
   reorderPostMedia as apiReorderPostMedia,
+  resendAdminUserInvite,
   resetAdminUserPassword,
   getShareCalendar,
   upsertMyPost,
@@ -134,7 +136,7 @@ export function createStore() {
   let posts = [];
   let media = [];
   let activeClientId = localStorage.getItem(STORAGE_KEY_ACTIVE_CLIENT) || clients[0]?.id || "";
-  let activePostId = posts[0]?.id ?? null;
+  let activePostId = null;
   let authToken = "";
   let authUser = getAuthUser();
   let authContext = { capabilities: {}, permissionsByClient: {} };
@@ -212,7 +214,7 @@ export function createStore() {
         localStorage.setItem(STORAGE_KEY_ACTIVE_CLIENT, activeClientId);
       }
       if (!posts.some((post) => post.id === activePostId)) {
-        activePostId = posts[0]?.id || null;
+        activePostId = null;
       }
       isBootstrapped = true;
       notify();
@@ -227,7 +229,7 @@ export function createStore() {
       media = [];
       authContext = { capabilities: {}, permissionsByClient: {} };
       activeClientId = clients[0]?.id || "";
-      activePostId = posts[0]?.id || null;
+      activePostId = null;
       isBootstrapped = true;
       notify();
     }
@@ -646,6 +648,24 @@ export function createStore() {
         return await enableAdminUser(authToken, userId);
       } catch (error) {
         reportSyncError("Could not enable user.", error);
+        throw error;
+      }
+    },
+    async adminDeleteUser(userId) {
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+        return await deleteAdminUser(authToken, userId);
+      } catch (error) {
+        reportSyncError("Could not delete user.", error);
+        throw error;
+      }
+    },
+    async adminResendUserInvite(userId) {
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+        return await resendAdminUserInvite(authToken, userId);
+      } catch (error) {
+        reportSyncError("Could not resend invite email.", error);
         throw error;
       }
     },

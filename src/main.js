@@ -178,6 +178,12 @@ function renderOwnerConsole() {
     const resetBtn = isOwner
       ? ""
       : `<button class="small" data-owner-action="reset-password" data-user-id="${user.id}">Reset Password</button>`;
+    const resendBtn = isOwner
+      ? ""
+      : `<button class="small" data-owner-action="resend-invite" data-user-id="${user.id}">Resend Invite</button>`;
+    const deleteBtn = !isOwner && disabled
+      ? `<button class="small btn-danger" data-owner-action="delete" data-user-id="${user.id}">Delete</button>`
+      : "";
     return `
       <tr>
         <td><strong>${escapeHtml(user.name || "User")}</strong><br/><span class="subtle">${escapeHtml(user.email || "")}</span></td>
@@ -187,6 +193,8 @@ function renderOwnerConsole() {
         <td class="owner-actions">
           ${action}
           ${resetBtn}
+          ${resendBtn}
+          ${deleteBtn}
         </td>
       </tr>
     `;
@@ -225,7 +233,7 @@ async function refreshOwnerConsole(force = false) {
 
 let themeMode = ["light", "dark"].includes(localStorage.getItem(STORAGE_THEME))
   ? localStorage.getItem(STORAGE_THEME)
-  : "";
+  : "light";
 
 store.setErrorHandler((message, error) => {
   if (error?.isAuthError) {
@@ -310,12 +318,10 @@ function refreshIcons() {
 }
 
 function applyTheme() {
-  if (themeMode === "light" || themeMode === "dark") {
-    document.documentElement.setAttribute("data-theme", themeMode);
-  } else {
-    document.documentElement.removeAttribute("data-theme");
-    themeMode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  if (themeMode !== "light" && themeMode !== "dark") {
+    themeMode = "light";
   }
+  document.documentElement.setAttribute("data-theme", themeMode);
   if (el.themeToggle) {
     const nextTheme = themeMode === "dark" ? "light" : "dark";
     const icon = nextTheme === "light" ? "sun" : "moon";
@@ -796,6 +802,22 @@ el.ownerUsersBody?.addEventListener("click", async (event) => {
       }
       await store.adminResetUserPassword(userId, nextPassword);
       showToast("Password reset saved.", "success");
+    } else if (action === "resend-invite") {
+      const result = await store.adminResendUserInvite(userId);
+      if (result?.emailSent) {
+        showToast("Invite email resent.", "success");
+      } else {
+        showToast("Invite resend attempted, but email was not sent (check email config).", "warning");
+      }
+    } else if (action === "delete") {
+      const ok = await showConfirmDialog(
+        "Permanently delete user?",
+        "This removes the user and memberships. This cannot be undone.",
+        { danger: true, okLabel: "Delete Permanently" }
+      );
+      if (!ok) return;
+      await store.adminDeleteUser(userId);
+      showToast("User permanently deleted.", "success");
     }
     await refreshOwnerConsole(true);
   } catch {

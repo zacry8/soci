@@ -2,6 +2,33 @@
 
 ## 2026-03-29
 
+### UX Defaults + Owner Invite Resend
+- Set **light mode as default** when no theme preference is saved.
+  - Updated `src/main.js` theme initialization + fallback handling.
+- Stopped disruptive inspector auto-open on startup.
+  - Updated `src/store.js` bootstrap behavior so `activePostId` starts as `null` instead of first post.
+- Added owner-console **Resend Invite** flow.
+  - Backend endpoint: `POST /api/admin/users/:userId/resend-invite` in `backend/routes/admin.js` (owner-only).
+  - Frontend wiring:
+    - `src/api.js`: `resendAdminUserInvite()`
+    - `src/store.js`: `adminResendUserInvite()`
+    - `src/main.js`: "Resend Invite" button + action handling + success/warning toast.
+
+### Owner Console Hard Delete (Owner-only)
+- Added owner-only permanent user deletion flow with strict safeguards.
+  - Backend: `DELETE /api/admin/users/:userId` in `backend/routes/admin.js`.
+  - Guardrails enforced server-side:
+    - cannot delete owner account
+    - cannot delete your own account
+    - user must be disabled first before permanent delete
+- Added DB helper `deleteUserAndMemberships(userId)` in `backend/db.js`.
+  - Removes user record and related memberships.
+  - Preserves posts/history data model integrity (no broad cascade deletes).
+- Wired frontend delete action in owner console:
+  - `src/api.js`: `deleteAdminUser()`
+  - `src/store.js`: `adminDeleteUser()`
+  - `src/main.js`: shows **Delete** button only for disabled non-owner users, with destructive confirmation modal.
+
 ### Owner Console Compatibility + UI Icon Fix
 - Replaced invalid Lucide icon `calendar-down` with valid `calendar` icon in `index.html` to remove runtime icon replacement warnings.
 - Added graceful compatibility fallback in `src/store.js` for environments where `/api/admin/users` and `/api/admin/users/stats` are not yet deployed.

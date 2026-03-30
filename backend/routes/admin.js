@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createAuthToken, hashPassword, verifyAuthToken } from "../auth.js";
-import { addMedia, createShareLink, deleteClient, deletePost, findUserByEmail, loadState, removeMedia, reorderPostMedia, upsertClient, upsertMembership, upsertPost, upsertUser } from "../db.js";
+import { addMedia, createShareLink, deleteClient, deletePost, deleteUserAndMemberships, findUserByEmail, loadState, removeMedia, reorderPostMedia, upsertClient, upsertMembership, upsertPost, upsertUser } from "../db.js";
 import { sendUserInviteEmail } from "../email.js";
 import { id, json, readJsonBody, sanitizeFileName, validateFilePath } from "../utils.js";
 import { validateClient, validateMembership, validatePost, validateUser } from "../validators.js";
@@ -338,6 +338,53 @@ export function registerAdminRoutes(router, config) {
       passwordHash: hashPassword(password)
     });
     return json(res, 200, { user: toPublicUser(user) });
+  });
+
+  // POST /api/admin/users/:userId/resend-invite — owner-only
+  router.post("/api/admin/users/:userId/resend-invite", async (req, res, params) => {
+    const claims = await requireOwner(req, res, config);
+    if (!claims) return;
+    if (!params?.userId) return json(res, 400, { error: "userId required" });
+
+    const state = await loadState();
+    const existing = state.users.find((user) => user.id === params.userId);
+    if (!existing) return json(res, 404, { error: "User not found" });
+
+    const invite = await sendUserInviteEmail({
+      to: existing.email,
+      name: existing.name,
+      inviterName: claims.email || "Admin",
+      temporaryPassword: ""
+    });
+
+    return json(res, 200, {
+      ok: true,
+      emailSent: Boolean(invite?.ok),
+      reason: invite?.reason || ""
+    });
+  });
+
+  // DELETE /api/admin/users/:userId — owner-only permanent delete (disabled users only)
+  router.delete("/api/admin/users/:userId", async (req, res, params) => {
+    const claims = await requireOwner(req, res, config);
+    if (!claims) return;
+    if (!params?.userId) return json(res, 400, { error: "userId required" });
+
+    const state = await loadState();
+    const existing = state.users.find((user) => user.id === params.userId);
+    if (!existing) return json(res, 404, { error: "User not found" });
+    if (isOwnerEmail(existing.email, config)) {
+      return json(res, 403, { error: "Cannot delete owner account" });
+    }
+    if (existing.id === claims.userId) {
+      return json(res, 403, { error: "Cannot delete your own account" });
+    }
+    if (!existing.disabledAt) {
+      return json(res, 400, { error: "Disable user first before permanent delete" });
+    }
+
+    const result = await deleteUserAndMemberships(existing.id);
+    return json(res, 200, result);
   });
 
   // DELETE /api/admin/posts/:postId

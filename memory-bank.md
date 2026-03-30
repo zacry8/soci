@@ -163,4 +163,4 @@
 ## Last Memory Update
 - **Updated:** 2026-03-29
 - **By:** Claude Code
-- **Reason:** Added production compatibility fixes after owner-console rollout: replaced invalid Lucide icon (`calendar-down`) with supported `calendar` icon, added graceful frontend fallback when legacy deployments return 404 for `/api/admin/users` and `/api/admin/users/stats`, and surfaced a one-time admin warning to redeploy backend. Changelog updated alongside prior tenant-isolation hardening.
+- **Reason:** Implemented UX and admin-console improvements: light mode is now the default when no theme preference exists, inspector no longer auto-opens on initial load (`activePostId` defaults to null), and owner-only resend invite flow was added (`POST /api/admin/users/:userId/resend-invite`) with frontend button/action wiring and toast feedback.

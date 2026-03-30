@@ -168,6 +168,14 @@ export async function resetAdminUserPassword(token, userId, password) {
   });
 }
 
+export async function deleteAdminUser(token, userId) {
+  return request(`/api/admin/users/${userId}`, { method: "DELETE", token });
+}
+
+export async function resendAdminUserInvite(token, userId) {
+  return request(`/api/admin/users/${userId}/resend-invite`, { method: "POST", token });
+}
+
 export async function getMyState(token) {
   return request("/api/me/state", { token });
 }

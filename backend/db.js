@@ -393,6 +393,16 @@ export function upsertMembership(patch) {
   });
 }
 
+export function deleteUserAndMemberships(userId) {
+  return enqueue(async () => {
+    const state = await loadState();
+    state.users = (state.users || []).filter((user) => user.id !== userId);
+    state.memberships = (state.memberships || []).filter((membership) => membership.userId !== userId);
+    await saveState(state);
+    return { ok: true, deletedUserId: userId };
+  });
+}
+
 export function addPostComment(postId, comment) {
   return enqueue(async () => {
     const state = await loadState();
