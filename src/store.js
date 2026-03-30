@@ -13,6 +13,7 @@ import {
   getAdminUsers,
   getAdminUserStats,
   getAdminState,
+  getAuthToken,
   getAuthUser,
   getMyState,
   reorderPostMedia as apiReorderPostMedia,
@@ -90,9 +91,14 @@ function normalizePost(post, clients) {
 }
 
 function normalizeMediaRecord(record) {
+  const token = getAuthToken();
+  const resolved = resolveApiUrl(record?.urlPath || record?.publicUrl || "");
+  const withToken = token
+    ? (resolved.includes("?") ? `${resolved}&token=${encodeURIComponent(token)}` : `${resolved}?token=${encodeURIComponent(token)}`)
+    : resolved;
   return {
     ...record,
-    urlPath: resolveApiUrl(record?.urlPath || record?.publicUrl || "")
+    urlPath: withToken
   };
 }
 
@@ -140,6 +146,18 @@ export function createStore() {
     for (const listener of listeners) listener(getState());
   };
 
+  const resetState = ({ keepAuthContext = false } = {}) => {
+    clients = [];
+    posts = [];
+    media = [];
+    activeClientId = "";
+    activePostId = null;
+    authToken = "";
+    authUser = getAuthUser();
+    authContext = keepAuthContext ? authContext : { capabilities: {}, permissionsByClient: {} };
+    isBootstrapped = false;
+  };
+
   const getState = () => ({
     posts: clone(posts),
     media: clone(media),
@@ -160,8 +178,8 @@ export function createStore() {
     return currentRank >= requiredRank && requiredRank >= 0;
   };
 
-  const maybeBootstrap = async () => {
-    if (isBootstrapped) return;
+  const maybeBootstrap = async ({ force = false } = {}) => {
+    if (isBootstrapped && !force) return;
     try {
       authToken = await ensureAdminToken();
       authUser = getAuthUser();
@@ -258,6 +276,15 @@ export function createStore() {
   };
 
   return {
+    async refreshSession() {
+      resetState();
+      notify();
+      await maybeBootstrap({ force: true });
+    },
+    resetSession() {
+      resetState();
+      notify();
+    },
     setErrorHandler(handler) {
       errorHandler = typeof handler === "function" ? handler : null;
     },

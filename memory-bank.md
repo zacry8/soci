@@ -126,7 +126,7 @@
 - Large single-source files (`src/main.js`, `memory-bank.md`) still pressure maintainability.
 
 #### TODOs (high-priority)
-- Enforce strict workspace ownership checks for upload retrieval paths end-to-end.
+- Add integration coverage to ensure upload retrieval access checks remain enforced end-to-end.
 - Add automated integration tests for role matrix (owner/helper/client) and media access denial cases.
 - Replace remaining prompt/confirm driven workspace actions with in-app modal flows.
 - Add changelog discipline (`CHANGELOG.md`) to align with rule set.
@@ -163,4 +163,4 @@
 ## Last Memory Update
 - **Updated:** 2026-03-29
 - **By:** Claude Code
-- **Reason:** Added launch-critical user-management hardening context: enforced unique email constraints in user upsert/admin flows, added role-assignment guardrails (owner/admin restrictions), added `ALLOW_SELF_REGISTER` control, and integrated Resend-based transactional email hooks (welcome + admin invite) with fail-safe `emailSent` reporting and startup config checks.
+- **Reason:** Implemented tenant isolation hardening for mixed-session auth flows and media access boundaries. Added frontend session reset/refresh lifecycle to prevent previous-user state bleed across login/logout, made app init idempotent to avoid duplicate subscriptions, and protected `/uploads/:filename` with token + workspace scope checks (including share-token constraints). Also documented the security update in `CHANGELOG.md`.

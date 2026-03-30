@@ -115,6 +115,9 @@ const ownerConsoleState = {
   loadedAt: 0
 };
 
+let appUnsubscribe = null;
+let hashListenerBound = false;
+
 function normalizeEmail(value = "") {
   return String(value || "").trim().toLowerCase();
 }
@@ -222,6 +225,7 @@ let themeMode = ["light", "dark"].includes(localStorage.getItem(STORAGE_THEME))
 store.setErrorHandler((message, error) => {
   if (error?.isAuthError) {
     setAuthToken(null);
+    store.resetSession?.();
     showLogin();
     return;
   }
@@ -1121,15 +1125,25 @@ function showApp() {
   appEl.style.display = "";
 }
 
-function initApp() {
-  store.subscribe((state) => {
+async function initApp({ refreshSession = false } = {}) {
+  if (appUnsubscribe) {
+    appUnsubscribe();
+    appUnsubscribe = null;
+  }
+  if (refreshSession && typeof store.refreshSession === "function") {
+    await store.refreshSession();
+  }
+  appUnsubscribe = store.subscribe((state) => {
     lastState = state;
     paint(state);
   });
-  window.addEventListener("hashchange", () => {
-    void loadSharedCalendarFromHash();
-  });
-  void loadSharedCalendarFromHash();
+  if (!hashListenerBound) {
+    window.addEventListener("hashchange", () => {
+      void loadSharedCalendarFromHash();
+    });
+    hashListenerBound = true;
+  }
+  await loadSharedCalendarFromHash();
 }
 
 loginModeToggle?.addEventListener("click", () => {
@@ -1156,7 +1170,7 @@ loginForm.addEventListener("submit", async (e) => {
       await login(email, password);
     }
     showApp();
-    initApp();
+    await initApp({ refreshSession: true });
   } catch (err) {
     loginErrorEl.textContent = err.message || (authMode === "register" ? "Could not create account" : "Invalid credentials");
     loginErrorEl.hidden = false;
@@ -1170,6 +1184,7 @@ applyAuthMode();
 
 document.getElementById("sign-out").addEventListener("click", () => {
   setAuthToken(null);
+  store.resetSession?.();
   syncRoleActions();
   showLogin();
 });
@@ -1180,7 +1195,7 @@ const allowLocalPreviewBypass = isLocalPreviewHost && !isShareMode;
 
 if (isShareMode || getAuthToken() || allowLocalPreviewBypass) {
   showApp();
-  initApp();
+  void initApp({ refreshSession: !isShareMode });
 } else {
   showLogin();
 }
