@@ -112,7 +112,8 @@ const ownerConsoleState = {
   users: [],
   memberships: [],
   stats: null,
-  loadedAt: 0
+  loadedAt: 0,
+  legacyEndpointWarned: false
 };
 
 let appUnsubscribe = null;
@@ -209,6 +210,10 @@ async function refreshOwnerConsole(force = false) {
     ownerConsoleState.users = Array.isArray(data?.users) ? data.users : [];
     ownerConsoleState.memberships = Array.isArray(data?.memberships) ? data.memberships : [];
     ownerConsoleState.stats = data?.stats || null;
+    if (data?.legacyEndpointMissing && !ownerConsoleState.legacyEndpointWarned) {
+      ownerConsoleState.legacyEndpointWarned = true;
+      showToast("Owner user endpoint missing on deployed API. Update backend to latest build.", "warning");
+    }
     ownerConsoleState.loadedAt = Date.now();
   } catch {
     // centralized error handler already shows toast

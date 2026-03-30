@@ -163,4 +163,4 @@
 ## Last Memory Update
 - **Updated:** 2026-03-29
 - **By:** Claude Code
-- **Reason:** Implemented tenant isolation hardening for mixed-session auth flows and media access boundaries. Added frontend session reset/refresh lifecycle to prevent previous-user state bleed across login/logout, made app init idempotent to avoid duplicate subscriptions, and protected `/uploads/:filename` with token + workspace scope checks (including share-token constraints). Also documented the security update in `CHANGELOG.md`.
+- **Reason:** Added production compatibility fixes after owner-console rollout: replaced invalid Lucide icon (`calendar-down`) with supported `calendar` icon, added graceful frontend fallback when legacy deployments return 404 for `/api/admin/users` and `/api/admin/users/stats`, and surfaced a one-time admin warning to redeploy backend. Changelog updated alongside prior tenant-isolation hardening.

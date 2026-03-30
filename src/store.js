@@ -108,6 +108,11 @@ function validatePost(post) {
   return true;
 }
 
+function isMissingEndpointError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message === "not found" || message.includes("request failed (404)");
+}
+
 export function sortByProfileOrder(posts) {
   const score = (post) => {
     if (post.publishState === "published") return new Date(post.publishedAt || 0).getTime() || 0;
@@ -599,6 +604,14 @@ export function createStore() {
         if (!authToken) authToken = await ensureAdminToken();
         return await getAdminUsers(authToken);
       } catch (error) {
+        if (isMissingEndpointError(error)) {
+          return {
+            users: [],
+            memberships: [],
+            stats: null,
+            legacyEndpointMissing: true
+          };
+        }
         reportSyncError("Could not load users.", error);
         throw error;
       }
@@ -608,6 +621,12 @@ export function createStore() {
         if (!authToken) authToken = await ensureAdminToken();
         return await getAdminUserStats(authToken);
       } catch (error) {
+        if (isMissingEndpointError(error)) {
+          return {
+            stats: null,
+            legacyEndpointMissing: true
+          };
+        }
         reportSyncError("Could not load user stats.", error);
         throw error;
       }
