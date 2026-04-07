@@ -72,6 +72,17 @@ function ensureStateShape(value) {
   }));
   if (!Array.isArray(state.posts)) state.posts = [];
   if (!Array.isArray(state.media)) state.media = [];
+  state.media = state.media.map((record = {}) => {
+    const storageMode = record?.storageMode === "external" ? "external" : "uploaded";
+    return {
+      ...record,
+      storageMode,
+      provider: storageMode === "external" ? String(record?.provider || "direct") : "uploaded",
+      externalUrl: storageMode === "external" ? String(record?.externalUrl || "") : "",
+      displayName: String(record?.displayName || "").slice(0, 180),
+      nativeBookmarkHint: storageMode === "external" ? String(record?.nativeBookmarkHint || "").slice(0, 5000) : ""
+    };
+  });
   if (!Array.isArray(state.shareLinks)) state.shareLinks = [];
   if (!Array.isArray(state.users)) state.users = [];
   if (!Array.isArray(state.memberships)) state.memberships = [];
@@ -138,6 +149,7 @@ function mediaFileNameFromUrlPath(urlPath = "") {
 
 async function cleanupMediaFiles(records = []) {
   for (const record of records) {
+    if (record?.storageMode === "external") continue;
     const fileName = mediaFileNameFromUrlPath(record?.urlPath);
     if (!fileName) continue;
     const absolute = path.resolve(config.uploadDir, fileName);
@@ -245,6 +257,37 @@ export function addMedia(record) {
       mimeType: record.mimeType || "application/octet-stream",
       sizeBytes: Number(record.sizeBytes || 0),
       urlPath: record.urlPath,
+      storageMode: "uploaded",
+      provider: "uploaded",
+      externalUrl: "",
+      displayName: String(record.fileName || "").slice(0, 180),
+      nativeBookmarkHint: "",
+      createdAt: now()
+    };
+    state.media = [media, ...state.media];
+    state.posts = state.posts.map((post) =>
+      post.id === record.postId ? { ...post, mediaIds: [...new Set([...(post.mediaIds || []), media.id])], updatedAt: now() } : post
+    );
+    await saveState(state);
+    return media;
+  });
+}
+
+export function addExternalMedia(record) {
+  return enqueue(async () => {
+    const state = await loadState();
+    const media = {
+      id: id(),
+      postId: record.postId,
+      fileName: String(record.fileName || record.displayName || "External media").slice(0, 180),
+      mimeType: String(record.mimeType || "application/octet-stream"),
+      sizeBytes: 0,
+      urlPath: String(record.externalUrl || ""),
+      storageMode: "external",
+      provider: String(record.provider || "direct"),
+      externalUrl: String(record.externalUrl || ""),
+      displayName: String(record.displayName || record.fileName || "External media").slice(0, 180),
+      nativeBookmarkHint: String(record.nativeBookmarkHint || "").slice(0, 5000),
       createdAt: now()
     };
     state.media = [media, ...state.media];

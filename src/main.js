@@ -1,15 +1,35 @@
 import { createStore, sortByProfileOrder } from "./store.js";
-import { renderCalendar, renderInspector, renderKanban, renderProfileSimulator, renderShareCalendar } from "./render.js";
+import { renderCalendar, renderInspector, renderKanban, renderProfileSimulator, renderShareCalendar, renderTable } from "./render.js";
 import { getAuthToken, login, register, setAuthToken } from "./api.js";
 import { loadJson, escapeHtml, getShareToken, toClientSharePosts, listAssignees, collectHashtagSuggestions } from "./utils.js";
 import { sanitizeProfileSettingsPatch, resolveProfileSettingsForClient } from "./profile.js";
 import { getMonthOffsetFromDate, getWeekOffsetFromDate, getNextScheduledEvent } from "./calendarUtils.js";
 import { exportCsv, exportIcs } from "./export.js";
+import { sortedPosts } from "./render/table/metrics.js";
 
 const store = createStore();
 const STORAGE_UI_VIEWS = "soci.ui.views.v1";
 const STORAGE_UI_SECTIONS = "soci.ui.sections.v1";
 const STORAGE_THEME = "soci.theme.v1";
+const STORAGE_KANBAN_VIEW_OPTIONS = "soci.kanban.view-options.v1";
+const STORAGE_PREVIEW_VIEW_OPTIONS = "soci.preview.view-options.v1";
+const TABLE_PASTE_HEADERS = {
+  title: "title",
+  post: "title",
+  workspace: "workspace",
+  client: "workspace",
+  clientname: "workspace",
+  status: "status",
+  platforms: "platforms",
+  platform: "platforms",
+  assignee: "assignee",
+  scheduledate: "scheduleDate",
+  schedule: "scheduleDate",
+  caption: "caption",
+  tags: "tags",
+  visibility: "visibility"
+};
+const TABLE_PASTE_POSITIONAL = ["title", "workspace", "status", "platforms", "assignee", "scheduleDate", "caption", "tags", "visibility"];
 
 const el = {
   brandHome: document.querySelector("#brand-home"),
@@ -47,21 +67,38 @@ const el = {
   reopenLeftSidebar: document.querySelector("#reopen-left-sidebar"),
   workflowSection: document.querySelector("#workflow-section"),
   scheduleSection: document.querySelector("#schedule-section"),
+  tableSection: document.querySelector("#table-section"),
   previewSection: document.querySelector("#preview-section"),
   collapseWorkflow: document.querySelector("#collapse-workflow"),
   kanbanOverflowHint: document.querySelector("#kanban-overflow-hint"),
   collapseSchedule: document.querySelector("#collapse-schedule"),
+  collapseTable: document.querySelector("#collapse-table"),
+  tableCopyRows: document.querySelector("#table-copy-rows"),
+  tablePasteRows: document.querySelector("#table-paste-rows"),
   collapsePreview: document.querySelector("#collapse-preview"),
   inspectorPanel: document.querySelector("#inspector-panel"),
   collapseRightSidebar: document.querySelector("#collapse-right-sidebar"),
   reopenRightSidebar: document.querySelector("#reopen-right-sidebar"),
   kanban: document.querySelector("#kanban-view"),
   calendar: document.querySelector("#calendar-view"),
+  table: document.querySelector("#table-view"),
   grid: document.querySelector("#grid-view"),
   inspector: document.querySelector("#inspector"),
+  tablePasteDialog: document.querySelector("#table-paste-dialog"),
+  tablePasteInput: document.querySelector("#table-paste-input"),
+  tablePasteResult: document.querySelector("#table-paste-result"),
+  tablePasteSubmit: document.querySelector("#table-paste-submit"),
+  tablePasteCancel: document.querySelector("#table-paste-cancel"),
   createBtn: document.querySelector("#create-post"),
   toast: document.querySelector("#toast"),
-  themeToggle: document.querySelector("#theme-toggle")
+  themeToggle: document.querySelector("#theme-toggle"),
+  optKanbanThumb: document.querySelector("#opt-kanban-thumb"),
+  optKanbanMeta: document.querySelector("#opt-kanban-meta"),
+  optKanbanExcerpt: document.querySelector("#opt-kanban-excerpt"),
+  optPreviewThumb: document.querySelector("#opt-preview-thumb"),
+  optPreviewMeta: document.querySelector("#opt-preview-meta"),
+  optPreviewDescription: document.querySelector("#opt-preview-description"),
+  optPreviewTextOnly: document.querySelector("#opt-preview-text-only")
 };
 
 const ADMIN_ROLES = new Set(["owner_admin", "admin"]);
@@ -76,8 +113,10 @@ let calendarWeekOffset = 0; // weeks from current week
 let calendarViewMode = "month";
 let shareCalendarOffset = 0;
 let lastState = { posts: [], media: [], activePostId: null, clients: [], activeClientId: "", isBootstrapped: false };
-let visibleViews = loadJson(STORAGE_UI_VIEWS, { kanban: true, calendar: true, grid: false });
-let collapsedSections = loadJson(STORAGE_UI_SECTIONS, { workflow: false, schedule: false, preview: false, adminUser: false, leftSidebar: false, rightSidebar: false, inspector: false });
+let visibleViews = loadJson(STORAGE_UI_VIEWS, { kanban: true, calendar: true, table: false, grid: false });
+let collapsedSections = loadJson(STORAGE_UI_SECTIONS, { workflow: false, schedule: false, table: false, preview: false, adminUser: false, leftSidebar: false, rightSidebar: false, inspector: false });
+let kanbanViewOptions = loadJson(STORAGE_KANBAN_VIEW_OPTIONS, { showThumbnail: true, showMeta: true, showExcerpt: true });
+let previewViewOptions = loadJson(STORAGE_PREVIEW_VIEW_OPTIONS, { showThumbnail: true, showMeta: true, showDescription: true, textOnly: false });
 const STORAGE_INSPECTOR_PINNED = "soci_inspector_pinned";
 let inspectorPinned = localStorage.getItem(STORAGE_INSPECTOR_PINNED) === "true";
 const STORAGE_INSPECTOR_WIDTH = "soci_inspector_width";
@@ -91,6 +130,9 @@ if (typeof collapsedSections.leftSidebar !== "boolean") {
 if (typeof collapsedSections.adminUser !== "boolean") {
   collapsedSections.adminUser = false;
 }
+if (typeof collapsedSections.table !== "boolean") {
+  collapsedSections.table = false;
+}
 const filters = {
   clientId: "",
   query: "",
@@ -98,6 +140,7 @@ const filters = {
   status: "all",
   assignee: "all"
 };
+let tableSort = { key: "scheduleDate", direction: "asc" };
 
 const shareState = {
   token: "",
@@ -324,13 +367,27 @@ function applyTheme() {
   }
   document.documentElement.setAttribute("data-theme", themeMode);
   if (el.themeToggle) {
-    const nextTheme = themeMode === "dark" ? "light" : "dark";
-    const icon = nextTheme === "light" ? "sun" : "moon";
-    const label = nextTheme === "light" ? "Light Mode" : "Dark Mode";
-    el.themeToggle.innerHTML = `<i data-lucide="${icon}" aria-hidden="true"></i><span>${label}</span>`;
+    const label = themeMode === "dark" ? "Dark Mode" : "Light Mode";
+    const labelEl = el.themeToggle.querySelector(".theme-switch-label");
+    if (labelEl) labelEl.textContent = label;
+    el.themeToggle.setAttribute("aria-pressed", String(themeMode === "dark"));
     el.themeToggle.setAttribute("aria-label", `Switch to ${themeMode === "dark" ? "light" : "dark"} mode`);
-    refreshIcons();
   }
+}
+
+function syncViewOptionsControls() {
+  if (el.optKanbanThumb) el.optKanbanThumb.checked = kanbanViewOptions.showThumbnail !== false;
+  if (el.optKanbanMeta) el.optKanbanMeta.checked = kanbanViewOptions.showMeta !== false;
+  if (el.optKanbanExcerpt) el.optKanbanExcerpt.checked = kanbanViewOptions.showExcerpt !== false;
+  if (el.optPreviewThumb) el.optPreviewThumb.checked = previewViewOptions.showThumbnail !== false;
+  if (el.optPreviewMeta) el.optPreviewMeta.checked = previewViewOptions.showMeta !== false;
+  if (el.optPreviewDescription) el.optPreviewDescription.checked = previewViewOptions.showDescription !== false;
+  if (el.optPreviewTextOnly) el.optPreviewTextOnly.checked = previewViewOptions.textOnly === true;
+}
+
+function persistViewOptions() {
+  localStorage.setItem(STORAGE_KANBAN_VIEW_OPTIONS, JSON.stringify(kanbanViewOptions));
+  localStorage.setItem(STORAGE_PREVIEW_VIEW_OPTIONS, JSON.stringify(previewViewOptions));
 }
 
 function syncKanbanOverflowState() {
@@ -366,7 +423,33 @@ function toggleTheme() {
 }
 
 el.themeToggle?.addEventListener("click", toggleTheme);
+[
+  el.optKanbanThumb,
+  el.optKanbanMeta,
+  el.optKanbanExcerpt,
+  el.optPreviewThumb,
+  el.optPreviewMeta,
+  el.optPreviewDescription,
+  el.optPreviewTextOnly
+].forEach((checkbox) => {
+  checkbox?.addEventListener("change", () => {
+    kanbanViewOptions = {
+      showThumbnail: el.optKanbanThumb?.checked !== false,
+      showMeta: el.optKanbanMeta?.checked !== false,
+      showExcerpt: el.optKanbanExcerpt?.checked !== false
+    };
+    previewViewOptions = {
+      showThumbnail: el.optPreviewThumb?.checked !== false,
+      showMeta: el.optPreviewMeta?.checked !== false,
+      showDescription: el.optPreviewDescription?.checked !== false,
+      textOnly: el.optPreviewTextOnly?.checked === true
+    };
+    persistViewOptions();
+    paint(lastState);
+  });
+});
 applyTheme();
+syncViewOptionsControls();
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function syncAssigneeFilter(posts) {
@@ -413,6 +496,212 @@ function applyStatusRules(patch, existing) {
   return next;
 }
 
+function normalizeTableUpdatePatch(existingPost, patch) {
+  if (!existingPost || !patch || typeof patch !== "object") return null;
+  const merged = { ...existingPost, ...patch };
+  const applied = applyStatusRules(merged, existingPost);
+  if (!applied) return null;
+  const editableKeys = ["title", "clientId", "status", "platforms", "assignee", "scheduleDate", "caption", "tags", "visibility"];
+  const nextPatch = {};
+  for (const key of editableKeys) {
+    if (Object.prototype.hasOwnProperty.call(patch, key)) {
+      nextPatch[key] = applied[key];
+    }
+  }
+  return Object.keys(nextPatch).length ? nextPatch : null;
+}
+
+function buildSheetsTsv(posts, clients) {
+  const header = ["title", "workspace", "status", "platforms", "assignee", "scheduleDate", "caption", "tags", "visibility"];
+  const clientNames = new Map((clients || []).map((client) => [client.id, client.name || ""]));
+  const lines = [header.join("\t")];
+
+  for (const post of posts) {
+    const values = [
+      post.title || "",
+      clientNames.get(post.clientId) || "",
+      post.status || "idea",
+      Array.isArray(post.platforms) ? post.platforms.join(", ") : "",
+      post.assignee || "",
+      post.scheduleDate || "",
+      post.caption || "",
+      Array.isArray(post.tags) ? post.tags.map((tag) => `#${tag}`).join(" ") : "",
+      post.visibility || "client-shareable"
+    ].map((value) => String(value ?? "").replace(/\t/g, " ").replace(/\r?\n/g, " "));
+    lines.push(values.join("\t"));
+  }
+
+  return lines.join("\n");
+}
+
+async function writeClipboardText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const helper = document.createElement("textarea");
+  helper.value = text;
+  helper.setAttribute("readonly", "readonly");
+  helper.style.position = "fixed";
+  helper.style.opacity = "0";
+  helper.style.pointerEvents = "none";
+  document.body.append(helper);
+  helper.focus();
+  helper.select();
+  const copied = document.execCommand("copy");
+  helper.remove();
+  if (!copied) {
+    throw new Error("Clipboard unavailable");
+  }
+}
+
+const PLATFORM_HANDOFF_URLS = {
+  instagram: "https://www.instagram.com/",
+  tiktok: "https://www.tiktok.com/upload?lang=en",
+  facebook: "https://business.facebook.com/latest/composer",
+  linkedin: "https://www.linkedin.com/post/new/",
+  x: "https://x.com/compose/post",
+  twitter: "https://x.com/compose/post"
+};
+
+function getPlatformHandoffUrl(platform = "") {
+  const normalized = String(platform || "").trim().toLowerCase().replace(/\s+/g, "");
+  return PLATFORM_HANDOFF_URLS[normalized] || "https://www.instagram.com/";
+}
+
+function pickPreferredMediaLink(mediaItems = []) {
+  if (!Array.isArray(mediaItems) || !mediaItems.length) return "";
+  const external = mediaItems.find((item) => item?.storageMode === "external" && (item.externalUrl || item.urlPath));
+  if (external) return String(external.externalUrl || external.urlPath || "").trim();
+  const uploaded = mediaItems.find((item) => item?.urlPath);
+  return String(uploaded?.urlPath || "").trim();
+}
+
+async function copyRowsForSheets() {
+  const visiblePosts = sortByProfileOrder(lastState.posts).filter(matchesFilters);
+  const rows = sortedPosts(visiblePosts, tableSort);
+  if (!rows.length) {
+    showToast("No visible rows to copy.", "warning");
+    return;
+  }
+
+  await writeClipboardText(buildSheetsTsv(rows, lastState.clients));
+  showToast(`Copied ${rows.length} row${rows.length === 1 ? "" : "s"} for Sheets.`, "success");
+}
+
+function parsePastedRows(raw) {
+  const normalized = String(raw || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+  if (!normalized) return { rows: [], skipped: [] };
+  const lines = normalized.split("\n").map((line) => line.trim()).filter(Boolean);
+  if (!lines.length) return { rows: [], skipped: [] };
+
+  const splitLine = (line) => {
+    if (line.includes("\t")) return line.split("\t").map((v) => v.trim());
+    return line.split(",").map((v) => v.trim());
+  };
+
+  const first = splitLine(lines[0]).map((value) => value.toLowerCase().replace(/[^a-z]/g, ""));
+  const recognizedHeaderCount = first.filter((value) => TABLE_PASTE_HEADERS[value]).length;
+  const hasHeader = recognizedHeaderCount >= 2;
+  const mapping = hasHeader
+    ? splitLine(lines[0]).map((value) => TABLE_PASTE_HEADERS[value.toLowerCase().replace(/[^a-z]/g, "")] || "")
+    : TABLE_PASTE_POSITIONAL;
+
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+  const rows = [];
+  const skipped = [];
+
+  dataLines.forEach((line, index) => {
+    const values = splitLine(line);
+    if (!values.some(Boolean)) return;
+    const row = { rowNumber: hasHeader ? index + 2 : index + 1 };
+    values.forEach((value, colIndex) => {
+      const key = mapping[colIndex] || "";
+      if (!key || !value) return;
+      row[key] = value;
+    });
+    if (!String(row.title || "").trim() && !String(row.caption || "").trim()) {
+      skipped.push({ rowNumber: row.rowNumber, reason: "Missing title/caption content." });
+      return;
+    }
+    rows.push(row);
+  });
+
+  return { rows, skipped };
+}
+
+function normalizeScheduleDate(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+function normalizeImportedRows(rows, clients, activeClientId) {
+  const normalizedClients = Array.isArray(clients) ? clients : [];
+  const byName = new Map(normalizedClients.map((client) => [String(client.name || "").trim().toLowerCase(), client.id]));
+  const allowedStatuses = new Set(["idea", "in-progress", "in-review", "ready"]);
+  const statusAliases = {
+    draft: "idea",
+    inprogress: "in-progress",
+    inreview: "in-review"
+  };
+  const result = [];
+  const skipped = [];
+
+  rows.forEach((row) => {
+    const workspaceRaw = String(row.workspace || "").trim();
+    const statusRaw = String(row.status || "idea").trim().toLowerCase();
+    const statusCanonical = statusAliases[statusRaw.replace(/[^a-z]/g, "")] || statusRaw;
+    if (statusCanonical && !allowedStatuses.has(statusCanonical)) {
+      skipped.push({ rowNumber: row.rowNumber, reason: `Invalid status: ${row.status}` });
+      return;
+    }
+
+    let clientId = "";
+    if (workspaceRaw) {
+      clientId = byName.get(workspaceRaw.toLowerCase()) || "";
+      if (!clientId && normalizedClients.some((client) => client.id === workspaceRaw)) {
+        clientId = workspaceRaw;
+      }
+      if (!clientId) {
+        skipped.push({ rowNumber: row.rowNumber, reason: `Workspace not found: ${workspaceRaw}` });
+        return;
+      }
+    } else {
+      clientId = activeClientId || normalizedClients[0]?.id || "";
+    }
+
+    const platforms = String(row.platforms || "Instagram")
+      .split(/[,|]/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const tags = String(row.tags || "")
+      .split(/[ ,|]+/)
+      .map((value) => value.trim().replace(/^#/, ""))
+      .filter(Boolean);
+    const visibility = String(row.visibility || "client-shareable").trim() === "internal" ? "internal" : "client-shareable";
+
+    result.push({
+      rowNumber: row.rowNumber,
+      title: String(row.title || row.caption || "Untitled Post").trim(),
+      clientId,
+      status: statusCanonical || "idea",
+      platforms: platforms.length ? platforms : ["Instagram"],
+      assignee: String(row.assignee || "").trim(),
+      scheduleDate: normalizeScheduleDate(row.scheduleDate || ""),
+      caption: String(row.caption || "").trim(),
+      tags,
+      visibility
+    });
+  });
+
+  return { rows: result, skipped };
+}
+
 function getSelectedClient(state) {
   if (!filters.clientId) return null;
   return state.clients.find((c) => c.id === filters.clientId) || null;
@@ -455,6 +744,7 @@ function applyUiState() {
 
   el.workflowSection.classList.toggle("hidden", !visibleViews.kanban);
   el.scheduleSection.classList.toggle("hidden", !visibleViews.calendar);
+  el.tableSection.classList.toggle("hidden", !visibleViews.table);
   el.previewSection.classList.toggle("hidden", !visibleViews.grid);
 
   const showAdminPanel = canManageUsers() && !el.adminUserPanel?.classList.contains("hidden");
@@ -470,6 +760,7 @@ function applyUiState() {
   el.inspectorPanel.classList.toggle("is-collapsed", inspectorPinned && rightCollapsed);
   el.workflowSection.classList.toggle("is-collapsed", collapsedSections.workflow);
   el.scheduleSection.classList.toggle("is-collapsed", collapsedSections.schedule);
+  el.tableSection.classList.toggle("is-collapsed", collapsedSections.table);
   el.previewSection.classList.toggle("is-collapsed", collapsedSections.preview);
 
   el.collapseLeftSidebar.textContent = leftCollapsed ? "Expand" : "Collapse";
@@ -478,6 +769,7 @@ function applyUiState() {
 
   el.collapseWorkflow.textContent = collapsedSections.workflow ? "Expand" : "Collapse";
   el.collapseSchedule.textContent = collapsedSections.schedule ? "Expand" : "Collapse";
+  el.collapseTable.textContent = collapsedSections.table ? "Expand" : "Collapse";
   el.collapsePreview.textContent = collapsedSections.preview ? "Expand" : "Collapse";
 
   for (const toggle of el.viewToggles) {
@@ -560,6 +852,15 @@ function syncActionPermissions(state) {
   if (el.copyShareLink) el.copyShareLink.disabled = !canManageUsers();
   if (el.exportCsv) el.exportCsv.disabled = !canManageUsers();
   if (el.exportIcs) el.exportIcs.disabled = !canManageUsers();
+  if (el.tablePasteRows) {
+    el.tablePasteRows.disabled = !canCreatePosts;
+    el.tablePasteRows.title = canCreatePosts ? "" : "You do not have permission to create posts.";
+  }
+  if (el.tableCopyRows) {
+    const hasVisibleRows = Array.isArray(state?.posts) && state.posts.some(matchesFilters);
+    el.tableCopyRows.disabled = !hasVisibleRows;
+    el.tableCopyRows.title = hasVisibleRows ? "Copy visible rows with headers for Google Sheets." : "No visible rows to copy.";
+  }
 
   const authContext = state?.authContext || {};
   const canUploadAny = authContext?.capabilities?.canUploadMedia;
@@ -630,6 +931,7 @@ for (const toggle of el.viewToggles) {
 
 el.collapseWorkflow.addEventListener("click", () => toggleCollapse("workflow"));
 el.collapseSchedule.addEventListener("click", () => toggleCollapse("schedule"));
+el.collapseTable.addEventListener("click", () => toggleCollapse("table"));
 el.collapsePreview.addEventListener("click", () => toggleCollapse("preview"));
 el.collapseAdminUser?.addEventListener("click", () => toggleCollapse("adminUser"));
 el.collapseLeftSidebar.addEventListener("click", () => toggleCollapse("leftSidebar"));
@@ -669,6 +971,67 @@ el.createBtn.addEventListener("click", () => {
     return;
   }
   store.createPost();
+});
+
+el.tableCopyRows?.addEventListener("click", async () => {
+  try {
+    await copyRowsForSheets();
+  } catch (error) {
+    console.error(error);
+    showToast("Could not copy rows. Try again.", "error");
+  }
+});
+
+el.tablePasteRows?.addEventListener("click", () => {
+  if (typeof store.canCreatePosts === "function" && !store.canCreatePosts()) {
+    showToast("You do not have permission to create posts.", "warning");
+    return;
+  }
+  if (!el.tablePasteDialog) return;
+  if (el.tablePasteInput) el.tablePasteInput.value = "";
+  if (el.tablePasteResult) el.tablePasteResult.textContent = "Paste rows from Sheets/Airtable, then click Import Rows.";
+  el.tablePasteDialog.showModal();
+  requestAnimationFrame(() => el.tablePasteInput?.focus());
+});
+
+el.tablePasteCancel?.addEventListener("click", () => {
+  el.tablePasteDialog?.close();
+});
+
+el.tablePasteSubmit?.addEventListener("click", async () => {
+  const raw = el.tablePasteInput?.value || "";
+  const parsed = parsePastedRows(raw);
+  const normalized = normalizeImportedRows(parsed.rows, lastState.clients, lastState.activeClientId);
+  const allSkipped = [...parsed.skipped, ...normalized.skipped];
+  if (!normalized.rows.length) {
+    if (el.tablePasteResult) {
+      el.tablePasteResult.textContent = allSkipped.length
+        ? `No importable rows. ${allSkipped.slice(0, 3).map((item) => `Row ${item.rowNumber}: ${item.reason}`).join(" | ")}`
+        : "No data detected.";
+    }
+    return;
+  }
+
+  el.tablePasteSubmit.disabled = true;
+  const originalLabel = el.tablePasteSubmit.textContent;
+  el.tablePasteSubmit.textContent = "Importing...";
+  try {
+    const imported = await store.bulkCreatePosts(normalized.rows);
+    const failed = [...allSkipped, ...(imported?.failed || [])];
+    const summary = `Created ${imported?.created || 0} row(s)${failed.length ? ` • Skipped ${failed.length}` : ""}`;
+    if (el.tablePasteResult) {
+      const details = failed.slice(0, 3).map((item) => `Row ${item.rowNumber}: ${item.reason}`).join(" | ");
+      el.tablePasteResult.textContent = details ? `${summary} • ${details}` : summary;
+    }
+    showToast(summary, failed.length ? "warning" : "success");
+    if ((imported?.created || 0) > 0) {
+      paint(lastState);
+      setTimeout(() => el.tablePasteDialog?.close(), 250);
+    }
+  } finally {
+    el.tablePasteSubmit.disabled = false;
+    el.tablePasteSubmit.textContent = originalLabel;
+  }
 });
 
 el.newClient.addEventListener("click", async () => {
@@ -714,6 +1077,7 @@ el.brandHome?.addEventListener("click", () => {
     ...collapsedSections,
     workflow: false,
     schedule: false,
+    table: false,
     preview: false,
     leftSidebar: false,
     rightSidebar: false,
@@ -915,7 +1279,7 @@ document.addEventListener("click", (e) => {
   if (!lastState.activePostId) return;
   if (el.inspectorPanel.contains(e.target)) return;
   // Clicking a card/chip opens a (different) post — don't dismiss
-  if (e.target.closest(".card, .chip")) return;
+  if (e.target.closest(".card, .chip, .row-open")) return;
   store.setActivePost(null);
 }, true);
 
@@ -927,6 +1291,7 @@ function paint(state) {
     el.leftSidebar.classList.add("is-collapsed");
     el.inspectorPanel.classList.add("is-collapsed");
     el.workflowSection.classList.add("hidden");
+    el.tableSection.classList.add("hidden");
     el.previewSection.classList.add("hidden");
     el.scheduleSection.classList.remove("hidden");
     el.scheduleSection.classList.remove("is-collapsed");
@@ -962,6 +1327,7 @@ function paint(state) {
     el.stats.textContent = "Connecting to API...";
     el.kanban.innerHTML = "<div class='empty'>Loading workspace…</div>";
     el.calendar.innerHTML = "";
+    el.table.innerHTML = "";
     el.grid.innerHTML = "";
     el.inspector.innerHTML = "<div class='empty'>Loading…</div>";
     return;
@@ -994,6 +1360,7 @@ function paint(state) {
       media: state.media,
       profileSettings: simulatorProfileSettings,
       settingsOpen: simulatorSettingsOpen,
+      displayOptions: previewViewOptions,
       onSettingsOpenChange: (nextOpen) => {
         simulatorSettingsOpen = Boolean(nextOpen);
       },
@@ -1037,6 +1404,10 @@ function paint(state) {
         return;
       }
       store.movePost(id, status);
+    },
+    {
+      ...kanbanViewOptions,
+      media: state.media
     }
   );
 
@@ -1065,6 +1436,68 @@ function paint(state) {
     }
   });
 
+  renderTable(el.table, visiblePosts, {
+    clients: state.clients,
+    activeClientId: state.activeClientId,
+    sort: tableSort,
+    onOpen: (id) => {
+      store.setActivePost(id);
+      revealView("table", "table");
+    },
+    onCellUpdate: (rowId, patch) => {
+      const targetPost = state.posts.find((post) => post.id === rowId);
+      if (!targetPost) return;
+      if (!store.canEditPost(targetPost)) {
+        showToast("You do not have permission to edit this row.", "warning");
+        return;
+      }
+      const safePatch = normalizeTableUpdatePatch(targetPost, patch);
+      if (!safePatch) return;
+      store.updatePost(rowId, safePatch);
+    },
+    onBatchCellUpdate: (updates = []) => {
+      if (!Array.isArray(updates) || !updates.length) return;
+      let appliedCount = 0;
+      let deniedCount = 0;
+      for (const update of updates) {
+        const rowId = update?.rowId;
+        if (!rowId) continue;
+        const targetPost = state.posts.find((post) => post.id === rowId);
+        if (!targetPost) continue;
+        if (!store.canEditPost(targetPost)) {
+          deniedCount += 1;
+          continue;
+        }
+        const safePatch = normalizeTableUpdatePatch(targetPost, update.patch || {});
+        if (!safePatch) continue;
+        store.updatePost(rowId, safePatch);
+        appliedCount += 1;
+      }
+      if (appliedCount) {
+        showToast(`Updated ${appliedCount} cell ${appliedCount === 1 ? "value" : "values"}.`, "success");
+      } else if (deniedCount) {
+        showToast(`Skipped ${deniedCount} ${deniedCount === 1 ? "row" : "rows"} due to edit permissions.`, "warning");
+      }
+    },
+    onBatchCreateRows: async (rowsToCreate = []) => {
+      if (!Array.isArray(rowsToCreate) || !rowsToCreate.length) return;
+      if (typeof store.canCreatePosts === "function" && !store.canCreatePosts()) {
+        showToast("You do not have permission to create posts.", "warning");
+        return;
+      }
+      const imported = await store.bulkCreatePosts(rowsToCreate);
+      const failed = Array.isArray(imported?.failed) ? imported.failed : [];
+      const created = Number(imported?.created || 0);
+      if (!created && !failed.length) return;
+      const summary = `Created ${created} row${created === 1 ? "" : "s"}${failed.length ? ` • Skipped ${failed.length}` : ""}`;
+      showToast(summary, failed.length ? "warning" : "success");
+    },
+    onSortChange: (nextSort) => {
+      tableSort = nextSort;
+      paint(lastState);
+    }
+  });
+
   paintProfileSimulator();
 
   syncKanbanOverflowState();
@@ -1083,6 +1516,7 @@ function paint(state) {
       canDelete: canManageUsers(),
       canDuplicate: activePost ? store.canEditPost(activePost) : false,
       canUploadMedia: Boolean(state?.authContext?.capabilities?.canUploadMedia) && (activePost ? store.canEditPost(activePost) : false),
+      canAttachExternalMedia: Boolean(state?.authContext?.capabilities?.canUploadMedia) && (activePost ? store.canEditPost(activePost) : false),
       canReorderMedia: activePost ? store.canEditPost(activePost) : false
     },
     profileSettings: resolveProfileSettingsForClient(state, activePost?.clientId || simulatorClient.clientId),
@@ -1111,10 +1545,58 @@ function paint(state) {
       await store.uploadPostMedia(activePost.id, file);
       showToast("Media uploaded.", "success");
     },
+    onAttachExternalMedia: async (payload) => {
+      if (!activePost) return;
+      await store.attachExternalMedia(activePost.id, payload);
+      showToast("Cloud media link attached.", "success");
+    },
+    onCopyMediaLink: async (mediaId) => {
+      const mediaItem = state.media.find((item) => item.id === mediaId);
+      const link = String(mediaItem?.externalUrl || mediaItem?.urlPath || "").trim();
+      if (!link) throw new Error("Media link unavailable");
+      await writeClipboardText(link);
+      showToast("Media link copied.", "success");
+    },
     onRemoveMedia: async (mediaId) => {
       if (!activePost) return;
       await store.removePostMedia(activePost.id, mediaId);
       showToast("Media removed.", "success");
+    },
+    onHandoffPublish: async ({ platform, caption, media }) => {
+      if (!activePost) return;
+      const handoffUrl = getPlatformHandoffUrl(platform);
+      const captionText = String(caption || "").trim() || String(activePost.caption || "").trim();
+      const mediaLink = pickPreferredMediaLink(media);
+
+      if (captionText) {
+        await writeClipboardText(captionText);
+        showToast("Caption copied to clipboard.", "success");
+      } else {
+        showToast("No caption found to copy.", "warning");
+      }
+
+      window.open(handoffUrl, "_blank", "noopener,noreferrer");
+      if (mediaLink) {
+        window.open(mediaLink, "_blank", "noopener,noreferrer");
+        showToast("Opened platform + media source. Paste caption to finish posting.", "");
+      } else {
+        showToast("Opened platform uploader. Paste caption and choose media.", "");
+      }
+
+      const didPublish = await showConfirmDialog(
+        "Did this post successfully publish?",
+        "Click Yes after you finish posting on the platform.",
+        { okLabel: "Yes, mark published" }
+      );
+      if (didPublish) {
+        store.updatePost(activePost.id, {
+          publishState: "published",
+          publishedAt: new Date().toISOString()
+        });
+        showToast("Post marked as published.", "success");
+      } else {
+        showToast("Post state unchanged.", "warning");
+      }
     },
     onReorderMedia: async (orderedMediaIds) => {
       if (!activePost) return;
@@ -1280,4 +1762,3 @@ async function loadSharedCalendarFromHash() {
     paint(lastState);
   }
 }
-

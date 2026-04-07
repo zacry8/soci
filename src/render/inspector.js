@@ -33,6 +33,11 @@ function extractHashtags(caption = "") {
 
 function renderPrimaryMediaPreview(media) {
   if (!media?.urlPath) return `<span class="safe-zone">Media preview</span>`;
+  if (media?.storageMode === "external") {
+    const provider = escapeHtml(String(media.provider || "external").replaceAll("_", " "));
+    const label = escapeHtml(media.displayName || media.fileName || "External media");
+    return `<div class="external-media-preview"><strong>${label}</strong><span class="subtle">BYOS · ${provider}</span></div>`;
+  }
   const url = escapeHtml(media.urlPath);
   const name = escapeHtml(media.fileName || "media");
   const mime = String(media.mimeType || "").toLowerCase();
@@ -121,16 +126,25 @@ export function renderInspector(root, post, handlers) {
     ? `<ul class="media-list">${postMedia.map((item) => {
       const url = escapeHtml(item.urlPath || "");
       const downloadUrl = escapeHtml(withDownloadParam(item.urlPath || ""));
-      const fileName = escapeHtml(item.fileName || "media");
+      const fileName = escapeHtml(item.displayName || item.fileName || "media");
       const mimeType = escapeHtml(item.mimeType || "file");
+      const isExternal = item.storageMode === "external";
+      const sourceTag = isExternal
+        ? `<span class="subtle media-source-badge">BYOS · ${escapeHtml(String(item.provider || "external").replaceAll("_", " "))}</span>`
+        : `<span class="subtle media-source-badge">Uploaded</span>`;
+      const primaryAction = isExternal
+        ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="btn-media">Open source</a>
+           <button type="button" class="btn-media" data-media-copy-link="${escapeHtml(item.id || "")}">Copy link</button>`
+        : `<a href="${downloadUrl}" target="_blank" rel="noreferrer" download class="btn-media btn-download-original">Download original</a>`;
       return `
         <li class="media-item-row" data-media-id="${escapeHtml(item.id || "")}">
           <div class="media-item-main">
             <a href="${url}" target="_blank" rel="noreferrer">${fileName}</a>
             <span class="subtle">${mimeType}</span>
+            ${sourceTag}
           </div>
           <div class="media-item-actions">
-            <a href="${downloadUrl}" target="_blank" rel="noreferrer" download class="btn-media btn-download-original">Download original</a>
+            ${primaryAction}
             <button type="button" class="btn-media danger icon-only" data-media-delete="${escapeHtml(item.id || "")}" aria-label="Delete media" title="Delete media"><i data-lucide="trash-2" aria-hidden="true"></i></button>
           </div>
         </li>
@@ -143,9 +157,13 @@ export function renderInspector(root, post, handlers) {
     canDelete: true,
     canDuplicate: true,
     canUploadMedia: true,
+    canAttachExternalMedia: true,
     canReorderMedia: true,
     ...(handlers?.permissions || {})
   };
+  const handoffButtonsHtml = (Array.isArray(post.platforms) && post.platforms.length ? post.platforms : ["Instagram"])
+    .map((platform) => `<button type="button" class="btn-media" data-handoff-platform="${escapeHtml(platform)}">Post to ${escapeHtml(platform)}</button>`)
+    .join("");
 
   root.innerHTML = `
     <div id="form-errors" class="form-errors hidden" role="alert"></div>
@@ -188,6 +206,28 @@ export function renderInspector(root, post, handlers) {
             </div>
             <input id="f-media-file" type="file" hidden accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm,.pdf" ${permissions.canUploadMedia ? "" : "disabled"} />
             <div id="f-media-status" class="subtle fs-xs-fixed"></div>
+            <div class="external-attach-wrap">
+              <label for="f-external-url" class="variant-field-label">Attach by Link (Google Drive / iCloud)</label>
+              <input id="f-external-url" type="url" placeholder="https://drive.google.com/... or https://www.icloud.com/..." ${permissions.canAttachExternalMedia ? "" : "disabled"} />
+              <div class="row inspector-single">
+                <div class="field">
+                  <label for="f-external-provider">Provider</label>
+                  <select id="f-external-provider" ${permissions.canAttachExternalMedia ? "" : "disabled"}>
+                    <option value="">Auto-detect</option>
+                    <option value="google_drive">Google Drive</option>
+                    <option value="icloud">iCloud</option>
+                    <option value="dropbox">Dropbox</option>
+                    <option value="onedrive">OneDrive</option>
+                    <option value="direct">Direct Link</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="f-external-display-name">Label</label>
+                  <input id="f-external-display-name" type="text" placeholder="Optional label" ${permissions.canAttachExternalMedia ? "" : "disabled"} />
+                </div>
+              </div>
+              <button type="button" class="btn-media" id="attach-external-media" ${permissions.canAttachExternalMedia ? "" : "disabled"}>Attach from cloud link</button>
+            </div>
             ${mediaListHtml}
           </div>
           <div class="field"><label for="f-caption">Caption</label><textarea id="f-caption" class="auto-grow" ${permissions.canEdit ? "" : "disabled"}>${escapeHtml(post.caption)}</textarea></div>
@@ -275,6 +315,13 @@ export function renderInspector(root, post, handlers) {
         <div class="field"><label for="c-text">Comment</label><textarea id="c-text" placeholder="Write a comment" ${permissions.canComment ? "" : "disabled"}></textarea></div>
       </div>
       <button class="add-btn" id="add-comment" ${permissions.canComment ? "" : "disabled"}>Add Comment</button>
+
+      <hr>
+      <p class="section-title">Publish Handoff</p>
+      <p class="subtle fs-xs-fixed">Caption will be copied to your clipboard before opening the platform upload page.</p>
+      <div class="media-item-actions">
+        ${handoffButtonsHtml}
+      </div>
     </section>
 
     <div class="inspector-actions">
@@ -548,6 +595,55 @@ export function renderInspector(root, post, handlers) {
       } catch (error) {
         mediaStatus.textContent = `Remove failed: ${error.message || "Unknown error"}`;
       }
+    });
+  });
+
+  root.querySelectorAll("[data-media-copy-link]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const mediaId = button.getAttribute("data-media-copy-link") || "";
+      if (!mediaId || !handlers.onCopyMediaLink) return;
+      try {
+        await handlers.onCopyMediaLink(mediaId);
+        mediaStatus.textContent = "Media link copied.";
+      } catch (error) {
+        mediaStatus.textContent = `Copy link failed: ${error.message || "Unknown error"}`;
+      }
+    });
+  });
+
+  const externalAttachButton = root.querySelector("#attach-external-media");
+  externalAttachButton?.addEventListener("click", async () => {
+    if (!permissions.canAttachExternalMedia || !handlers.onAttachExternalMedia) return;
+    const externalUrl = String(root.querySelector("#f-external-url")?.value || "").trim();
+    const provider = String(root.querySelector("#f-external-provider")?.value || "").trim();
+    const displayName = String(root.querySelector("#f-external-display-name")?.value || "").trim();
+    if (!externalUrl) {
+      mediaStatus.textContent = "Please enter a cloud link first.";
+      return;
+    }
+    mediaStatus.textContent = "Attaching cloud link...";
+    try {
+      await handlers.onAttachExternalMedia({ externalUrl, provider, displayName });
+      mediaStatus.textContent = "Cloud link attached.";
+      const urlInput = root.querySelector("#f-external-url");
+      const nameInput = root.querySelector("#f-external-display-name");
+      if (urlInput) urlInput.value = "";
+      if (nameInput) nameInput.value = "";
+    } catch (error) {
+      mediaStatus.textContent = `Attach failed: ${error.message || "Unknown error"}`;
+    }
+  });
+
+  root.querySelectorAll("[data-handoff-platform]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const platform = String(button.getAttribute("data-handoff-platform") || "").trim();
+      if (!platform || !handlers.onHandoffPublish) return;
+      await handlers.onHandoffPublish({
+        platform,
+        caption: post.platformVariants?.[platform] || post.caption || "",
+        media: postMedia,
+        postId: post.id
+      });
     });
   });
 

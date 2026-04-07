@@ -16,7 +16,12 @@
         <form id="login-form" autocomplete="on">
           <div class="lc-field" id="l-name-wrap" hidden>
             <label for="l-name">Name</label>
-            <input id="l-name" type="text" autocomplete="name" placeholder="Your name" />
+            <input
+              id="l-name"
+              type="text"
+              autocomplete="name"
+              placeholder="Your name"
+            />
           </div>
           <div class="lc-field" id="l-workspace-wrap" hidden>
             <label for="l-workspace">Workspace</label>
@@ -24,42 +29,75 @@
           </div>
           <div class="lc-field">
             <label for="l-email">Email</label>
-            <input id="l-email" type="email" autocomplete="username" placeholder="admin@example.com" required />
+            <input
+              id="l-email"
+              type="email"
+              autocomplete="username"
+              placeholder="admin@example.com"
+              required
+            />
           </div>
           <div class="lc-field">
             <label for="l-pass">Password</label>
-            <input id="l-pass" type="password" autocomplete="current-password" placeholder="••••••••" required />
+            <input
+              id="l-pass"
+              type="password"
+              autocomplete="current-password"
+              placeholder="••••••••"
+              required
+            />
           </div>
           <p id="l-error" class="lc-error" hidden></p>
           <button type="submit" class="lc-btn" id="l-btn">Sign in</button>
-          <button type="button" class="small btn-secondary" id="l-toggle-mode">Create account</button>
+          <button type="button" class="small btn-secondary" id="l-toggle-mode">
+            Create account
+          </button>
         </form>
       </div>
     </div>
 
-    <div id="app" class="app-shell" style="display:none">
+    <div id="app" class="app-shell" style="display: none">
       <aside class="sidebar" id="left-sidebar">
         <header class="sidebar-head">
           <button id="brand-home" class="brand-link" type="button">Soci</button>
-          <button id="collapse-left-sidebar" class="small" type="button">Collapse</button>
+          <button id="collapse-left-sidebar" class="small" type="button">
+            Collapse
+          </button>
         </header>
         <div class="sidebar-body">
           <p class="subtle">Social planning workspace</p>
           <div class="sidebar-actions">
-            <button id="create-post" class="primary" type="button">+ New Post</button>
-            <button id="manage-users" class="small" type="button">Manage Users</button>
+            <button id="create-post" class="primary" type="button">
+              + New Post
+            </button>
+            <button id="manage-users" class="small" type="button">
+              Manage Users
+            </button>
             <div class="action-row">
-              <button id="new-client" class="small icon-btn action-btn" type="button">
+              <button
+                id="new-client"
+                class="small icon-btn action-btn"
+                type="button"
+              >
                 <i data-lucide="user-plus" aria-hidden="true"></i>
                 <span>New Workspace</span>
               </button>
-              <button id="delete-client" class="small icon-btn action-btn" type="button" title="Delete selected workspace">
+              <button
+                id="delete-client"
+                class="small icon-btn action-btn"
+                type="button"
+                title="Delete selected workspace"
+              >
                 <i data-lucide="trash-2" aria-hidden="true"></i>
                 <span>Delete Workspace</span>
               </button>
             </div>
             <div class="action-row">
-              <button id="copy-share-link" class="small icon-btn action-btn" type="button">
+              <button
+                id="copy-share-link"
+                class="small icon-btn action-btn"
+                type="button"
+              >
                 <i data-lucide="link-2" aria-hidden="true"></i>
                 <span>Share Link</span>
               </button>
@@ -69,43 +107,141 @@
                   <span>Export</span>
                 </summary>
                 <div class="export-menu-list">
-                  <button id="export-csv" class="small icon-btn action-btn" type="button">
+                  <button
+                    id="export-csv"
+                    class="small icon-btn action-btn"
+                    type="button"
+                  >
                     <i data-lucide="file-spreadsheet" aria-hidden="true"></i>
                     <span>CSV</span>
                   </button>
-                  <button id="export-ics" class="small icon-btn action-btn" type="button">
+                  <button
+                    id="export-ics"
+                    class="small icon-btn action-btn"
+                    type="button"
+                  >
                     <i data-lucide="calendar" aria-hidden="true"></i>
                     <span>ICS</span>
                   </button>
                 </div>
               </details>
             </div>
-            <button id="sign-out" class="small btn-signout" type="button">Sign Out</button>
+            <button id="sign-out" class="small btn-signout" type="button">
+              Sign Out
+            </button>
+            <button
+              id="theme-toggle"
+              class="theme-switch"
+              type="button"
+              aria-label="Toggle theme"
+              aria-pressed="false"
+            >
+              <span class="theme-switch-label">Light Mode</span>
+              <span class="theme-switch-track" aria-hidden="true"
+                ><span class="theme-switch-knob"></span
+              ></span>
+            </button>
           </div>
         </div>
       </aside>
 
       <main class="main">
         <header class="topbar">
-          <div>
-            <h2 id="view-title">Planning Workspace</h2>
-            <span class="subtle" id="stats"></span>
-          </div>
-          <div class="view-toggles" aria-label="View toggles">
-            <button id="toggle-kanban" data-view="kanban" class="tab active">Kanban</button>
-            <button id="toggle-calendar" data-view="calendar" class="tab active">Calendar</button>
-            <button id="toggle-grid" data-view="grid" class="tab">Grid</button>
+          <div class="topbar-main">
+            <div class="topbar-title-block">
+              <h2 id="view-title">Planning Workspace</h2>
+              <span class="subtle" id="stats"></span>
+            </div>
+            <div class="view-toggles" aria-label="View toggles">
+              <button
+                id="toggle-kanban"
+                data-view="kanban"
+                class="tab active"
+                type="button"
+              >
+                <i data-lucide="columns-3" aria-hidden="true"></i>
+                <span>Kanban</span>
+              </button>
+              <button
+                id="toggle-calendar"
+                data-view="calendar"
+                class="tab active"
+                type="button"
+              >
+                <i data-lucide="calendar-days" aria-hidden="true"></i>
+                <span>Calendar</span>
+              </button>
+              <button
+                id="toggle-table"
+                data-view="table"
+                class="tab"
+                type="button"
+              >
+                <i data-lucide="table" aria-hidden="true"></i>
+                <span>Table</span>
+              </button>
+              <button
+                id="toggle-grid"
+                data-view="grid"
+                class="tab"
+                type="button"
+              >
+                <i data-lucide="grid-3x3" aria-hidden="true"></i>
+                <span>Grid</span>
+              </button>
+            </div>
+            <details class="view-options" id="view-options-panel">
+              <summary class="small">View Options</summary>
+              <div class="view-options-grid">
+                <label
+                  ><input id="opt-kanban-thumb" type="checkbox" checked />
+                  Kanban Thumbnails</label
+                >
+                <label
+                  ><input id="opt-kanban-meta" type="checkbox" checked /> Kanban
+                  Meta Row</label
+                >
+                <label
+                  ><input id="opt-kanban-excerpt" type="checkbox" checked />
+                  Kanban Description</label
+                >
+                <label
+                  ><input id="opt-preview-thumb" type="checkbox" checked />
+                  Preview Thumbnails</label
+                >
+                <label
+                  ><input id="opt-preview-meta" type="checkbox" checked />
+                  Preview Meta</label
+                >
+                <label
+                  ><input
+                    id="opt-preview-description"
+                    type="checkbox"
+                    checked
+                  />
+                  Preview Description</label
+                >
+                <label
+                  ><input id="opt-preview-text-only" type="checkbox" /> Preview
+                  Text Only</label
+                >
+              </div>
+            </details>
           </div>
           <div class="workspace-controls">
-            <button id="theme-toggle" class="small icon-btn" type="button" aria-label="Toggle theme">
-              <i data-lucide="moon" aria-hidden="true"></i>
-              <span>Dark</span>
-            </button>
-            <button id="reopen-left-sidebar" class="small icon-btn hidden" type="button">
+            <button
+              id="reopen-left-sidebar"
+              class="small icon-btn hidden"
+              type="button"
+            >
               <i data-lucide="panel-left-open" aria-hidden="true"></i>
               <span>Menu</span>
             </button>
-            <button id="reopen-right-sidebar" class="small icon-btn hidden" type="button">
+            <button
+              id="reopen-right-sidebar"
+              class="small icon-btn hidden"
+              type="button"
+            >
               <i data-lucide="panel-right-open" aria-hidden="true"></i>
               <span>Details</span>
             </button>
@@ -116,7 +252,11 @@
           <select id="active-client" aria-label="Active workspace">
             <option value="">All Workspaces</option>
           </select>
-          <input id="filter-query" type="search" placeholder="Search title, caption, tags..." />
+          <input
+            id="filter-query"
+            type="search"
+            placeholder="Search title, caption, tags..."
+          />
           <select id="filter-platform" aria-label="Filter by platform">
             <option value="all">All Platforms</option>
             <option value="Instagram">Instagram</option>
@@ -136,13 +276,23 @@
           </select>
         </section>
 
-        <section id="admin-user-panel" class="workspace-section hidden" aria-label="Admin user management">
+        <section
+          id="admin-user-panel"
+          class="workspace-section hidden"
+          aria-label="Admin user management"
+        >
           <header class="section-head">
             <h3>User Management</h3>
-            <button id="collapse-admin-user" class="small" type="button">Collapse</button>
+            <button id="collapse-admin-user" class="small" type="button">
+              Collapse
+            </button>
           </header>
           <div class="section-body">
-            <div id="owner-console-panel" class="owner-console hidden" aria-live="polite">
+            <div
+              id="owner-console-panel"
+              class="owner-console hidden"
+              aria-live="polite"
+            >
               <div id="owner-console-stats" class="owner-stats"></div>
               <div class="owner-table-wrap">
                 <table class="owner-table">
@@ -159,15 +309,29 @@
                 </table>
               </div>
             </div>
-            <form id="admin-user-form" class="admin-user-form" autocomplete="off">
+            <form
+              id="admin-user-form"
+              class="admin-user-form"
+              autocomplete="off"
+            >
               <div class="row">
                 <div class="field">
                   <label for="admin-user-name">Display Name</label>
-                  <input id="admin-user-name" type="text" placeholder="e.g. Jamie Editor" required />
+                  <input
+                    id="admin-user-name"
+                    type="text"
+                    placeholder="e.g. Jamie Editor"
+                    required
+                  />
                 </div>
                 <div class="field">
                   <label for="admin-user-email">Email</label>
-                  <input id="admin-user-email" type="email" placeholder="user@agency.com" required />
+                  <input
+                    id="admin-user-email"
+                    type="email"
+                    placeholder="user@agency.com"
+                    required
+                  />
                 </div>
               </div>
 
@@ -182,13 +346,21 @@
                 </div>
                 <div class="field">
                   <label for="admin-user-password">Temporary Password</label>
-                  <input id="admin-user-password" type="password" minlength="8" placeholder="Minimum 8 characters" required />
+                  <input
+                    id="admin-user-password"
+                    type="password"
+                    minlength="8"
+                    placeholder="Minimum 8 characters"
+                    required
+                  />
                 </div>
               </div>
 
               <div class="row">
                 <div class="field">
-                  <label for="admin-assign-membership">Assign to Workspace</label>
+                  <label for="admin-assign-membership"
+                    >Assign to Workspace</label
+                  >
                   <select id="admin-assign-membership">
                     <option value="no">No</option>
                     <option value="yes">Yes</option>
@@ -211,10 +383,22 @@
                 </select>
               </div>
 
-              <div id="admin-user-error" class="comment-error hidden" role="alert"></div>
+              <div
+                id="admin-user-error"
+                class="comment-error hidden"
+                role="alert"
+              ></div>
               <div class="inspector-actions">
-                <button id="admin-user-submit" class="save" type="submit">Create User</button>
-                <button id="admin-user-cancel" class="btn-secondary" type="button">Close</button>
+                <button id="admin-user-submit" class="save" type="submit">
+                  Create User
+                </button>
+                <button
+                  id="admin-user-cancel"
+                  class="btn-secondary"
+                  type="button"
+                >
+                  Close
+                </button>
               </div>
             </form>
           </div>
@@ -223,8 +407,15 @@
         <section id="workflow-section" class="workspace-section">
           <header class="section-head">
             <h3>Workflow</h3>
-            <span id="kanban-overflow-hint" class="subtle hidden" aria-live="polite">More columns →</span>
-            <button id="collapse-workflow" class="small" type="button">Collapse</button>
+            <span
+              id="kanban-overflow-hint"
+              class="subtle hidden"
+              aria-live="polite"
+              >More columns →</span
+            >
+            <button id="collapse-workflow" class="small" type="button">
+              Collapse
+            </button>
           </header>
           <div class="section-body">
             <section id="kanban-view" class="view"></section>
@@ -234,17 +425,49 @@
         <section id="schedule-section" class="workspace-section">
           <header class="section-head">
             <h3>Schedule</h3>
-            <button id="collapse-schedule" class="small" type="button">Collapse</button>
+            <button id="collapse-schedule" class="small" type="button">
+              Collapse
+            </button>
           </header>
           <div class="section-body">
             <section id="calendar-view" class="view"></section>
           </div>
         </section>
 
+        <section id="table-section" class="workspace-section hidden">
+          <header class="section-head">
+            <h3>Rows</h3>
+            <button
+              id="table-copy-rows"
+              class="small table-copy-trigger"
+              type="button"
+              title="Copy visible rows with headers for Google Sheets"
+            >
+              Copy to Sheets
+            </button>
+            <button
+              id="table-paste-rows"
+              class="small table-paste-trigger"
+              type="button"
+              title="Click, then paste rows from Sheets/Airtable"
+            >
+              Paste Rows
+            </button>
+            <button id="collapse-table" class="small" type="button">
+              Collapse
+            </button>
+          </header>
+          <div class="section-body">
+            <section id="table-view" class="view"></section>
+          </div>
+        </section>
+
         <section id="preview-section" class="workspace-section hidden">
           <header class="section-head">
             <h3>Profile Preview</h3>
-            <button id="collapse-preview" class="small" type="button">Collapse</button>
+            <button id="collapse-preview" class="small" type="button">
+              Collapse
+            </button>
           </header>
           <div class="section-body">
             <section id="grid-view" class="view"></section>
@@ -253,15 +476,33 @@
       </main>
 
       <aside class="inspector" id="inspector-panel">
-        <div id="inspector-resize-handle" class="inspector-resize-handle" aria-hidden="true"></div>
+        <div
+          id="inspector-resize-handle"
+          class="inspector-resize-handle"
+          aria-hidden="true"
+        ></div>
         <header class="section-head inspector-head">
           <h3>Details</h3>
           <div class="inspector-head-actions">
-            <button id="toggle-pin-inspector" class="small icon-btn" type="button" aria-label="Pin to sidebar">
-              <span class="float-pin-icon"><i data-lucide="pin" aria-hidden="true"></i></span>
-              <span class="pinned-unpin-icon"><i data-lucide="pin-off" aria-hidden="true"></i></span>
+            <button
+              id="toggle-pin-inspector"
+              class="small icon-btn"
+              type="button"
+              aria-label="Pin to sidebar"
+            >
+              <span class="float-pin-icon"
+                ><i data-lucide="pin" aria-hidden="true"></i
+              ></span>
+              <span class="pinned-unpin-icon"
+                ><i data-lucide="pin-off" aria-hidden="true"></i
+              ></span>
             </button>
-            <button id="collapse-right-sidebar" class="small icon-btn" type="button" aria-label="Close">
+            <button
+              id="collapse-right-sidebar"
+              class="small icon-btn"
+              type="button"
+              aria-label="Close"
+            >
               <i data-lucide="x" aria-hidden="true"></i>
             </button>
           </div>
@@ -302,13 +543,53 @@
         <p class="soci-dialog-msg"></p>
         <input class="soci-dialog-input" type="text" />
         <div class="soci-dialog-actions">
-          <button type="button" class="btn-secondary small soci-dialog-cancel">Cancel</button>
+          <button type="button" class="btn-secondary small soci-dialog-cancel">
+            Cancel
+          </button>
           <button type="button" class="primary small soci-dialog-ok">OK</button>
         </div>
       </div>
     </dialog>
 
-    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+    <dialog id="table-paste-dialog" class="soci-dialog table-paste-dialog">
+      <form method="dialog" class="soci-dialog-form table-paste-form">
+        <h3 class="soci-dialog-title">Paste Rows from Sheets / Airtable</h3>
+        <p class="soci-dialog-msg">
+          Supported columns: title, workspace, status, platforms, assignee,
+          scheduleDate, caption, tags, visibility. Header row is optional, and
+          the Copy for Sheets button uses this same order.
+        </p>
+        <textarea
+          id="table-paste-input"
+          class="soci-dialog-input table-paste-input"
+          rows="10"
+          placeholder="title	workspace	status	platforms
+Launch campaign	Acme Coffee	in-progress	Instagram, TikTok"
+        ></textarea>
+        <div
+          id="table-paste-result"
+          class="subtle table-paste-result"
+          aria-live="polite"
+        ></div>
+        <div class="soci-dialog-actions">
+          <button
+            type="button"
+            class="btn-secondary small"
+            id="table-paste-cancel"
+          >
+            Cancel
+          </button>
+          <button type="button" class="primary small" id="table-paste-submit">
+            Import Rows
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <script
+      src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"
+      defer
+    ></script>
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>

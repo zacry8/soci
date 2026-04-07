@@ -52,6 +52,7 @@ const VALID_STATUSES = new Set([
 const VALID_VISIBILITIES = new Set(["client-shareable", "internal"]);
 const VALID_USER_ROLES = new Set(["owner_admin", "admin", "helper_staff", "client_user"]);
 const VALID_MEMBERSHIP_PERMISSIONS = new Set(["view", "comment", "edit", "manage"]);
+const VALID_EXTERNAL_MEDIA_PROVIDERS = new Set(["google_drive", "icloud", "dropbox", "onedrive", "direct"]);
 
 export function validateRegistration(body) {
   if (!body || typeof body !== "object") return "Invalid payload";
@@ -137,5 +138,34 @@ export function validateComment(body) {
   const text = String(body?.text || "").trim();
   if (!text) return "text is required";
   if (text.length > 2000) return "text must be 2000 characters or less";
+  return null;
+}
+
+export function validateExternalMediaReference(body) {
+  if (!body || typeof body !== "object") return "Invalid payload";
+  const postId = String(body.postId || "").trim();
+  if (!postId) return "postId is required";
+
+  const externalUrl = String(body.externalUrl || "").trim();
+  if (!externalUrl) return "externalUrl is required";
+  if (externalUrl.length > 2000) return "externalUrl must be 2000 characters or less";
+
+  if (body.provider !== undefined) {
+    const provider = String(body.provider || "").trim().toLowerCase();
+    if (!VALID_EXTERNAL_MEDIA_PROVIDERS.has(provider)) {
+      return `provider must be one of: ${[...VALID_EXTERNAL_MEDIA_PROVIDERS].join(", ")}`;
+    }
+  }
+
+  if (body.displayName !== undefined) {
+    const displayName = String(body.displayName || "").trim();
+    if (displayName.length > 180) return "displayName must be 180 characters or less";
+  }
+
+  if (body.nativeBookmarkHint !== undefined) {
+    const hint = String(body.nativeBookmarkHint || "").trim();
+    if (hint.length > 5000) return "nativeBookmarkHint must be 5000 characters or less";
+  }
+
   return null;
 }

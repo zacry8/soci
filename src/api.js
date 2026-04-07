@@ -236,6 +236,34 @@ export async function uploadMyMedia(token, { postId, file }) {
   });
 }
 
+export async function createExternalMediaReference(token, { postId, externalUrl, provider = "", displayName = "", nativeBookmarkHint = "" }) {
+  return request("/api/admin/media/external", {
+    method: "POST",
+    token,
+    body: {
+      postId,
+      externalUrl,
+      provider,
+      displayName,
+      nativeBookmarkHint
+    }
+  });
+}
+
+export async function createMyExternalMediaReference(token, { postId, externalUrl, provider = "", displayName = "", nativeBookmarkHint = "" }) {
+  return request("/api/me/media/external", {
+    method: "POST",
+    token,
+    body: {
+      postId,
+      externalUrl,
+      provider,
+      displayName,
+      nativeBookmarkHint
+    }
+  });
+}
+
 export async function createMyClient(token, payload) {
   return request("/api/me/clients", { method: "POST", token, body: payload });
 }

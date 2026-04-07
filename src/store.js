@@ -27,6 +27,8 @@ import {
   uploadMedia,
   uploadMyMedia,
   createMyClient,
+  createExternalMediaReference,
+  createMyExternalMediaReference,
   upsertClient,
   upsertPost
 } from "./api.js";
@@ -94,12 +96,20 @@ function normalizePost(post, clients) {
 
 function normalizeMediaRecord(record) {
   const token = getAuthToken();
-  const resolved = resolveApiUrl(record?.urlPath || record?.publicUrl || "");
-  const withToken = token
+  const storageMode = record?.storageMode === "external" ? "external" : "uploaded";
+  const rawUrl = storageMode === "external"
+    ? String(record?.externalUrl || record?.urlPath || "")
+    : String(record?.urlPath || record?.publicUrl || "");
+  const resolved = resolveApiUrl(rawUrl);
+  const withToken = storageMode === "uploaded" && token
     ? (resolved.includes("?") ? `${resolved}&token=${encodeURIComponent(token)}` : `${resolved}?token=${encodeURIComponent(token)}`)
     : resolved;
   return {
     ...record,
+    storageMode,
+    provider: storageMode === "external" ? String(record?.provider || "direct") : "uploaded",
+    externalUrl: storageMode === "external" ? String(record?.externalUrl || record?.urlPath || "") : "",
+    displayName: String(record?.displayName || record?.fileName || ""),
     urlPath: withToken
   };
 }
@@ -253,7 +263,8 @@ export function createStore() {
     }
   };
 
-  const syncPost = async (post) => {
+  const syncPost = async (post, options = {}) => {
+    const throwOnError = Boolean(options?.throwOnError);
     if (!authToken) return;
     try {
       const res = canManageAsAdmin()
@@ -264,6 +275,7 @@ export function createStore() {
       notify();
     } catch (error) {
       reportSyncError("Post save failed on server.", error);
+      if (throwOnError) throw error;
     }
   };
 
@@ -344,6 +356,80 @@ export function createStore() {
       activePostId = post.id;
       notify();
       void syncPost(post);
+    },
+    async bulkCreatePosts(rows = []) {
+      if (!Array.isArray(rows) || !rows.length) {
+        return { created: 0, failed: [] };
+      }
+      if (!this.canCreatePosts()) {
+        return {
+          created: 0,
+          failed: rows.map((_, index) => ({
+            rowNumber: index + 1,
+            reason: "You do not have permission to create posts."
+          }))
+        };
+      }
+
+      const failed = [];
+      let created = 0;
+
+      for (const row of rows) {
+        const rowNumber = Number(row?.rowNumber || created + failed.length + 1);
+        const clientId = String(row?.clientId || activeClientId || clients[0]?.id || "").trim();
+        if (!clientId) {
+          failed.push({ rowNumber, reason: "Workspace is required." });
+          continue;
+        }
+        if (!canPermission(clientId, "edit")) {
+          failed.push({ rowNumber, reason: "No edit access for selected workspace." });
+          continue;
+        }
+
+        const nowIso = new Date().toISOString();
+        const nextPost = normalizePost(
+          {
+            id: crypto.randomUUID(),
+            clientId,
+            visibility: row?.visibility || "client-shareable",
+            title: row?.title || "Untitled Post",
+            status: row?.status || "idea",
+            publishState: "draft",
+            publishedAt: "",
+            scheduledAt: "",
+            scheduleDate: row?.scheduleDate || "",
+            platforms: Array.isArray(row?.platforms) && row.platforms.length ? row.platforms : ["Instagram"],
+            postType: "photo",
+            platformVariants: { Instagram: "" },
+            tags: Array.isArray(row?.tags) ? row.tags : [],
+            caption: row?.caption || "",
+            mediaIds: [],
+            assignee: row?.assignee || "",
+            reviewer: "",
+            comments: [],
+            checklist: { copy: false, media: false, tags: false, schedule: false, approval: false },
+            createdAt: nowIso,
+            updatedAt: nowIso
+          },
+          clients
+        );
+
+        posts = [nextPost, ...posts];
+        activePostId = nextPost.id;
+        notify();
+
+        try {
+          await syncPost(nextPost, { throwOnError: true });
+          created += 1;
+        } catch (error) {
+          posts = posts.filter((post) => post.id !== nextPost.id);
+          if (activePostId === nextPost.id) activePostId = posts[0]?.id || null;
+          notify();
+          failed.push({ rowNumber, reason: error?.message || "Could not save row." });
+        }
+      }
+
+      return { created, failed };
     },
     createClient(name) {
       if (!this.canCreateClients()) return;
@@ -499,6 +585,44 @@ export function createStore() {
       }
 
       const mediaRecord = result.media;
+      if (mediaRecord) {
+        const normalizedMedia = normalizeMediaRecord(mediaRecord);
+        media = [normalizedMedia, ...media.filter((m) => m.id !== normalizedMedia.id)];
+        posts = posts.map((post) =>
+          post.id === postId
+            ? { ...post, mediaIds: [...new Set([...(post.mediaIds || []), normalizedMedia.id])] }
+            : post
+        );
+        notify();
+      }
+      return result;
+    },
+    async attachExternalMedia(postId, payload = {}) {
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+      } catch (error) {
+        reportSyncError("External media auth failed.", error);
+        throw error;
+      }
+
+      let result;
+      try {
+        const body = {
+          postId,
+          externalUrl: String(payload.externalUrl || "").trim(),
+          provider: String(payload.provider || "").trim(),
+          displayName: String(payload.displayName || "").trim(),
+          nativeBookmarkHint: String(payload.nativeBookmarkHint || "").trim()
+        };
+        result = canManageAsAdmin()
+          ? await createExternalMediaReference(authToken, body)
+          : await createMyExternalMediaReference(authToken, body);
+      } catch (error) {
+        reportSyncError("Attach external media failed on server.", error);
+        throw error;
+      }
+
+      const mediaRecord = result?.media;
       if (mediaRecord) {
         const normalizedMedia = normalizeMediaRecord(mediaRecord);
         media = [normalizedMedia, ...media.filter((m) => m.id !== normalizedMedia.id)];

@@ -1,0 +1,135 @@
+{
+  "clients": [
+    {
+      "id": "eecace4d-fa37-418d-b184-bd4b73a7099c",
+      "name": "Smoke Client",
+      "channels": ["Instagram"],
+      "shareSlug": "smoke-client",
+      "sharingEnabled": true,
+      "profileSettings": {},
+      "createdAt": "2026-03-27T07:12:14.137Z",
+      "updatedAt": "2026-03-27T07:12:14.137Z"
+    }
+  ],
+  "posts": [
+    {
+      "id": "post-shareable-001",
+      "clientId": "eecace4d-fa37-418d-b184-bd4b73a7099c",
+      "title": "Shareable Post",
+      "caption": "",
+      "tags": [],
+      "platforms": ["Instagram"],
+      "status": "idea",
+      "visibility": "client-shareable",
+      "scheduleDate": "",
+      "mediaIds": ["media-shareable-001"],
+      "publishState": "draft",
+      "publishedAt": "",
+      "scheduledAt": "",
+      "postType": "photo",
+      "platformVariants": {},
+      "assignee": "",
+      "reviewer": "",
+      "comments": [],
+      "checklist": { "copy": false, "media": false, "tags": false, "schedule": false, "approval": false },
+      "createdAt": "2026-03-27T07:12:14.000Z",
+      "updatedAt": "2026-03-27T07:12:14.000Z"
+    },
+    {
+      "id": "post-internal-001",
+      "clientId": "eecace4d-fa37-418d-b184-bd4b73a7099c",
+      "title": "Internal Post",
+      "caption": "",
+      "tags": [],
+      "platforms": ["Instagram"],
+      "status": "idea",
+      "visibility": "internal",
+      "scheduleDate": "",
+      "mediaIds": ["media-internal-001"],
+      "publishState": "draft",
+      "publishedAt": "",
+      "scheduledAt": "",
+      "postType": "photo",
+      "platformVariants": {},
+      "assignee": "",
+      "reviewer": "",
+      "comments": [],
+      "checklist": { "copy": false, "media": false, "tags": false, "schedule": false, "approval": false },
+      "createdAt": "2026-03-27T07:12:14.000Z",
+      "updatedAt": "2026-03-27T07:12:14.000Z"
+    }
+  ],
+  "media": [
+    {
+      "id": "media-shareable-001",
+      "postId": "post-shareable-001",
+      "fileName": "test-media-upload.png",
+      "mimeType": "image/png",
+      "sizeBytes": 31,
+      "urlPath": "/uploads/test-media-upload.png",
+      "createdAt": "2026-03-27T07:12:14.000Z"
+    },
+    {
+      "id": "media-internal-001",
+      "postId": "post-internal-001",
+      "fileName": "test-media-upload.png",
+      "mimeType": "image/png",
+      "sizeBytes": 31,
+      "urlPath": "/uploads/test-media-upload.png",
+      "createdAt": "2026-03-27T07:12:14.000Z"
+    }
+  ],
+  "shareLinks": [],
+  "users": [
+    {
+      "id": "9a17c2c1-ba14-4353-a3e2-0949596412f3",
+      "email": "client@test.local",
+      "name": "Client User",
+      "role": "client_user",
+      "passwordHash": "scrypt$E7UVhpJjD_dw9Q80C97Zvg$Zj_i5kxzqztRUYwIbF72FPNZizks5LFJdUoxRtM0IgA0QTPFo4IiirNS-b0XrD0TDWmpPFMNpdQALjd28eFtZw",
+      "disabledAt": "",
+      "createdAt": "2026-03-27T07:12:14.000Z",
+      "updatedAt": "2026-03-27T07:12:14.000Z"
+    },
+    {
+      "id": "b36e2daf-8521-4e25-a44a-dbcd9de771ba",
+      "email": "helper@test.local",
+      "name": "Helper",
+      "role": "helper_staff",
+      "passwordHash": "scrypt$Nal-2DRI5YzlP-mo_XO21w$MBG3v3jC2imkiYZrrIlQVFxHvwMhWa3CqrZNeLcg9YLF9lPLDI7KZq_i3jPPrzj0_BPPyudyKuTrIgGHFsFFag",
+      "disabledAt": "",
+      "createdAt": "2026-03-27T07:12:14.000Z",
+      "updatedAt": "2026-03-27T07:12:14.000Z"
+    },
+    {
+      "id": "owner-admin",
+      "email": "owner@test.local",
+      "name": "Owner",
+      "role": "owner_admin",
+      "passwordHash": "scrypt$Og7oLENPENKMx2y7EjlwAQ$W6Np0To4pFipOP1U30lunJ16s-v2YXWBEpQaWYaKDmjoTtaK9vnvcApxyrhuiB6Xa4fqqwa8CnS_s_y8oV4_Ww",
+      "disabledAt": "",
+      "createdAt": "2026-03-27T07:12:14.000Z",
+      "updatedAt": "2026-03-27T07:12:14.000Z"
+    }
+  ],
+  "memberships": [
+    {
+      "id": "c643de93-86fd-4e93-8a13-ce2d42c2dadd",
+      "userId": "9a17c2c1-ba14-4353-a3e2-0949596412f3",
+      "clientId": "eecace4d-fa37-418d-b184-bd4b73a7099c",
+      "permissions": ["view", "comment"],
+      "createdAt": "2026-03-27T07:12:14.000Z",
+      "updatedAt": "2026-03-27T07:12:14.000Z"
+    },
+    {
+      "id": "1cb4fdc7-4ec4-4cb7-995e-0ad78a791207",
+      "userId": "b36e2daf-8521-4e25-a44a-dbcd9de771ba",
+      "clientId": "eecace4d-fa37-418d-b184-bd4b73a7099c",
+      "permissions": ["view", "comment", "edit"],
+      "createdAt": "2026-03-27T07:12:14.000Z",
+      "updatedAt": "2026-03-27T07:12:14.000Z"
+    }
+  ],
+  "activity": [],
+  "updatedAt": "2026-03-27T07:12:14.000Z"
+}

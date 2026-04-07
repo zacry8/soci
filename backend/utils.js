@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import net from "node:net";
 import path from "node:path";
 
 export function json(res, status, payload) {
@@ -54,4 +55,64 @@ export function pickCorsOrigin(requestOrigin, allowedOrigins = []) {
 export function validateFilePath(filePath, baseDir) {
   const absolute = path.resolve(baseDir, filePath);
   return absolute.startsWith(path.resolve(baseDir)) ? absolute : null;
+}
+
+function isPrivateOrLocalHost(hostname = "") {
+  const host = String(hostname || "").trim().toLowerCase();
+  if (!host) return true;
+  if (host === "localhost" || host === "::1" || host.endsWith(".local")) return true;
+
+  const ipType = net.isIP(host);
+  if (ipType === 4) {
+    const parts = host.split(".").map((part) => Number(part));
+    if (parts.length !== 4 || parts.some((part) => Number.isNaN(part))) return true;
+    if (parts[0] === 10) return true;
+    if (parts[0] === 127) return true;
+    if (parts[0] === 192 && parts[1] === 168) return true;
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+    if (parts[0] === 169 && parts[1] === 254) return true;
+    return false;
+  }
+
+  if (ipType === 6) {
+    if (host === "::1") return true;
+    if (host.startsWith("fc") || host.startsWith("fd")) return true; // ULA fc00::/7
+    if (host.startsWith("fe8") || host.startsWith("fe9") || host.startsWith("fea") || host.startsWith("feb")) return true; // link-local fe80::/10
+    return false;
+  }
+
+  return false;
+}
+
+export function isSafeExternalMediaUrl(value = "") {
+  try {
+    const url = new URL(String(value || ""));
+    if (url.protocol !== "https:") return false;
+    if (url.username || url.password) return false;
+    if (isPrivateOrLocalHost(url.hostname)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function detectExternalMediaProvider(value = "") {
+  let host = "";
+  try {
+    host = new URL(String(value || "")).hostname.toLowerCase();
+  } catch {
+    return "direct";
+  }
+  if (host.includes("drive.google.com") || host.includes("googleusercontent.com")) return "google_drive";
+  if (host.includes("icloud.com")) return "icloud";
+  if (host.includes("dropbox.com") || host.includes("dropboxusercontent.com")) return "dropbox";
+  if (host.includes("onedrive.live.com") || host.includes("1drv.ms")) return "onedrive";
+  return "direct";
+}
+
+export function normalizeExternalProvider(value = "", fallbackUrl = "") {
+  const normalized = String(value || "").trim().toLowerCase();
+  const allowed = new Set(["google_drive", "icloud", "dropbox", "onedrive", "direct"]);
+  if (allowed.has(normalized)) return normalized;
+  return detectExternalMediaProvider(fallbackUrl);
 }

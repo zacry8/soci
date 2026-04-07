@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "api": "node backend/server.js"
+    "api": "node backend/server.js",
+    "test": "node --test backend/tests/*.test.mjs"
   }
 }

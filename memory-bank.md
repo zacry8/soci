@@ -158,9 +158,32 @@
 - Maintain backup + verify + integrity routines as standard ops baseline.
 - Prefer concentrated edits over file proliferation.
 
+#### Active roadmap notes (2026-04-07)
+- **Sidebar consistency:** normalize sidebar action button typography to Export-level sizing while preserving `+ New Post` bold visual weight.
+- **Rows usability:** keep Rows action buttons always visible (avoid hover-only disappearance) and use clearer Sheets-oriented labels.
+- **Kanban cleanup:** remove unintended right-edge gradient/fade artifact from workflow section.
+- **View customization controls:** provide persisted per-view toggles for Kanban and Preview (thumbnail/meta/description/text-only).
+- **Theme UX:** use left-sidebar Soci-style switch for dark/light mode.
+- **Publishing handoff architecture:**
+  - Phase 1 (web): clipboard + platform upload deep-links + in-app "Was it posted?" confirmation loop.
+  - Phase 2 (native wrappers): iOS share sheet/macOS drag-drop acceleration patterns.
+- **BYOS architecture path:**
+  - Phase 1: support external media references alongside uploaded media.
+  - Phase 2: optional link-only media workflows.
+  - Phase 3: native security-scoped bookmark flow for iOS/macOS app shells.
+
+#### BYOS + Handoff implementation snapshot (2026-04-07)
+- **Implemented (web app layer):**
+  - External media references are now first-class records (`storageMode: external`) with provider metadata and safe URL validation.
+  - New scoped endpoints: `POST /api/admin/media/external` and `POST /api/me/media/external`.
+  - Inspector supports Attach-by-Link flow (Google Drive/iCloud/Dropbox/OneDrive/direct), external media badges, and copy/open actions.
+  - Publish handoff now supports clipboard caption copy + platform open + optional media-link open + user confirmation loop to mark post published.
+- **Not yet native:**
+  - iOS/macOS `UIDocumentPickerViewController` and security-scoped bookmark resolution remain future native-shell work (outside current web runtime).
+
 ---
 
 ## Last Memory Update
-- **Updated:** 2026-03-29
-- **By:** Claude Code
-- **Reason:** Refined owner user-management actions for cleaner interaction: switched to icon-only controls, added row-scoped busy/disabled locking for async actions, and introduced compact action-button styling for better per-row responsiveness.
+- **Updated:** 2026-04-07
+- **By:** Maintainer
+- **Reason:** Recorded implemented BYOS external-link media flow and publish handoff confirmation loop, including new endpoint/model/UI responsibilities and remaining native bookmark phase.

@@ -1,10 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createAuthToken, hashPassword, verifyAuthToken } from "../auth.js";
-import { addMedia, createShareLink, deleteClient, deletePost, deleteUserAndMemberships, findUserByEmail, loadState, removeMedia, reorderPostMedia, upsertClient, upsertMembership, upsertPost, upsertUser } from "../db.js";
+import { addExternalMedia, addMedia, createShareLink, deleteClient, deletePost, deleteUserAndMemberships, findUserByEmail, loadState, removeMedia, reorderPostMedia, upsertClient, upsertMembership, upsertPost, upsertUser } from "../db.js";
 import { sendUserInviteEmail } from "../email.js";
-import { id, json, readJsonBody, sanitizeFileName, validateFilePath } from "../utils.js";
-import { validateClient, validateMembership, validatePost, validateUser } from "../validators.js";
+import { id, isSafeExternalMediaUrl, json, normalizeExternalProvider, readJsonBody, sanitizeFileName, validateFilePath } from "../utils.js";
+import { validateClient, validateExternalMediaReference, validateMembership, validatePost, validateUser } from "../validators.js";
 
 const OWNER_EMAILS = new Set(["zac@hommemade.xyz"]);
 const ALLOWED_MIME_TYPES = new Set([
@@ -470,6 +470,39 @@ export function registerAdminRoutes(router, config) {
       urlPath: `/uploads/${fileName}`
     });
     return json(res, 200, { media, publicUrl: `${config.apiBaseUrl}${media.urlPath}` });
+  });
+
+  // POST /api/admin/media/external — attach secure BYOS media reference
+  router.post("/api/admin/media/external", async (req, res) => {
+    if (!(await requireAdmin(req, res))) return;
+    const body = await readJsonBody(req, config.maxJsonBytes).catch((e) => ({ __error: e?.message || "Invalid JSON" }));
+    if (body?.__error) return json(res, body.__error === "Payload too large" ? 413 : 400, { error: body.__error });
+
+    const validationError = validateExternalMediaReference(body);
+    if (validationError) return json(res, 400, { error: validationError });
+    if (!isSafeExternalMediaUrl(body.externalUrl)) {
+      return json(res, 400, { error: "externalUrl must be a safe https URL" });
+    }
+
+    const state = await loadState();
+    const post = state.posts.find((p) => p.id === body.postId);
+    if (!post) return json(res, 404, { error: "Post not found" });
+
+    const provider = normalizeExternalProvider(body.provider, body.externalUrl);
+    const displayName = String(body.displayName || "").trim().slice(0, 180)
+      || `${provider === "google_drive" ? "Google Drive" : provider === "icloud" ? "iCloud" : "External"} media`;
+
+    const media = await addExternalMedia({
+      postId: body.postId,
+      externalUrl: String(body.externalUrl || "").trim(),
+      provider,
+      displayName,
+      fileName: displayName,
+      mimeType: "application/octet-stream",
+      nativeBookmarkHint: String(body.nativeBookmarkHint || "").trim().slice(0, 5000)
+    });
+
+    return json(res, 200, { media });
   });
 
   // POST /api/admin/share-links — generate a 7-day share token for a client
