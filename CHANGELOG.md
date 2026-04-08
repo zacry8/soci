@@ -21,6 +21,8 @@
     - external media now degrades gracefully in board/profile-style previews by rendering an "External media" fallback card with source-open affordance instead of attempting fragile inline provider fetches.
   - `src/render/shared.js` + `src/render/kanban.js`:
     - added no-proxy Google Drive preview optimization using Drive thumbnail URLs (`/thumbnail?id=...&sz=w1000`) plus `referrerpolicy="no-referrer"` for inline preview tags to reduce hotlink 403 failures without backend proxying.
+  - `src/render/inspector/socialMockups.js`:
+    - aligned Inspector social mockup previews with Kanban Drive logic by using thumbnail URL derivation for external `google_drive` media and `referrerpolicy="no-referrer"` on mockup preview images.
 
 ### Production API Route Drift Diagnosis — External Media Endpoints
 - Investigated `404 Not Found` on external media attach endpoints reported by frontend (`POST /api/admin/media/external`).

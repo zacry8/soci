@@ -1,4 +1,4 @@
-import { escapeHtml, getPrimaryMedia } from "../shared.js";
+import { escapeHtml, getGoogleDrivePreviewUrl, getPrimaryMedia } from "../shared.js";
 
 const PLATFORM_OPTIONS = ["instagram", "tiktok", "twitter", "facebook", "linkedin", "reddit"];
 const PLATFORM_META = {
@@ -50,7 +50,10 @@ function toMockupPayload(post, options = {}) {
   const name = String(profile.displayName || "Client").trim() || "Client";
   const title = String(post?.title || "").trim() || "Untitled Post";
   const text = String(readVariant(post, "instagram") || post.caption || "").trim() || "Start writing your caption to preview your post.";
-  const image = media?.urlPath || "";
+  const isGoogleDriveExternal = media?.storageMode === "external" && String(media?.provider || "") === "google_drive";
+  const image = isGoogleDriveExternal
+    ? getGoogleDrivePreviewUrl(media?.urlPath || media?.externalUrl || "") || media?.urlPath || ""
+    : media?.urlPath || "";
 
   const byPlatformText = {
     instagram: String(readVariant(post, "instagram") || text),
@@ -75,7 +78,7 @@ function mediaNode(payload, alt = "Post media", className = "") {
   if (!payload.hasImage) {
     return `<div class="spm-media-fallback">No media uploaded</div>`;
   }
-  return `<img src="${escapeHtml(payload.image)}" alt="${escapeHtml(alt)}" class="${className}" loading="lazy" />`;
+  return `<img src="${escapeHtml(payload.image)}" referrerpolicy="no-referrer" alt="${escapeHtml(alt)}" class="${className}" loading="lazy" />`;
 }
 
 function platformSwitcherIcon(platform) {

@@ -215,4 +215,4 @@
 ## Last Memory Update
 - **Updated:** 2026-04-07
 - **By:** Maintainer
-- **Reason:** Added no-proxy Drive preview hardening: shared renderers now derive Drive thumbnail preview URLs and set no-referrer inline policies while preserving graceful fallback cards for unsupported/blocked external providers.
+- **Reason:** Completed preview parity fix: Inspector social mockup renderer now uses the same no-proxy Drive thumbnail derivation + no-referrer policy as Kanban/shared renderers, removing cross-view thumbnail inconsistency.
