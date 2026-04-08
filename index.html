@@ -126,9 +126,6 @@
                 </div>
               </details>
             </div>
-            <button id="sign-out" class="small btn-signout" type="button">
-              Sign Out
-            </button>
             <button
               id="theme-toggle"
               class="theme-switch"
@@ -140,6 +137,9 @@
               <span class="theme-switch-track" aria-hidden="true"
                 ><span class="theme-switch-knob"></span
               ></span>
+            </button>
+            <button id="sign-out" class="small btn-signout" type="button">
+              Sign Out
             </button>
           </div>
         </div>
@@ -190,43 +190,6 @@
                 <span>Grid</span>
               </button>
             </div>
-            <details class="view-options" id="view-options-panel">
-              <summary class="small">View Options</summary>
-              <div class="view-options-grid">
-                <label
-                  ><input id="opt-kanban-thumb" type="checkbox" checked />
-                  Kanban Thumbnails</label
-                >
-                <label
-                  ><input id="opt-kanban-meta" type="checkbox" checked /> Kanban
-                  Meta Row</label
-                >
-                <label
-                  ><input id="opt-kanban-excerpt" type="checkbox" checked />
-                  Kanban Description</label
-                >
-                <label
-                  ><input id="opt-preview-thumb" type="checkbox" checked />
-                  Preview Thumbnails</label
-                >
-                <label
-                  ><input id="opt-preview-meta" type="checkbox" checked />
-                  Preview Meta</label
-                >
-                <label
-                  ><input
-                    id="opt-preview-description"
-                    type="checkbox"
-                    checked
-                  />
-                  Preview Description</label
-                >
-                <label
-                  ><input id="opt-preview-text-only" type="checkbox" /> Preview
-                  Text Only</label
-                >
-              </div>
-            </details>
           </div>
           <div class="workspace-controls">
             <button
@@ -252,6 +215,16 @@
           <select id="active-client" aria-label="Active workspace">
             <option value="">All Workspaces</option>
           </select>
+          <button
+            id="pin-workspace"
+            class="small icon-btn"
+            type="button"
+            title="Pin current workspace as default"
+            aria-label="Pin current workspace as default"
+          >
+            <i data-lucide="star" aria-hidden="true"></i>
+            <span>Pin Workspace</span>
+          </button>
           <input
             id="filter-query"
             type="search"
@@ -418,6 +391,29 @@
             </button>
           </header>
           <div class="section-body">
+            <details class="kanban-view-options" id="kanban-view-options-panel">
+              <summary
+                class="small icon-btn kanban-options-trigger"
+                title="Kanban view options"
+                aria-label="Kanban view options"
+              >
+                <i data-lucide="settings-2" aria-hidden="true"></i>
+              </summary>
+              <div class="view-options-grid kanban-view-options-grid">
+                <label
+                  ><input id="opt-kanban-thumb" type="checkbox" checked />
+                  Show thumbnails</label
+                >
+                <label
+                  ><input id="opt-kanban-meta" type="checkbox" checked /> Show
+                  meta row</label
+                >
+                <label
+                  ><input id="opt-kanban-excerpt" type="checkbox" checked /> Show
+                  description</label
+                >
+              </div>
+            </details>
             <section id="kanban-view" class="view"></section>
           </div>
         </section>
@@ -584,6 +580,24 @@ Launch campaign	Acme Coffee	in-progress	Instagram, TikTok"
           </button>
         </div>
       </form>
+    </dialog>
+
+    <dialog id="command-palette" class="soci-dialog command-palette">
+      <div class="soci-dialog-form command-palette-form">
+        <h3 class="soci-dialog-title">Command Palette</h3>
+        <input
+          id="command-palette-input"
+          class="soci-dialog-input"
+          type="text"
+          placeholder="Type a command…"
+          autocomplete="off"
+        />
+        <div
+          id="command-palette-results"
+          class="command-palette-results"
+          aria-live="polite"
+        ></div>
+      </div>
     </dialog>
 
     <script

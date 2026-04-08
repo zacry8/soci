@@ -39,8 +39,12 @@ function rowHtml(row, context) {
     const display = row.isInputRow
       ? (column.key === "title" ? "Paste rows here…" : (column.editable ? "" : "—"))
       : formatCellValue(column, row, context);
+    const readiness = Number(row.readiness || 0);
+    const readinessTone = readiness >= 80 ? "green" : readiness >= 50 ? "yellow" : "red";
+    const readinessHtml = `<div class="readiness-cell"><span class="readiness-traffic ${readinessTone}"></span><span class="readiness-percent">${readiness}%</span><span class="readiness-bar"><span class="readiness-bar-fill ${readinessTone}" style="width:${Math.max(0, Math.min(100, readiness))}%"></span></span></div>`;
     const classes = ["table-cell", column.editable ? "" : "cell-readonly", row.isInputRow ? "cell-input-row" : "", column.key === "readiness" ? "cell-readiness" : ""].filter(Boolean).join(" ");
-    return `<td class="${classes}" data-row-id="${row.id}" data-col-key="${column.key}" tabindex="-1">${escapeHtml(display)}</td>`;
+    const content = column.key === "readiness" && !row.isInputRow ? readinessHtml : escapeHtml(display);
+    return `<td class="${classes}" data-row-id="${row.id}" data-col-key="${column.key}" tabindex="-1">${content}</td>`;
   }).join("")}</tr>`;
 }
 

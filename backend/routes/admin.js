@@ -476,17 +476,39 @@ export function registerAdminRoutes(router, config) {
   router.post("/api/admin/media/external", async (req, res) => {
     if (!(await requireAdmin(req, res))) return;
     const body = await readJsonBody(req, config.maxJsonBytes).catch((e) => ({ __error: e?.message || "Invalid JSON" }));
-    if (body?.__error) return json(res, body.__error === "Payload too large" ? 413 : 400, { error: body.__error });
+    if (body?.__error) {
+      const isLarge = body.__error === "Payload too large";
+      return json(res, isLarge ? 413 : 400, {
+        error: body.__error,
+        code: isLarge ? "payload_too_large" : "invalid_json"
+      });
+    }
 
     const validationError = validateExternalMediaReference(body);
-    if (validationError) return json(res, 400, { error: validationError });
+    if (validationError) {
+      return json(res, 400, {
+        error: validationError,
+        code: "invalid_external_media_payload",
+        hint: "Provide postId + a valid https externalUrl. Optional provider/displayName can also be sent."
+      });
+    }
     if (!isSafeExternalMediaUrl(body.externalUrl)) {
-      return json(res, 400, { error: "externalUrl must be a safe https URL" });
+      return json(res, 400, {
+        error: "externalUrl must be a safe https URL",
+        code: "invalid_external_url",
+        hint: "Use a public https URL. Private/local network addresses are blocked."
+      });
     }
 
     const state = await loadState();
     const post = state.posts.find((p) => p.id === body.postId);
-    if (!post) return json(res, 404, { error: "Post not found" });
+    if (!post) {
+      return json(res, 404, {
+        error: "Post not found",
+        code: "post_not_found",
+        hint: "Refresh state and ensure the selected post still exists."
+      });
+    }
 
     const provider = normalizeExternalProvider(body.provider, body.externalUrl);
     const displayName = String(body.displayName || "").trim().slice(0, 180)

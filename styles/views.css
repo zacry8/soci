@@ -12,6 +12,43 @@
   position: relative;
 }
 
+#workflow-section .section-body {
+  padding-top: 8px;
+}
+
+.kanban-view-options {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 5;
+}
+
+.kanban-options-trigger {
+  width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
+}
+
+.kanban-options-trigger:hover {
+  background: color-mix(in srgb, var(--brand) 10%, var(--surface-raised));
+}
+
+.kanban-view-options-grid {
+  width: 220px;
+  margin-top: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-soft) 78%, var(--surface-raised));
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--brand) 12%, transparent);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
 
 
 #kanban-view::-webkit-scrollbar {
@@ -77,6 +114,15 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+
+.day.calendar-empty-clickable {
+  cursor: pointer;
+}
+
+.day.calendar-empty-clickable:hover {
+  background: color-mix(in srgb, var(--brand) 8%, var(--surface-raised));
 }
 .day-number { font-size: var(--fs-sm); color: var(--subtle); }
 .chip { margin-top: 6px; font-size: var(--fs-xs); background: color-mix(in srgb, var(--brand) 16%, var(--surface-raised)); border-radius: 8px; padding: 4px 6px; cursor: pointer; }
@@ -252,6 +298,85 @@
   font-size: var(--fs-xs);
 }
 .table-empty { color: var(--subtle); padding: 14px 8px; }
+
+.readiness-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.readiness-traffic {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--line) 72%, transparent);
+}
+
+.readiness-traffic.red { background: #ef4444; }
+.readiness-traffic.yellow { background: #f59e0b; }
+.readiness-traffic.green { background: #22c55e; }
+
+.readiness-percent {
+  min-width: 36px;
+  font-size: var(--fs-xs);
+  color: var(--text);
+}
+
+.readiness-bar {
+  position: relative;
+  width: 72px;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-soft) 70%, var(--line));
+  overflow: hidden;
+}
+
+.readiness-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.readiness-bar-fill.red { background: color-mix(in srgb, #ef4444 86%, #991b1b); }
+.readiness-bar-fill.yellow { background: color-mix(in srgb, #f59e0b 90%, #92400e); }
+.readiness-bar-fill.green { background: color-mix(in srgb, #22c55e 88%, #166534); }
+
+.lane-quick-add,
+.kanban-quick-add {
+  margin-top: 8px;
+}
+
+.calendar-drop-active {
+  outline: 2px dashed color-mix(in srgb, var(--brand) 70%, transparent);
+  outline-offset: -2px;
+}
+
+.media-dump-active {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--brand) 60%, transparent);
+}
+
+.command-palette-results {
+  display: grid;
+  gap: 6px;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.command-item {
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: var(--text);
+  padding: 8px 10px;
+}
+
+.command-item.active,
+.command-item:hover {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--line));
+  background: color-mix(in srgb, var(--brand) 10%, var(--surface-raised));
+}
 
 .table-paste-dialog {
   width: min(760px, calc(100vw - 24px));

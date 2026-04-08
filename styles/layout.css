@@ -445,12 +445,17 @@ body:not(.inspector-pinned).inspector-active .inspector-resize-handle {
 .topbar-main {
   display: flex;
   flex-direction: column;
+  gap: 10px;
   min-width: 0;
   flex: 1 1 520px;
 }
 
 .topbar-title-block {
   min-width: 0;
+}
+
+.topbar-title-block #stats {
+  margin-top: 2px;
 }
 
 .topbar > :first-child .subtle {
@@ -462,11 +467,22 @@ body:not(.inspector-pinned).inspector-active .inspector-resize-handle {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  justify-content: flex-start;
+  justify-content: flex-end;
   align-items: center;
   flex: 0 1 auto;
   min-width: 0;
   max-width: 100%;
+}
+
+#pin-workspace {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  gap: 9px;
+  min-height: 42px;
+}
+
+#pin-workspace span {
+  letter-spacing: 0.01em;
 }
 
 .workspace-controls .icon-btn {

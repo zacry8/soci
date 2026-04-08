@@ -13,6 +13,8 @@ const STORAGE_UI_SECTIONS = "soci.ui.sections.v1";
 const STORAGE_THEME = "soci.theme.v1";
 const STORAGE_KANBAN_VIEW_OPTIONS = "soci.kanban.view-options.v1";
 const STORAGE_PREVIEW_VIEW_OPTIONS = "soci.preview.view-options.v1";
+const STORAGE_PINNED_CLIENT = "soci.workspace.pinned.v1";
+const STORAGE_LAST_ACTIVE_CLIENT = "soci.workspace.last-active.v1";
 const TABLE_PASTE_HEADERS = {
   title: "title",
   post: "title",
@@ -37,6 +39,7 @@ const el = {
   viewTitle: document.querySelector("#view-title"),
   stats: document.querySelector("#stats"),
   activeClient: document.querySelector("#active-client"),
+  pinWorkspace: document.querySelector("#pin-workspace"),
   newClient: document.querySelector("#new-client"),
   deleteClient: document.querySelector("#delete-client"),
   manageUsers: document.querySelector("#manage-users"),
@@ -89,6 +92,9 @@ const el = {
   tablePasteResult: document.querySelector("#table-paste-result"),
   tablePasteSubmit: document.querySelector("#table-paste-submit"),
   tablePasteCancel: document.querySelector("#table-paste-cancel"),
+  commandPalette: document.querySelector("#command-palette"),
+  commandPaletteInput: document.querySelector("#command-palette-input"),
+  commandPaletteResults: document.querySelector("#command-palette-results"),
   createBtn: document.querySelector("#create-post"),
   toast: document.querySelector("#toast"),
   themeToggle: document.querySelector("#theme-toggle"),
@@ -141,6 +147,12 @@ const filters = {
   assignee: "all"
 };
 let tableSort = { key: "scheduleDate", direction: "asc" };
+let pinnedClientId = localStorage.getItem(STORAGE_PINNED_CLIENT) || "";
+let lastActiveClientId = localStorage.getItem(STORAGE_LAST_ACTIVE_CLIENT) || "";
+let commandPaletteOpen = false;
+let commandPaletteSelection = 0;
+let commandPaletteItems = [];
+let workspacePreferenceApplied = false;
 
 const shareState = {
   token: "",
@@ -465,6 +477,235 @@ function syncClientFilter(clients, activeClientId) {
   el.activeClient.innerHTML = `<option value="">All Workspaces</option>${clients.map((client) => `<option value="${client.id}">${escapeHtml(client.name)}</option>`).join("")}`;
   el.activeClient.value = clients.some((c) => c.id === selected) ? selected : "";
   filters.clientId = el.activeClient.value;
+  syncPinnedWorkspaceUI(clients);
+}
+
+function resolvePreferredClientId(clients = [], activeClientId = "") {
+  const validIds = new Set((clients || []).map((client) => client.id));
+  if (pinnedClientId && validIds.has(pinnedClientId)) return pinnedClientId;
+  if (lastActiveClientId && validIds.has(lastActiveClientId)) return lastActiveClientId;
+  if (activeClientId && validIds.has(activeClientId)) return activeClientId;
+  return "";
+}
+
+function syncPinnedWorkspaceUI(clients = []) {
+  if (!el.pinWorkspace) return;
+  const isValidPin = Boolean(pinnedClientId) && clients.some((client) => client.id === pinnedClientId);
+  if (!isValidPin && pinnedClientId) {
+    pinnedClientId = "";
+    localStorage.removeItem(STORAGE_PINNED_CLIENT);
+  }
+  const activeId = filters.clientId || lastState.activeClientId || "";
+  const isPinned = Boolean(activeId) && activeId === pinnedClientId;
+  el.pinWorkspace.classList.toggle("is-pinned", isPinned);
+  el.pinWorkspace.setAttribute("aria-pressed", String(isPinned));
+  el.pinWorkspace.title = isPinned ? "Unpin workspace default" : "Pin current workspace as default";
+  const label = el.pinWorkspace.querySelector("span");
+  if (label) label.textContent = isPinned ? "Pinned" : "Pin Workspace";
+}
+
+function setPinnedWorkspace(clientId = "") {
+  const nextId = String(clientId || "").trim();
+  if (!nextId) {
+    pinnedClientId = "";
+    localStorage.removeItem(STORAGE_PINNED_CLIENT);
+    syncPinnedWorkspaceUI(lastState.clients || []);
+    return;
+  }
+  pinnedClientId = nextId;
+  localStorage.setItem(STORAGE_PINNED_CLIENT, pinnedClientId);
+  syncPinnedWorkspaceUI(lastState.clients || []);
+}
+
+function recordLastActiveWorkspace(clientId = "") {
+  const nextId = String(clientId || "").trim();
+  lastActiveClientId = nextId;
+  if (!nextId) {
+    localStorage.removeItem(STORAGE_LAST_ACTIVE_CLIENT);
+  } else {
+    localStorage.setItem(STORAGE_LAST_ACTIVE_CLIENT, nextId);
+  }
+}
+
+function normalizeUrlList(raw = "") {
+  return String(raw || "")
+    .split(/[\n,\s]+/)
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .filter((value) => /^https:\/\//i.test(value));
+}
+
+async function quickAddPostStub({ title = "", status = "idea", scheduleDate = "" } = {}) {
+  if (typeof store.canCreatePosts === "function" && !store.canCreatePosts()) {
+    showToast("You do not have permission to create posts.", "warning");
+    return null;
+  }
+  const preferredClientId = filters.clientId || lastState.activeClientId || lastState.clients[0]?.id || "";
+  if (!preferredClientId) {
+    showToast("Create or select a workspace first.", "warning");
+    return null;
+  }
+  const finalTitle = String(title || "").trim() || "Untitled Post";
+  try {
+    return await store.createPostStub({
+      title: finalTitle,
+      status,
+      scheduleDate,
+      clientId: preferredClientId,
+      platforms: ["Instagram"]
+    });
+  } catch (error) {
+    showToast(error?.message || "Could not create post.", "error");
+    return null;
+  }
+}
+
+async function runMediaDump(dataTransfer) {
+  if (!dataTransfer) return;
+  const files = Array.from(dataTransfer.files || []);
+  const rawText = dataTransfer.getData("text/plain") || "";
+  const urls = normalizeUrlList(rawText);
+  if (!files.length && !urls.length) return;
+
+  const createdPosts = [];
+  const failed = [];
+
+  for (const file of files) {
+    const post = await quickAddPostStub({ title: file.name.replace(/\.[^.]+$/, "") || "Media Draft", status: "idea" });
+    if (!post?.id) {
+      failed.push(`Could not create draft for ${file.name}`);
+      continue;
+    }
+    try {
+      await store.uploadPostMedia(post.id, file);
+      createdPosts.push(post.id);
+    } catch (error) {
+      failed.push(`${file.name}: ${error?.message || "upload failed"}`);
+    }
+  }
+
+  for (const url of urls) {
+    const post = await quickAddPostStub({ title: "BYOS Draft", status: "idea" });
+    if (!post?.id) {
+      failed.push(`Could not create draft for link ${url.slice(0, 36)}...`);
+      continue;
+    }
+    try {
+      await store.attachExternalMedia(post.id, { externalUrl: url, provider: "", displayName: "BYOS Link" });
+      createdPosts.push(post.id);
+    } catch (error) {
+      failed.push(`${url.slice(0, 36)}...: ${error?.message || "attach failed"}`);
+    }
+  }
+
+  const summary = `Media dump: ${createdPosts.length} drafted${failed.length ? ` • ${failed.length} failed` : ""}`;
+  showToast(summary, failed.length ? "warning" : "success");
+}
+
+function bindMediaDumpZones() {
+  const zones = [el.scheduleSection, el.tableSection].filter(Boolean);
+  for (const zone of zones) {
+    zone.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      zone.classList.add("media-dump-active");
+    });
+    zone.addEventListener("dragleave", () => zone.classList.remove("media-dump-active"));
+    zone.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      zone.classList.remove("media-dump-active");
+      await runMediaDump(event.dataTransfer);
+    });
+  }
+}
+
+function getCommandItems() {
+  const workspaceItems = (lastState.clients || []).map((client) => ({
+    id: `workspace:${client.id}`,
+    label: `Switch workspace: ${client.name}`,
+    run: () => {
+      filters.clientId = client.id;
+      store.setActiveClient(client.id);
+      recordLastActiveWorkspace(client.id);
+      closeCommandPalette();
+    }
+  }));
+  return [
+    ...workspaceItems,
+    {
+      id: "new-post",
+      label: "Create new post",
+      run: () => {
+        store.createPost();
+        closeCommandPalette();
+      }
+    },
+    {
+      id: "toggle-theme",
+      label: "Toggle light/dark mode",
+      run: () => {
+        toggleTheme();
+        closeCommandPalette();
+      }
+    },
+    {
+      id: "show-calendar",
+      label: "Focus Calendar view",
+      run: () => {
+        revealView("calendar", "schedule");
+        closeCommandPalette();
+      }
+    },
+    {
+      id: "show-rows",
+      label: "Focus Rows table",
+      run: () => {
+        revealView("table", "table");
+        closeCommandPalette();
+      }
+    }
+  ];
+}
+
+function renderCommandPalette(query = "") {
+  if (!el.commandPaletteResults) return;
+  const normalized = String(query || "").trim().toLowerCase();
+  const all = getCommandItems();
+  commandPaletteItems = all.filter((item) => {
+    if (!normalized) return true;
+    return item.label.toLowerCase().includes(normalized);
+  }).slice(0, 8);
+  commandPaletteSelection = Math.min(commandPaletteSelection, Math.max(commandPaletteItems.length - 1, 0));
+  if (!commandPaletteItems.length) {
+    el.commandPaletteResults.innerHTML = `<div class="command-empty">No commands found.</div>`;
+    return;
+  }
+  el.commandPaletteResults.innerHTML = commandPaletteItems
+    .map((item, index) => `<button type="button" class="command-item ${index === commandPaletteSelection ? "active" : ""}" data-command-index="${index}">${escapeHtml(item.label)}</button>`)
+    .join("");
+}
+
+function openCommandPalette() {
+  if (!el.commandPalette || commandPaletteOpen) return;
+  commandPaletteOpen = true;
+  commandPaletteSelection = 0;
+  el.commandPalette.showModal();
+  if (el.commandPaletteInput) {
+    el.commandPaletteInput.value = "";
+    renderCommandPalette("");
+    requestAnimationFrame(() => el.commandPaletteInput?.focus());
+  }
+}
+
+function closeCommandPalette() {
+  if (!commandPaletteOpen || !el.commandPalette) return;
+  commandPaletteOpen = false;
+  el.commandPalette.close();
+}
+
+function executeCommandPaletteSelection() {
+  const selected = commandPaletteItems[commandPaletteSelection];
+  if (!selected) return;
+  selected.run();
 }
 
 function matchesFilters(post) {
@@ -1207,8 +1448,28 @@ el.ownerUsersBody?.addEventListener("click", async (event) => {
 
 el.activeClient.addEventListener("change", () => {
   filters.clientId = el.activeClient.value;
-  if (filters.clientId) store.setActiveClient(filters.clientId);
+  if (filters.clientId) {
+    store.setActiveClient(filters.clientId);
+    recordLastActiveWorkspace(filters.clientId);
+  }
+  workspacePreferenceApplied = true;
+  syncPinnedWorkspaceUI(lastState.clients || []);
   paint(lastState);
+});
+
+el.pinWorkspace?.addEventListener("click", () => {
+  const activeId = filters.clientId || lastState.activeClientId || "";
+  if (!activeId) {
+    showToast("Select a workspace first.", "warning");
+    return;
+  }
+  if (pinnedClientId === activeId) {
+    setPinnedWorkspace("");
+    showToast("Workspace unpinned.", "");
+  } else {
+    setPinnedWorkspace(activeId);
+    showToast("Workspace pinned as default.", "success");
+  }
 });
 
 el.copyShareLink.addEventListener("click", async () => {
@@ -1258,6 +1519,36 @@ el.filterAssignee.addEventListener("change", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    if (commandPaletteOpen) closeCommandPalette();
+    else openCommandPalette();
+    return;
+  }
+  if (commandPaletteOpen) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeCommandPalette();
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      commandPaletteSelection = Math.min(commandPaletteSelection + 1, Math.max(commandPaletteItems.length - 1, 0));
+      renderCommandPalette(el.commandPaletteInput?.value || "");
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      commandPaletteSelection = Math.max(commandPaletteSelection - 1, 0);
+      renderCommandPalette(el.commandPaletteInput?.value || "");
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      executeCommandPaletteSelection();
+      return;
+    }
+  }
   if (event.key === "Escape" && !inspectorPinned && lastState.activePostId) {
     store.setActivePost(null);
     return;
@@ -1273,6 +1564,24 @@ document.addEventListener("keydown", (event) => {
     document.querySelector("#save-post")?.click();
   }
 });
+
+el.commandPaletteInput?.addEventListener("input", () => {
+  commandPaletteSelection = 0;
+  renderCommandPalette(el.commandPaletteInput?.value || "");
+});
+el.commandPaletteResults?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-command-index]");
+  if (!button) return;
+  const index = Number(button.getAttribute("data-command-index"));
+  if (!Number.isFinite(index)) return;
+  commandPaletteSelection = index;
+  executeCommandPaletteSelection();
+});
+el.commandPalette?.addEventListener("close", () => {
+  commandPaletteOpen = false;
+});
+
+bindMediaDumpZones();
 
 document.addEventListener("click", (e) => {
   if (inspectorPinned) return;
@@ -1335,6 +1644,16 @@ function paint(state) {
 
   applyUiState();
   syncMembershipControls();
+  if (!workspacePreferenceApplied) {
+    const preferredClientId = resolvePreferredClientId(state.clients, state.activeClientId);
+    workspacePreferenceApplied = true;
+    if (preferredClientId && preferredClientId !== state.activeClientId) {
+      filters.clientId = preferredClientId;
+      store.setActiveClient(preferredClientId);
+      recordLastActiveWorkspace(preferredClientId);
+      return;
+    }
+  }
   const posts = sortByProfileOrder(state.posts);
   syncClientFilter(state.clients, state.activeClientId);
   syncAdminMembershipClientOptions(state.clients);
@@ -1407,7 +1726,16 @@ function paint(state) {
     },
     {
       ...kanbanViewOptions,
-      media: state.media
+      media: state.media,
+      onQuickAdd: async (status) => {
+        const title = await showPromptDialog("Quick add post", "Title");
+        if (!title) return;
+        const created = await quickAddPostStub({ title, status: status || "idea" });
+        if (created?.id) {
+          showToast("Draft added.", "success");
+          store.setActivePost(created.id);
+        }
+      }
     }
   );
 
@@ -1433,6 +1761,29 @@ function paint(state) {
       calendarOffset = getMonthOffsetFromDate(dateString);
       calendarWeekOffset = getWeekOffsetFromDate(dateString);
       paint(lastState);
+    },
+    onCreateFromEmptyDate: async (dateString) => {
+      const created = await quickAddPostStub({ title: "Untitled Post", scheduleDate: dateString, status: "idea" });
+      if (created?.id) {
+        store.setActivePost(created.id);
+        showToast("Draft created for selected date.", "success");
+      }
+    },
+    onDropPostToDate: async (postId, dateString) => {
+      const post = state.posts.find((item) => item.id === postId);
+      if (!post) return;
+      if (!store.canEditPost(post)) {
+        showToast("You do not have permission to schedule this post.", "warning");
+        return;
+      }
+      const scheduledAt = `${dateString}T09:00:00.000Z`;
+      store.updatePost(postId, {
+        scheduleDate: dateString,
+        publishState: "scheduled",
+        scheduledAt,
+        status: post.status === "idea" ? "in-progress" : post.status
+      });
+      showToast("Post scheduled by drag & drop.", "success");
     }
   });
 

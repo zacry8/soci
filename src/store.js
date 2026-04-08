@@ -114,6 +114,29 @@ function normalizeMediaRecord(record) {
   };
 }
 
+function normalizeExternalMediaUrl(input = "") {
+  const value = String(input || "").trim();
+  if (!value) return "";
+
+  try {
+    const url = new URL(value);
+    const host = String(url.hostname || "").toLowerCase();
+
+    // Google Drive viewer/share links are often not direct-fetch friendly for previews.
+    if (host.includes("drive.google.com")) {
+      const filePathMatch = url.pathname.match(/\/file\/d\/([^/]+)/i);
+      const fileId = filePathMatch?.[1] || url.searchParams.get("id") || "";
+      if (fileId) {
+        return `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`;
+      }
+    }
+
+    return value;
+  } catch {
+    return value;
+  }
+}
+
 function validatePost(post) {
   if (post.publishState === "published" && !post.publishedAt) return false;
   if (post.publishState === "scheduled" && !(post.scheduledAt || post.scheduleDate)) return false;
@@ -356,6 +379,61 @@ export function createStore() {
       activePostId = post.id;
       notify();
       void syncPost(post);
+    },
+    async createPostStub(row = {}) {
+      if (!this.canCreatePosts()) {
+        throw new Error("You do not have permission to create posts.");
+      }
+      const clientId = String(row?.clientId || activeClientId || clients[0]?.id || "").trim();
+      if (!clientId) {
+        throw new Error("Workspace is required.");
+      }
+      if (!canPermission(clientId, "edit")) {
+        throw new Error("No edit access for selected workspace.");
+      }
+
+      const nowIso = new Date().toISOString();
+      const nextPost = normalizePost(
+        {
+          id: crypto.randomUUID(),
+          clientId,
+          visibility: row?.visibility || "client-shareable",
+          title: String(row?.title || "Untitled Post").trim() || "Untitled Post",
+          status: row?.status || "idea",
+          publishState: row?.publishState || "draft",
+          publishedAt: "",
+          scheduledAt: row?.scheduledAt || "",
+          scheduleDate: row?.scheduleDate || "",
+          platforms: Array.isArray(row?.platforms) && row.platforms.length ? row.platforms : ["Instagram"],
+          postType: row?.postType || "photo",
+          platformVariants: { Instagram: "" },
+          tags: Array.isArray(row?.tags) ? row.tags : [],
+          caption: row?.caption || "",
+          mediaIds: [],
+          assignee: row?.assignee || "",
+          reviewer: "",
+          comments: [],
+          checklist: { copy: false, media: false, tags: false, schedule: false, approval: false },
+          createdAt: nowIso,
+          updatedAt: nowIso
+        },
+        clients
+      );
+
+      posts = [nextPost, ...posts];
+      activePostId = nextPost.id;
+      notify();
+
+      try {
+        await syncPost(nextPost, { throwOnError: true });
+      } catch (error) {
+        posts = posts.filter((post) => post.id !== nextPost.id);
+        if (activePostId === nextPost.id) activePostId = posts[0]?.id || null;
+        notify();
+        throw error;
+      }
+
+      return clone(nextPost);
     },
     async bulkCreatePosts(rows = []) {
       if (!Array.isArray(rows) || !rows.length) {
@@ -607,9 +685,10 @@ export function createStore() {
 
       let result;
       try {
+        const normalizedExternalUrl = normalizeExternalMediaUrl(payload.externalUrl);
         const body = {
           postId,
-          externalUrl: String(payload.externalUrl || "").trim(),
+          externalUrl: normalizedExternalUrl,
           provider: String(payload.provider || "").trim(),
           displayName: String(payload.displayName || "").trim(),
           nativeBookmarkHint: String(payload.nativeBookmarkHint || "").trim()
@@ -618,6 +697,10 @@ export function createStore() {
           ? await createExternalMediaReference(authToken, body)
           : await createMyExternalMediaReference(authToken, body);
       } catch (error) {
+        const detailHint = String(error?.hint || "").trim();
+        if (detailHint) {
+          error.message = `${error.message || "Attach external media failed."} ${detailHint}`.trim();
+        }
         reportSyncError("Attach external media failed on server.", error);
         throw error;
       }

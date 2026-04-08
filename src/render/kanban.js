@@ -52,7 +52,10 @@ function makeCard(cardTpl, post, onOpen, onDropStatus, options = {}) {
     onDropStatus(id, post.status);
   });
   card.addEventListener("dragover", (event) => event.preventDefault());
-  card.addEventListener("dragstart", (event) => event.dataTransfer.setData("text/id", post.id));
+  card.addEventListener("dragstart", (event) => {
+    event.dataTransfer.setData("text/id", post.id);
+    event.dataTransfer.setData("application/x-soci-post", JSON.stringify({ id: post.id }));
+  });
   return card;
 }
 
@@ -67,8 +70,12 @@ export function renderKanban(root, posts, onOpen, onDropStatus, options = {}) {
     empty.className = "kanban-empty";
     empty.innerHTML = `
       <p class="kanban-empty-headline">No posts yet</p>
-      <p>Click <strong>+ New Post</strong> in the sidebar to create your first post.</p>`;
+      <p>Click <strong>+ New Post</strong> in the sidebar to create your first post.</p>
+      ${typeof options?.onQuickAdd === "function" ? `<button type="button" class="small kanban-quick-add" data-quick-add-status="idea">+ Quick add draft</button>` : ""}`;
     root.append(empty);
+    empty.querySelector("[data-quick-add-status]")?.addEventListener("click", async () => {
+      await options.onQuickAdd?.("idea");
+    });
     return;
   }
 
@@ -83,8 +90,11 @@ export function renderKanban(root, posts, onOpen, onDropStatus, options = {}) {
     if (list.length === 0) {
       const empty = document.createElement("div");
       empty.className = "empty-lane";
-      empty.textContent = "No posts yet";
+      empty.innerHTML = `No posts yet${typeof options?.onQuickAdd === "function" ? `<button type="button" class="small lane-quick-add" data-quick-add-status="${status}">+ Quick add</button>` : ""}`;
       cards.append(empty);
+      empty.querySelector("[data-quick-add-status]")?.addEventListener("click", async () => {
+        await options.onQuickAdd?.(status);
+      });
     } else {
       for (const post of list) {
         cards.append(makeCard(cardTpl, post, onOpen, onDropStatus, { ...options, mediaMap }));

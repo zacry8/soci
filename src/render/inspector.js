@@ -209,6 +209,7 @@ export function renderInspector(root, post, handlers) {
             <div class="external-attach-wrap">
               <label for="f-external-url" class="variant-field-label">Attach by Link (Google Drive / iCloud)</label>
               <input id="f-external-url" type="url" placeholder="https://drive.google.com/... or https://www.icloud.com/..." ${permissions.canAttachExternalMedia ? "" : "disabled"} />
+              <div class="subtle fs-xs-fixed">Tip: Drive /view links are auto-normalized for direct fetch when possible.</div>
               <div class="row inspector-single">
                 <div class="field">
                   <label for="f-external-provider">Provider</label>
@@ -630,7 +631,17 @@ export function renderInspector(root, post, handlers) {
       if (urlInput) urlInput.value = "";
       if (nameInput) nameInput.value = "";
     } catch (error) {
-      mediaStatus.textContent = `Attach failed: ${error.message || "Unknown error"}`;
+      const status = Number(error?.status || 0);
+      const hint = String(error?.hint || "").trim();
+      if (status === 404) {
+        mediaStatus.textContent = "Attach failed: endpoint not found. Check deployed API version for /api/*/media/external.";
+      } else if (status === 403) {
+        mediaStatus.textContent = "Attach failed: you do not have permission to attach media for this post.";
+      } else if (status === 400 && hint) {
+        mediaStatus.textContent = `Attach failed: ${hint}`;
+      } else {
+        mediaStatus.textContent = `Attach failed: ${error.message || "Unknown error"}`;
+      }
     }
   });
 

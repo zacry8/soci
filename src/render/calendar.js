@@ -88,14 +88,40 @@ export function renderCalendar(root, posts, onOpen, offset = 0, onOffsetChange, 
   const grid = root.querySelector(".calendar-grid");
 
   const renderDayChips = (box, date) => {
-    for (const post of posts.filter((p) => p.scheduleDate === date)) {
+    const postsForDate = posts.filter((p) => p.scheduleDate === date);
+    for (const post of postsForDate) {
       const chip = document.createElement("div");
       chip.className = "chip";
       const platformAbbr = post.platforms[0]?.slice(0, 2).toUpperCase() || "–";
       chip.innerHTML = `<div>${escapeHtml(post.title.slice(0, 20) || "Untitled")}</div><div class="chip-meta">${platformAbbr} · ${STATUS_LABELS[post.status] || post.status}</div>`;
-      chip.addEventListener("click", () => onOpen(post.id));
+      chip.addEventListener("click", (event) => {
+        event.stopPropagation();
+        onOpen(post.id);
+      });
       box.append(chip);
     }
+
+    const canCreateOnDate = typeof options?.onCreateFromEmptyDate === "function";
+    const isEmptyDate = postsForDate.length === 0;
+    if (canCreateOnDate && isEmptyDate) {
+      box.classList.add("calendar-empty-clickable");
+      box.addEventListener("click", async () => {
+        await options.onCreateFromEmptyDate(date);
+      });
+    }
+
+    box.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      box.classList.add("calendar-drop-active");
+    });
+    box.addEventListener("dragleave", () => box.classList.remove("calendar-drop-active"));
+    box.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      box.classList.remove("calendar-drop-active");
+      const id = event.dataTransfer.getData("text/id");
+      if (!id || typeof options?.onDropPostToDate !== "function") return;
+      await options.onDropPostToDate(id, date);
+    });
   };
 
   if (viewMode === "week") {

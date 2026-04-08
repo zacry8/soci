@@ -2,6 +2,48 @@
 
 ## 2026-04-07
 
+### UI Polish Pass — Calendar + Workflow Controls + Sidebar Order
+- Reduced visual noise in calendar quick-add interaction.
+  - `src/render/calendar.js`: changed day quick-add control from `+ Quick add` label to compact `+` icon-only button with preserved accessibility labels.
+  - `styles/views.css`: updated quick-add shape/hover to round, subtle-by-default, and branded hover state aligned with primary action language.
+- Scoped View Options to Kanban context as requested.
+  - `index.html`: removed topbar-level `View Options` block.
+  - `index.html` + `styles/views.css`: added Kanban-only floating gear control (`#kanban-view-options-panel`) pinned to workflow board top-right.
+  - Kanban options remain persisted through existing `soci.kanban.view-options.v1` wiring.
+- Improved control hierarchy and readability.
+  - `index.html`: moved theme switch above sign-out in sidebar.
+  - `styles/layout.css`: increased pin workspace control legibility and refined topbar spacing/alignment (`topbar-main`, `workspace-controls`, title/stat rhythm).
+- Validation:
+  - `node --check src/render/calendar.js`
+  - `node --check src/main.js`
+
+### Workflow Friction Pass — Workspace Persistence + Quick Actions
+- Reduced repeat setup clicks after refresh/login and prioritized default workspace recovery.
+  - `src/main.js`: added pinned workspace persistence (`soci.workspace.pinned.v1`) and last-active workspace memory (`soci.workspace.last-active.v1`) with preferred workspace resolution at bootstrap.
+  - `index.html` + `src/main.js`: wired workspace pin control state (`Pin Workspace` / `Pinned`) and persisted active workspace changes.
+- Added low-friction creation and keyboard-first navigation.
+  - `src/main.js` + `src/render/kanban.js`/`src/render/calendar.js`: quick-add stubs from Workflow lanes and Calendar dates.
+  - `index.html` + `src/main.js` + `styles/views.css`: global Command Palette (`Cmd/Ctrl+K`) for workspace switching, theme toggle, new post, and view focus.
+- Added bulk intake + schedule movement shortcuts.
+  - `src/main.js`: media dump drag-and-drop zones (Calendar + Rows section) to auto-create draft posts from dropped files and HTTPS links (BYOS attach flow).
+  - `src/main.js` + `src/render/calendar.js`: drag workflow post to date scheduling flow updates `scheduleDate`, `publishState`, and preserves status rules.
+- Improved readiness scanning in Rows view.
+  - `src/render/table.js` + `styles/views.css`: replaced plain readiness text with traffic-light indicator + progress bar + percent for at-a-glance weekly review.
+- Validation:
+  - `node --check src/main.js`
+  - `node --check src/render/calendar.js`
+  - `node --check src/render/kanban.js`
+  - `node --check src/render/table.js`
+
+### BYOS Attach-by-Link Reliability Hardening
+- Hardened external media attach flow to reduce recurring 404/validation loops and improve diagnostics.
+  - `src/store.js`: added `normalizeExternalMediaUrl(...)` to convert Google Drive `/file/d/.../view` links to direct-download form before attach requests.
+  - `src/api.js`: request errors now preserve `status`, `code`, and `hint` fields from API responses.
+  - `src/render/inspector.js`: added attach-by-link hint text and clearer status messaging for 404/403/400 failure classes.
+  - `backend/routes/admin.js` + `backend/routes/me.js`: standardized external-media errors with explicit `code` and actionable `hint` payloads (`invalid_json`, `invalid_external_media_payload`, `invalid_external_url`, `post_not_found`, `insufficient_permissions`).
+- Verification:
+  - `node --test backend/tests/uploads.test.mjs backend/tests/role-matrix.test.mjs` passed (`27/27`).
+
 ### BYOS External Media + Publish Handoff (Implemented)
 - Added secure BYOS-style external media reference support across API + store + inspector.
   - Backend:

@@ -172,12 +172,41 @@
   - Phase 2: optional link-only media workflows.
   - Phase 3: native security-scoped bookmark flow for iOS/macOS app shells.
 
+#### Workflow acceleration snapshot (2026-04-07)
+- **Workspace persistence now active:**
+  - Pinned default workspace + last-session workspace fallback are persisted and applied on bootstrap.
+  - Key storage: `soci.workspace.pinned.v1`, `soci.workspace.last-active.v1`.
+- **Quick-add shortcuts now active:**
+  - Kanban lane and calendar-date quick-add create post stubs immediately (title-first workflow).
+  - Command Palette (`Cmd/Ctrl+K`) supports workspace jump, theme toggle, and creation/navigation commands.
+- **Bulk intake now active:**
+  - Drag-and-drop onto Calendar/Rows supports batch draft creation from local files + HTTPS links, then uploads/attaches media automatically.
+- **Schedule transition now accelerated:**
+  - Dragging from workflow to date updates scheduling fields without opening inspector-first flows.
+- **Readiness scan now visual-first:**
+  - Rows readiness now renders traffic-light + progress bar for faster gap detection during planning reviews.
+
+#### Interface polish snapshot (2026-04-07)
+- **Calendar quick-add de-emphasized:**
+  - Date-cell quick-add now uses compact `+` control (icon-only) with reduced visual weight and rounded styling.
+  - Hover behavior still maps to primary action brand affordance for discoverability.
+- **View options are now Kanban-scoped in placement:**
+  - Removed top-level header options block and moved options access to a floating gear at workflow board top-right.
+  - Keeps options context-local (Kanban thumbnails/meta/description) and reduces header clutter.
+- **Sidebar action order aligned to workflow:**
+  - Theme switch moved above Sign Out.
+- **Workspace pin readability improved:**
+  - Pin control text/weight/spacing adjusted for faster recognition when switching workspace defaults.
+
 #### BYOS + Handoff implementation snapshot (2026-04-07)
 - **Implemented (web app layer):**
   - External media references are now first-class records (`storageMode: external`) with provider metadata and safe URL validation.
   - New scoped endpoints: `POST /api/admin/media/external` and `POST /api/me/media/external`.
   - Inspector supports Attach-by-Link flow (Google Drive/iCloud/Dropbox/OneDrive/direct), external media badges, and copy/open actions.
   - Publish handoff now supports clipboard caption copy + platform open + optional media-link open + user confirmation loop to mark post published.
+  - Attach-by-link reliability hardening now includes:
+    - Frontend Google Drive link normalization (`/file/d/.../view` → direct download URL form) before external attach requests.
+    - Structured external-media API errors (`code` + `hint`) surfaced through frontend messaging for faster debugging of 400/403/404 cases.
 - **Not yet native:**
   - iOS/macOS `UIDocumentPickerViewController` and security-scoped bookmark resolution remain future native-shell work (outside current web runtime).
 
@@ -186,4 +215,4 @@
 ## Last Memory Update
 - **Updated:** 2026-04-07
 - **By:** Maintainer
-- **Reason:** Recorded implemented BYOS external-link media flow and publish handoff confirmation loop, including new endpoint/model/UI responsibilities and remaining native bookmark phase.
+- **Reason:** Added BYOS attach-by-link reliability hardening details (Drive URL normalization + structured API error contracts and UX surfacing).

@@ -63,9 +63,18 @@ async function request(path, { method = "GET", token = "", body } = {}) {
   if (res.status === 401) {
     const err = new Error(data.error || "Unauthorized");
     err.isAuthError = true;
+    err.status = res.status;
+    if (data?.code) err.code = data.code;
+    if (data?.hint) err.hint = data.hint;
     throw err;
   }
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (!res.ok) {
+    const err = new Error(data.error || `Request failed (${res.status})`);
+    err.status = res.status;
+    if (data?.code) err.code = data.code;
+    if (data?.hint) err.hint = data.hint;
+    throw err;
+  }
   return data;
 }
 
