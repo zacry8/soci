@@ -168,7 +168,17 @@ function normalizeExternalMediaUrl(input = "") {
       }
     }
 
-    return value;
+    // Dropbox share links often need dl=1 for direct media fetch behavior.
+    if (host.includes("dropbox.com")) {
+      url.searchParams.set("dl", "1");
+      return url.toString();
+    }
+
+    // Trim common noisy tracking params from cloud shares when safe.
+    ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"].forEach((key) => {
+      url.searchParams.delete(key);
+    });
+    return url.toString();
   } catch {
     return value;
   }
@@ -773,7 +783,8 @@ export function createStore() {
           urlError.status = 400;
           throw urlError;
         }
-        const normalizedProvider = normalizeExternalProviderInput(payload.provider, normalizedExternalUrl);
+        const normalizedProvider = normalizeExternalProviderInput(payload.provider, normalizedExternalUrl)
+          || detectExternalProviderFromUrl(normalizedExternalUrl);
         const displayName = String(payload.displayName || "").trim();
         const nativeBookmarkHint = String(payload.nativeBookmarkHint || "").trim();
         const body = {

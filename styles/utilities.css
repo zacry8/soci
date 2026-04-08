@@ -74,6 +74,18 @@
   gap: 8px;
 }
 
+.external-advanced-toggle {
+  justify-self: start;
+}
+
+.external-advanced-fields.is-collapsed {
+  display: none;
+}
+
+.external-icloud-action.hidden {
+  display: none;
+}
+
 .icloud-asset-toolbar {
   display: flex;
   gap: 6px;
@@ -161,6 +173,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.btn-media.btn-media-ghost {
+  background: transparent;
 }
 
 .btn-media:hover {

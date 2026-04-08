@@ -31,6 +31,17 @@ function extractHashtags(caption = "") {
   return [...String(caption || "").matchAll(/#([a-z0-9_]+)/gi)].map((match) => match[1].toLowerCase());
 }
 
+function isLikelyIcloudUrl(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return false;
+  try {
+    const url = new URL(raw);
+    return String(url.hostname || "").toLowerCase().includes("icloud.com");
+  } catch {
+    return false;
+  }
+}
+
 function renderPrimaryMediaPreview(media) {
   if (!media?.urlPath) return `<span class="safe-zone">Media preview</span>`;
   if (media?.storageMode === "external") {
@@ -237,7 +248,8 @@ export function renderInspector(root, post, handlers) {
               <label for="f-external-url" class="variant-field-label">Attach by Link (Google Drive / iCloud)</label>
               <input id="f-external-url" type="url" placeholder="https://drive.google.com/... or https://www.icloud.com/..." ${permissions.canAttachExternalMedia ? "" : "disabled"} />
               <div class="subtle fs-xs-fixed">Tip: Drive /view links are auto-normalized for direct fetch when possible.</div>
-              <div class="row inspector-single">
+              <button type="button" class="btn-media btn-media-ghost external-advanced-toggle" id="external-advanced-toggle" ${permissions.canAttachExternalMedia ? "" : "disabled"}>Advanced options</button>
+              <div class="row inspector-single external-advanced-fields is-collapsed" id="external-advanced-fields">
                 <div class="field">
                   <label for="f-external-provider">Provider</label>
                   <select id="f-external-provider" ${permissions.canAttachExternalMedia ? "" : "disabled"}>
@@ -255,8 +267,8 @@ export function renderInspector(root, post, handlers) {
                 </div>
               </div>
               <div class="media-item-actions">
-                <button type="button" class="btn-media" id="attach-external-media" ${permissions.canAttachExternalMedia ? "" : "disabled"}>Attach from cloud link</button>
-                <button type="button" class="btn-media" id="load-icloud-album" ${permissions.canAttachExternalMedia ? "" : "disabled"}>Load iCloud album</button>
+                <button type="button" class="btn-media" id="attach-external-media" ${permissions.canAttachExternalMedia ? "" : "disabled"}>Attach Link</button>
+                <button type="button" class="btn-media external-icloud-action hidden" id="load-icloud-album" ${permissions.canAttachExternalMedia ? "" : "disabled"}>Load iCloud Album Assets</button>
               </div>
               <div id="icloud-asset-picker">${renderIcloudAssetPicker([])}</div>
             </div>
@@ -645,11 +657,36 @@ export function renderInspector(root, post, handlers) {
 
   const externalAttachButton = root.querySelector("#attach-external-media");
   const loadIcloudAlbumButton = root.querySelector("#load-icloud-album");
+  const externalUrlInput = root.querySelector("#f-external-url");
+  const externalAdvancedToggle = root.querySelector("#external-advanced-toggle");
+  const externalAdvancedFields = root.querySelector("#external-advanced-fields");
   const icloudAssetPicker = root.querySelector("#icloud-asset-picker");
   let icloudAssets = [];
+
+  const syncExternalAttachUiState = () => {
+    const urlValue = String(externalUrlInput?.value || "").trim();
+    const isIcloud = isLikelyIcloudUrl(urlValue);
+    if (loadIcloudAlbumButton) {
+      loadIcloudAlbumButton.classList.toggle("hidden", !isIcloud);
+    }
+    if (!isIcloud && icloudAssetPicker) {
+      icloudAssetPicker.innerHTML = renderIcloudAssetPicker([]);
+      icloudAssets = [];
+    }
+  };
+
+  externalAdvancedToggle?.addEventListener("click", () => {
+    if (!externalAdvancedFields) return;
+    const isCollapsed = externalAdvancedFields.classList.toggle("is-collapsed");
+    externalAdvancedToggle.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+  });
+
+  externalUrlInput?.addEventListener("input", syncExternalAttachUiState);
+  syncExternalAttachUiState();
+
   externalAttachButton?.addEventListener("click", async () => {
     if (!permissions.canAttachExternalMedia || !handlers.onAttachExternalMedia) return;
-    const externalUrl = String(root.querySelector("#f-external-url")?.value || "").trim();
+    const externalUrl = String(externalUrlInput?.value || "").trim();
     const provider = String(root.querySelector("#f-external-provider")?.value || "").trim();
     const displayName = String(root.querySelector("#f-external-display-name")?.value || "").trim();
     if (!externalUrl) {
@@ -660,10 +697,13 @@ export function renderInspector(root, post, handlers) {
     try {
       await handlers.onAttachExternalMedia({ externalUrl, provider, displayName });
       mediaStatus.textContent = "Cloud link attached.";
-      const urlInput = root.querySelector("#f-external-url");
       const nameInput = root.querySelector("#f-external-display-name");
-      if (urlInput) urlInput.value = "";
+      if (externalUrlInput) {
+        externalUrlInput.value = "";
+        externalUrlInput.focus();
+      }
       if (nameInput) nameInput.value = "";
+      syncExternalAttachUiState();
     } catch (error) {
       const status = Number(error?.status || 0);
       const hint = String(error?.hint || "").trim();
@@ -693,7 +733,7 @@ export function renderInspector(root, post, handlers) {
 
   loadIcloudAlbumButton?.addEventListener("click", async () => {
     if (!permissions.canAttachExternalMedia || !handlers.onFetchIcloudAlbum) return;
-    const albumUrl = String(root.querySelector("#f-external-url")?.value || "").trim();
+    const albumUrl = String(externalUrlInput?.value || "").trim();
     if (!albumUrl) {
       mediaStatus.textContent = "Paste an iCloud shared album URL first.";
       return;

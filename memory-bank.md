@@ -239,9 +239,29 @@
   - No new dependencies.
   - Kept changes concentrated to existing table modules (`clipboard.js`, `table.js`, `schema.js`) and existing table CSS.
 
+#### Attach-by-link streamline snapshot (2026-04-08)
+- **Implemented (web app layer):**
+  - Inspector attach flow now prioritizes a single fast path:
+    - primary action renamed to `Attach Link`,
+    - provider + label moved behind collapsed `Advanced options`.
+  - iCloud album tooling is now contextual instead of always-on:
+    - `Load iCloud Album Assets` only appears when the pasted URL looks like iCloud.
+    - stale iCloud picker state resets when URL changes away from iCloud.
+  - Repeat attach flow improved:
+    - successful attach clears and refocuses the URL input for rapid consecutive attachments.
+- **Store normalization/inference hardening:**
+  - Existing Google Drive normalization retained.
+  - Added Dropbox direct-fetch normalization (`dl=1`).
+  - Added safe cleanup of common UTM params on external media URLs.
+  - Provider inference now falls back to URL-based detection when provider is left blank.
+- **Scope guardrails:**
+  - No backend contract changes.
+  - No new dependencies.
+  - Changes constrained to existing `inspector.js`, `store.js`, and `styles/utilities.css`.
+
 ---
 
 ## Last Memory Update
 - **Updated:** 2026-04-08
 - **By:** Maintainer
-- **Reason:** Improved Rows/Sheets copy-paste fluidity (quote-aware TSV parsing, single-cell fill over selections, inline editor passthrough, and paste feedback/selection continuity) while preserving existing zero-dependency table architecture.
+- **Reason:** Streamlined Attach-by-Link UX (single primary attach path, collapsed advanced controls, contextual iCloud actions) and hardened external URL normalization/provider inference while preserving zero-dependency architecture.

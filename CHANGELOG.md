@@ -2,6 +2,23 @@
 
 ## 2026-04-08
 
+### Attach-by-Link Streamline (Inspector + Store)
+- Simplified Attach-by-Link UX to reduce friction and make fast attach the default flow.
+  - `src/render/inspector.js`:
+    - added single primary CTA label (`Attach Link`) for the common path,
+    - introduced `Advanced options` toggle (provider + label collapsed by default),
+    - made iCloud album action contextual (`Load iCloud Album Assets` shown only when URL appears to be iCloud),
+    - improved repeat workflow by clearing + refocusing the URL input after successful attach,
+    - auto-clears stale iCloud picker state when URL no longer matches iCloud.
+  - `src/store.js`:
+    - strengthened external URL normalization:
+      - Google Drive `/file/d/...` normalization retained,
+      - Dropbox links now normalized with `dl=1` for direct fetch behavior,
+      - common UTM tracking params removed from share URLs where safe,
+    - strengthened provider inference by auto-detecting from normalized URL when provider input is blank.
+  - `styles/utilities.css`:
+    - added lightweight styles for advanced attach controls and conditional iCloud action visibility.
+
 ### Rows / Sheets Copy-Paste Fluidity Upgrade
 - Improved spreadsheet-like copy/paste behavior in Table (Rows) view for more natural daily use.
   - `src/render/table/clipboard.js`:
