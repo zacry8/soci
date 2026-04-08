@@ -225,9 +225,23 @@
   - Keeps storage BYOS-first (no binary ingest required for iCloud stream assets), while preserving existing external media audit trail in DB records.
   - Uses existing zero-dependency backend runtime and current external media model (`storageMode: external`).
 
+#### Rows/Sheets clipboard fluidity snapshot (2026-04-08)
+- **Implemented (web app layer):**
+  - Upgraded Table clipboard TSV handling to be quote-aware (embedded tabs/newlines/quotes now round-trip safely during copy/paste).
+  - Added spreadsheet-native paste ergonomics:
+    - native paste/copy passthrough while inline cell editor is focused,
+    - single-cell paste fill across multi-cell selection,
+    - multi-cell matrix paste preserved from active cell.
+  - Added post-paste continuity cues:
+    - selection snaps to applied paste range,
+    - short visual flash confirms paste applied.
+- **Scope guardrails:**
+  - No new dependencies.
+  - Kept changes concentrated to existing table modules (`clipboard.js`, `table.js`, `schema.js`) and existing table CSS.
+
 ---
 
 ## Last Memory Update
 - **Updated:** 2026-04-08
 - **By:** Maintainer
-- **Reason:** Added iCloud shared album stream support end-to-end (backend handshake endpoints + inspector bulk attach picker + iCloud thumbnail-aware rendering in Kanban/shared/mockup surfaces).
+- **Reason:** Improved Rows/Sheets copy-paste fluidity (quote-aware TSV parsing, single-cell fill over selections, inline editor passthrough, and paste feedback/selection continuity) while preserving existing zero-dependency table architecture.

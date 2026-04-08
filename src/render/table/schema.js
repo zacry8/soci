@@ -59,7 +59,7 @@ export function formatCellValue(column, row, context) {
   return "";
 }
 
-export function getRawCellValue(column, row) {
+export function getRawCellValue(column, row, context) {
   const post = row?.post || {};
   if (column.key === "title") return post.title || "";
   if (column.key === "clientId") {

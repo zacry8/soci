@@ -2,6 +2,22 @@
 
 ## 2026-04-08
 
+### Rows / Sheets Copy-Paste Fluidity Upgrade
+- Improved spreadsheet-like copy/paste behavior in Table (Rows) view for more natural daily use.
+  - `src/render/table/clipboard.js`:
+    - replaced naive TSV handling with quote-aware encode/parse support.
+    - preserves embedded tabs/newlines/quotes using standard spreadsheet escaping (`""` inside quoted cells).
+  - `src/render/table.js`:
+    - lets native paste/copy behavior pass through when user is inside an inline cell editor (`.table-cell-editor`).
+    - added single-cell fill behavior across multi-cell selections (Sheets-style repeat paste).
+    - keeps matrix paste behavior for normal multi-row/multi-column clipboard blocks.
+    - updates selection to pasted range and adds brief visual confirmation after successful paste.
+    - hardens non-editable/input-row handling during paste updates.
+  - `src/render/table/schema.js`:
+    - aligned `getRawCellValue(...)` signature with renderer usage so client/workspace names resolve correctly during copy.
+  - `styles/views.css`:
+    - added subtle `.cell-paste-flash` animation for paste feedback without noisy UI.
+
 ### iCloud Shared Album Stream Integration (API + Inspector + Kanban)
 - Implemented iCloud shared album "stream" support so users can paste a single shared album URL, preview album assets, and bulk-attach selected assets as external media references.
   - `backend/utils.js`:

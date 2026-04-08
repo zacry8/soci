@@ -77,6 +77,34 @@ export function renderTable(root, posts, options = {}) {
   const index = indexMap(rows, TABLE_COLUMNS);
   const state = makeGridState(rows, TABLE_COLUMNS);
   let cancelEditing = null;
+  let pasteFlashTimer = null;
+
+  const pointAt = (rowIndex, colIndex) => {
+    const safeRow = Math.max(0, Math.min(rows.length - 1, rowIndex));
+    const safeCol = Math.max(0, Math.min(TABLE_COLUMNS.length - 1, colIndex));
+    return { rowId: rows[safeRow]?.id, colKey: TABLE_COLUMNS[safeCol]?.key };
+  };
+
+  const setSelectionToRect = (rect) => {
+    state.anchor = pointAt(rect.top, rect.left);
+    state.active = pointAt(rect.bottom, rect.right);
+    state.selection = pointFromRect(rect, rows, TABLE_COLUMNS);
+    draw();
+  };
+
+  const flashPasteRect = (rect) => {
+    table.querySelectorAll("td.cell-paste-flash").forEach((cell) => cell.classList.remove("cell-paste-flash"));
+    for (let r = rect.top; r <= rect.bottom; r += 1) {
+      for (let c = rect.left; c <= rect.right; c += 1) {
+        const cell = getCell(table, pointAt(r, c));
+        if (cell) cell.classList.add("cell-paste-flash");
+      }
+    }
+    if (pasteFlashTimer) clearTimeout(pasteFlashTimer);
+    pasteFlashTimer = setTimeout(() => {
+      table.querySelectorAll("td.cell-paste-flash").forEach((cell) => cell.classList.remove("cell-paste-flash"));
+    }, 550);
+  };
 
   const draw = () => {
     const rect = rectFromSelection(state.selection, index);
@@ -89,6 +117,10 @@ export function renderTable(root, posts, options = {}) {
       activeCell.setAttribute("tabindex", "0");
     }
   };
+
+  signal.addEventListener("abort", () => {
+    if (pasteFlashTimer) clearTimeout(pasteFlashTimer);
+  }, { once: true });
 
   const setSelectionTo = (point, { extend = false } = {}) => {
     if (!extend) state.anchor = point;
@@ -165,6 +197,7 @@ export function renderTable(root, posts, options = {}) {
   }, { signal });
 
   table.addEventListener("copy", (event) => {
+    if (event.target.closest(".table-cell-editor")) return;
     const rect = rectFromSelection(state.selection, index);
     const text = toTsvMatrix(rows, TABLE_COLUMNS, rect, (row, col) => getRawCellValue(col, row, context));
     event.clipboardData?.setData("text/plain", text);
@@ -172,6 +205,7 @@ export function renderTable(root, posts, options = {}) {
   }, { signal });
 
   table.addEventListener("paste", (event) => {
+    if (event.target.closest(".table-cell-editor")) return;
     const matrix = parseTsv(event.clipboardData?.getData("text/plain") || "");
     if (!matrix.length) return;
     event.preventDefault();
@@ -191,20 +225,58 @@ export function renderTable(root, posts, options = {}) {
       if (rowsToCreate.length) onBatchCreateRows?.(rowsToCreate);
       return;
     }
+
+    const selectionRect = rectFromSelection(state.selection, index);
+    const isSingleValuePaste = matrix.length === 1 && (matrix[0]?.length || 0) === 1;
+
     const patches = new Map();
-    matrix.forEach((cells, r) => cells.forEach((raw, c) => {
-      const row = rows[start.row + r];
-      const column = TABLE_COLUMNS[start.col + c];
-      if (!row || !column?.editable) return;
-      const value = parseEditValue(column, raw, { ...context, row });
-      const patch = patches.get(row.id) || {};
-      patch[column.key] = value;
-      patches.set(row.id, patch);
-    }));
+    let appliedRect = null;
+
+    if (isSingleValuePaste && (selectionRect.bottom > selectionRect.top || selectionRect.right > selectionRect.left)) {
+      const raw = matrix[0][0] || "";
+      for (let r = selectionRect.top; r <= selectionRect.bottom; r += 1) {
+        for (let c = selectionRect.left; c <= selectionRect.right; c += 1) {
+          const row = rows[r];
+          const column = TABLE_COLUMNS[c];
+          if (!row || row.isInputRow || !column?.editable) continue;
+          const value = parseEditValue(column, raw, { ...context, row });
+          const patch = patches.get(row.id) || {};
+          patch[column.key] = value;
+          patches.set(row.id, patch);
+        }
+      }
+      appliedRect = selectionRect;
+    } else {
+      matrix.forEach((cells, r) => cells.forEach((raw, c) => {
+        const row = rows[start.row + r];
+        const column = TABLE_COLUMNS[start.col + c];
+        if (!row || row.isInputRow || !column?.editable) return;
+        const value = parseEditValue(column, raw, { ...context, row });
+        const patch = patches.get(row.id) || {};
+        patch[column.key] = value;
+        patches.set(row.id, patch);
+      }));
+
+      const endRow = Math.min(rows.length - 1, start.row + matrix.length - 1);
+      const widestRow = Math.max(...matrix.map((cells) => cells.length));
+      const endCol = Math.min(TABLE_COLUMNS.length - 1, start.col + Math.max(0, widestRow - 1));
+      appliedRect = {
+        top: start.row,
+        left: start.col,
+        bottom: endRow,
+        right: endCol
+      };
+    }
+
     const updates = [...patches.entries()].map(([rowId, patch]) => ({ rowId, patch }));
     if (!updates.length) return;
     if (onBatchCellUpdate) onBatchCellUpdate(updates);
     else updates.forEach((update) => onCellUpdate(update.rowId, update.patch));
+
+    if (appliedRect) {
+      setSelectionToRect(appliedRect);
+      flashPasteRect(appliedRect);
+    }
   }, { signal });
 
   root.querySelectorAll("[data-sort]").forEach((button) => {
