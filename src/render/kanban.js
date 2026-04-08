@@ -1,5 +1,5 @@
 import { CHECKLIST_LABELS, STATUSES, STATUS_LABELS } from "../data.js";
-import { buildMediaMap, formatFriendlyDate, getPrimaryMedia } from "./shared.js";
+import { buildMediaMap, escapeHtml, formatFriendlyDate, getGoogleDrivePreviewUrl, getPrimaryMedia } from "./shared.js";
 
 const checklistKeys = Object.keys(CHECKLIST_LABELS);
 
@@ -26,8 +26,18 @@ function makeCard(cardTpl, post, onOpen, onDropStatus, options = {}) {
       const thumb = document.createElement("div");
       thumb.className = "card-thumb";
       if (primaryMedia?.storageMode === "external") {
-        const provider = String(primaryMedia.provider || "external").replaceAll("_", " ");
-        thumb.innerHTML = `<div class="tile-fallback">External media (${provider})</div>`;
+        const providerRaw = String(primaryMedia.provider || "external");
+        const provider = providerRaw.replaceAll("_", " ");
+        if (providerRaw === "google_drive") {
+          const previewUrl = getGoogleDrivePreviewUrl(primaryMedia.urlPath || primaryMedia.externalUrl || "");
+          if (previewUrl) {
+            thumb.innerHTML = `<img src="${escapeHtml(previewUrl)}" referrerpolicy="no-referrer" alt="${escapeHtml(post.title || "External media")}" loading="lazy"/>`;
+          } else {
+            thumb.innerHTML = `<div class="tile-fallback">External media (${provider})</div>`;
+          }
+        } else {
+          thumb.innerHTML = `<div class="tile-fallback">External media (${provider})</div>`;
+        }
       } else {
         const mimeType = String(primaryMedia.mimeType || "").toLowerCase();
         if (mimeType.startsWith("video/")) {

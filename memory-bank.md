@@ -215,4 +215,4 @@
 ## Last Memory Update
 - **Updated:** 2026-04-07
 - **By:** Maintainer
-- **Reason:** Added external preview degradation safeguards: external/BYOS media now renders fallback tiles (with source-open path) in shared preview surfaces to avoid noisy broken-image states from provider-side 403 hotlink restrictions.
+- **Reason:** Added no-proxy Drive preview hardening: shared renderers now derive Drive thumbnail preview URLs and set no-referrer inline policies while preserving graceful fallback cards for unsupported/blocked external providers.

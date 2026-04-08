@@ -38,13 +38,38 @@ export function getPrimaryMedia(post, mediaMap) {
   return null;
 }
 
+function extractGoogleDriveFileId(url = "") {
+  const value = String(url || "").trim();
+  if (!value) return "";
+  const byPath = value.match(/\/file\/d\/([a-zA-Z0-9_-]{20,})/);
+  if (byPath?.[1]) return byPath[1];
+  const byParam = value.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+  if (byParam?.[1]) return byParam[1];
+  const byUcPath = value.match(/\/uc\?[^\s]*id=([a-zA-Z0-9_-]{20,})/);
+  if (byUcPath?.[1]) return byUcPath[1];
+  return "";
+}
+
+export function getGoogleDrivePreviewUrl(url = "") {
+  const id = extractGoogleDriveFileId(url);
+  if (!id) return "";
+  return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
+}
+
 export function renderPreviewMedia(post, mediaMap, className = "") {
   const media = getPrimaryMedia(post, mediaMap);
   const fallback = `<div class="tile-fallback">${escapeHtml((post.title || "Untitled").slice(0, 28))}</div>`;
   if (!media?.urlPath) return fallback;
   if (media?.storageMode === "external") {
-    const externalUrl = escapeHtml(media.urlPath || media.externalUrl || "");
+    const rawUrl = String(media.urlPath || media.externalUrl || "");
+    const externalUrl = escapeHtml(rawUrl);
     const provider = escapeHtml(String(media.provider || "external").replaceAll("_", " "));
+    const drivePreviewUrl = String(media.provider || "") === "google_drive"
+      ? getGoogleDrivePreviewUrl(rawUrl)
+      : "";
+    if (drivePreviewUrl) {
+      return `<img src="${escapeHtml(drivePreviewUrl)}" referrerpolicy="no-referrer" alt="${escapeHtml(post.title || "External media")}" loading="lazy" class="${className}" />`;
+    }
     return `
       <div class="tile-fallback">
         <span>External media (${provider})</span>
@@ -56,10 +81,10 @@ export function renderPreviewMedia(post, mediaMap, className = "") {
   const mime = String(media.mimeType || "").toLowerCase();
   const alt = escapeHtml(media.fileName || post.title || "Post media");
   if (mime.startsWith("image/")) {
-    return `<img src="${url}" alt="${alt}" loading="lazy" class="${className}" />`;
+    return `<img src="${url}" referrerpolicy="no-referrer" alt="${alt}" loading="lazy" class="${className}" />`;
   }
   if (mime.startsWith("video/")) {
-    return `<video class="${className}" muted playsinline preload="metadata"><source src="${url}" type="${escapeHtml(mime)}" /></video>`;
+    return `<video class="${className}" muted playsinline preload="metadata" referrerpolicy="no-referrer"><source src="${url}" type="${escapeHtml(mime)}" /></video>`;
   }
   return fallback;
 }
