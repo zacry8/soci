@@ -35,6 +35,13 @@ function makeCard(cardTpl, post, onOpen, onDropStatus, options = {}) {
           } else {
             thumb.innerHTML = `<div class="tile-fallback">External media (${provider})</div>`;
           }
+        } else if (providerRaw === "icloud") {
+          const previewUrl = String(primaryMedia.thumbnailUrl || primaryMedia.urlPath || primaryMedia.externalUrl || "").trim();
+          if (previewUrl) {
+            thumb.innerHTML = `<img src="${escapeHtml(previewUrl)}" referrerpolicy="no-referrer" alt="${escapeHtml(post.title || "iCloud media")}" loading="lazy"/>`;
+          } else {
+            thumb.innerHTML = `<div class="tile-fallback">External media (${provider})</div>`;
+          }
         } else {
           thumb.innerHTML = `<div class="tile-fallback">External media (${provider})</div>`;
         }

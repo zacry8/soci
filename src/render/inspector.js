@@ -67,6 +67,33 @@ function renderTextPreview(post) {
   `;
 }
 
+function renderIcloudAssetPicker(assets = []) {
+  if (!Array.isArray(assets) || !assets.length) {
+    return `<div class="subtle fs-xs-fixed">Load an iCloud shared album to preview assets.</div>`;
+  }
+  return `
+    <div class="icloud-asset-toolbar">
+      <button type="button" class="btn-media" id="icloud-select-all">Select all</button>
+      <button type="button" class="btn-media" id="icloud-clear-selection">Clear</button>
+      <button type="button" class="btn-media" id="icloud-attach-selected">Attach selected</button>
+    </div>
+    <div class="icloud-asset-grid" id="icloud-asset-grid">
+      ${assets.map((asset, index) => {
+        const id = escapeHtml(String(asset?.id || `asset-${index}`));
+        const thumb = escapeHtml(String(asset?.thumbUrl || asset?.fullUrl || ""));
+        return `
+          <label class="icloud-asset-card" data-icloud-asset-id="${id}">
+            <input type="checkbox" class="icloud-asset-toggle" data-icloud-asset-toggle="${id}" />
+            ${thumb
+              ? `<img src="${thumb}" alt="iCloud asset ${id}" loading="lazy" referrerpolicy="no-referrer" />`
+              : `<span class="subtle">No preview</span>`}
+          </label>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
 export function renderInspector(root, post, handlers) {
   if (!post) {
     root.innerHTML = `<div class="empty">Select a post to edit</div>`;
@@ -227,7 +254,11 @@ export function renderInspector(root, post, handlers) {
                   <input id="f-external-display-name" type="text" placeholder="Optional label" ${permissions.canAttachExternalMedia ? "" : "disabled"} />
                 </div>
               </div>
-              <button type="button" class="btn-media" id="attach-external-media" ${permissions.canAttachExternalMedia ? "" : "disabled"}>Attach from cloud link</button>
+              <div class="media-item-actions">
+                <button type="button" class="btn-media" id="attach-external-media" ${permissions.canAttachExternalMedia ? "" : "disabled"}>Attach from cloud link</button>
+                <button type="button" class="btn-media" id="load-icloud-album" ${permissions.canAttachExternalMedia ? "" : "disabled"}>Load iCloud album</button>
+              </div>
+              <div id="icloud-asset-picker">${renderIcloudAssetPicker([])}</div>
             </div>
             ${mediaListHtml}
           </div>
@@ -613,6 +644,9 @@ export function renderInspector(root, post, handlers) {
   });
 
   const externalAttachButton = root.querySelector("#attach-external-media");
+  const loadIcloudAlbumButton = root.querySelector("#load-icloud-album");
+  const icloudAssetPicker = root.querySelector("#icloud-asset-picker");
+  let icloudAssets = [];
   externalAttachButton?.addEventListener("click", async () => {
     if (!permissions.canAttachExternalMedia || !handlers.onAttachExternalMedia) return;
     const externalUrl = String(root.querySelector("#f-external-url")?.value || "").trim();
@@ -654,6 +688,57 @@ export function renderInspector(root, post, handlers) {
       } else {
         mediaStatus.textContent = `Attach failed: ${error.message || "Unknown error"}`;
       }
+    }
+  });
+
+  loadIcloudAlbumButton?.addEventListener("click", async () => {
+    if (!permissions.canAttachExternalMedia || !handlers.onFetchIcloudAlbum) return;
+    const albumUrl = String(root.querySelector("#f-external-url")?.value || "").trim();
+    if (!albumUrl) {
+      mediaStatus.textContent = "Paste an iCloud shared album URL first.";
+      return;
+    }
+    mediaStatus.textContent = "Loading iCloud album...";
+    try {
+      const payload = await handlers.onFetchIcloudAlbum({ albumUrl });
+      icloudAssets = Array.isArray(payload?.assets) ? payload.assets : [];
+      if (icloudAssetPicker) {
+        icloudAssetPicker.innerHTML = renderIcloudAssetPicker(icloudAssets);
+      }
+      mediaStatus.textContent = icloudAssets.length
+        ? `Loaded ${icloudAssets.length} iCloud assets.`
+        : "No assets found in this shared album.";
+
+      const selectAllButton = root.querySelector("#icloud-select-all");
+      const clearSelectionButton = root.querySelector("#icloud-clear-selection");
+      const attachSelectedButton = root.querySelector("#icloud-attach-selected");
+
+      selectAllButton?.addEventListener("click", () => {
+        root.querySelectorAll("[data-icloud-asset-toggle]").forEach((input) => {
+          input.checked = true;
+        });
+      });
+      clearSelectionButton?.addEventListener("click", () => {
+        root.querySelectorAll("[data-icloud-asset-toggle]").forEach((input) => {
+          input.checked = false;
+        });
+      });
+      attachSelectedButton?.addEventListener("click", async () => {
+        if (!handlers.onAttachIcloudAssets) return;
+        const selectedIds = [...root.querySelectorAll("[data-icloud-asset-toggle]:checked")]
+          .map((input) => String(input.getAttribute("data-icloud-asset-toggle") || ""))
+          .filter(Boolean);
+        if (!selectedIds.length) {
+          mediaStatus.textContent = "Select at least one iCloud asset to attach.";
+          return;
+        }
+        const selectedAssets = icloudAssets.filter((asset) => selectedIds.includes(String(asset?.id || "")));
+        mediaStatus.textContent = `Attaching ${selectedAssets.length} iCloud asset(s)...`;
+        const result = await handlers.onAttachIcloudAssets({ assets: selectedAssets });
+        mediaStatus.textContent = `Attached ${Number(result?.attached || selectedAssets.length)} iCloud asset(s).`;
+      });
+    } catch (error) {
+      mediaStatus.textContent = `iCloud load failed: ${error.message || "Unknown error"}`;
     }
   });
 

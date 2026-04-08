@@ -28,6 +28,8 @@ import {
   uploadMyMedia,
   createMyClient,
   createExternalMediaReference,
+  fetchAdminIcloudAlbum,
+  fetchMyIcloudAlbum,
   createMyExternalMediaReference,
   upsertClient,
   upsertPost
@@ -129,12 +131,22 @@ function normalizeMediaRecord(record) {
   const withToken = storageMode === "uploaded" && token
     ? (resolved.includes("?") ? `${resolved}&token=${encodeURIComponent(token)}` : `${resolved}?token=${encodeURIComponent(token)}`)
     : resolved;
+  let thumbnailUrl = "";
+  if (storageMode === "external") {
+    try {
+      const hint = JSON.parse(String(record?.nativeBookmarkHint || ""));
+      thumbnailUrl = String(hint?.thumbUrl || hint?.previewUrl || "").trim();
+    } catch {
+      thumbnailUrl = "";
+    }
+  }
   return {
     ...record,
     storageMode,
     provider: storageMode === "external" ? String(record?.provider || "direct") : "uploaded",
     externalUrl: storageMode === "external" ? String(record?.externalUrl || record?.urlPath || "") : "",
     displayName: String(record?.displayName || record?.fileName || ""),
+    thumbnailUrl,
     urlPath: withToken
   };
 }
@@ -805,6 +817,47 @@ export function createStore() {
         notify();
       }
       return result;
+    },
+    async fetchIcloudAlbumPreview(payload = {}) {
+      try {
+        if (!authToken) authToken = await ensureAdminToken();
+      } catch (error) {
+        reportSyncError("iCloud album auth failed.", error);
+        throw error;
+      }
+      try {
+        return canManageAsAdmin()
+          ? await fetchAdminIcloudAlbum(authToken, payload)
+          : await fetchMyIcloudAlbum(authToken, payload);
+      } catch (error) {
+        reportSyncError("Could not load iCloud album.", error);
+        throw error;
+      }
+    },
+    async attachIcloudAssets(postId, assets = []) {
+      const items = Array.isArray(assets) ? assets : [];
+      const results = [];
+      for (const asset of items) {
+        const fullUrl = String(asset?.fullUrl || "").trim();
+        if (!fullUrl) continue;
+        const thumbUrl = String(asset?.thumbUrl || "").trim();
+        const assetId = String(asset?.id || "").trim();
+        const displayName = assetId ? `iCloud ${assetId.slice(0, 8)}` : "iCloud media";
+        const nativeBookmarkHint = JSON.stringify({
+          source: "icloud_shared_album",
+          assetId,
+          thumbUrl,
+          fullUrl
+        });
+        const response = await this.attachExternalMedia(postId, {
+          externalUrl: fullUrl,
+          provider: "icloud",
+          displayName,
+          nativeBookmarkHint
+        });
+        results.push(response?.media || null);
+      }
+      return { attached: results.filter(Boolean).length };
     },
     async removePostMedia(postId, mediaId) {
       const targetPost = posts.find((post) => post.id === postId);

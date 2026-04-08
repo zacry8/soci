@@ -3,7 +3,7 @@ import path from "node:path";
 import { createAuthToken, hashPassword, verifyAuthToken } from "../auth.js";
 import { addExternalMedia, addMedia, createShareLink, deleteClient, deletePost, deleteUserAndMemberships, findUserByEmail, loadState, removeMedia, reorderPostMedia, upsertClient, upsertMembership, upsertPost, upsertUser } from "../db.js";
 import { sendUserInviteEmail } from "../email.js";
-import { id, isSafeExternalMediaUrl, json, normalizeExternalProvider, readJsonBody, sanitizeFileName, validateFilePath } from "../utils.js";
+import { extractIcloudSharedAlbumToken, fetchIcloudSharedAlbumAssets, id, isSafeExternalMediaUrl, json, normalizeExternalProvider, readJsonBody, sanitizeFileName, validateFilePath } from "../utils.js";
 import { validateClient, validateExternalMediaReference, validateMembership, validatePost, validateUser } from "../validators.js";
 
 const OWNER_EMAILS = new Set(["zac@hommemade.xyz"]);
@@ -525,6 +525,55 @@ export function registerAdminRoutes(router, config) {
     });
 
     return json(res, 200, { media });
+  });
+
+  // POST /api/admin/media/icloud/album — fetch iCloud shared album assets
+  router.post("/api/admin/media/icloud/album", async (req, res) => {
+    if (!(await requireAdmin(req, res))) return;
+    const body = await readJsonBody(req, config.maxJsonBytes).catch((e) => ({ __error: e?.message || "Invalid JSON" }));
+    if (body?.__error) {
+      const isLarge = body.__error === "Payload too large";
+      return json(res, isLarge ? 413 : 400, {
+        error: body.__error,
+        code: isLarge ? "payload_too_large" : "invalid_json"
+      });
+    }
+
+    const tokenInput = String(body?.token || body?.albumUrl || "").trim();
+    const token = extractIcloudSharedAlbumToken(tokenInput);
+    if (!token) {
+      return json(res, 400, {
+        error: "Valid iCloud shared album token or URL is required",
+        code: "invalid_icloud_token",
+        hint: "Paste an iCloud shared album URL like https://www.icloud.com/sharedalbum/#TOKEN"
+      });
+    }
+
+    try {
+      const album = await fetchIcloudSharedAlbumAssets(token);
+      return json(res, 200, album);
+    } catch (error) {
+      const code = String(error?.code || "icloud_sync_failed");
+      if (code === "invalid_icloud_token") {
+        return json(res, 400, {
+          error: "Invalid iCloud shared album token",
+          code,
+          hint: "Double-check the shared album URL and ensure it is publicly shared."
+        });
+      }
+      if (code === "icloud_timeout") {
+        return json(res, 504, {
+          error: "Timed out while fetching iCloud album",
+          code,
+          hint: "Try again in a few seconds."
+        });
+      }
+      return json(res, 502, {
+        error: "Failed to fetch iCloud album",
+        code,
+        hint: "Apple may be temporarily unavailable or the shared album link may be invalid."
+      });
+    }
   });
 
   // POST /api/admin/share-links — generate a 7-day share token for a client

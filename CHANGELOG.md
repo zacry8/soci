@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-04-08
+
+### iCloud Shared Album Stream Integration (API + Inspector + Kanban)
+- Implemented iCloud shared album "stream" support so users can paste a single shared album URL, preview album assets, and bulk-attach selected assets as external media references.
+  - `backend/utils.js`:
+    - added iCloud token extraction helper (`extractIcloudSharedAlbumToken`)
+    - added Apple shared stream fetch + derivative normalization (`fetchIcloudSharedAlbumAssets`)
+    - added safe derivative URL construction and fallback handling for thumb/full variants.
+  - `backend/routes/admin.js` + `backend/routes/me.js`:
+    - added `POST /api/admin/media/icloud/album`
+    - added `POST /api/me/media/icloud/album`
+    - added structured error responses for invalid token, timeout, and upstream failure cases.
+  - `src/api.js`:
+    - added `fetchAdminIcloudAlbum(...)` and `fetchMyIcloudAlbum(...)`.
+  - `src/store.js`:
+    - added `fetchIcloudAlbumPreview(...)` and `attachIcloudAssets(...)` bulk attach workflow.
+    - external media normalization now reads optional thumbnail metadata from `nativeBookmarkHint` JSON for improved iCloud preview rendering.
+  - `src/render/inspector.js` + `styles/utilities.css`:
+    - added iCloud album load action in Attach-by-Link panel,
+    - added selectable asset grid (select all/clear/attach selected),
+    - wired to store handlers for fetch + bulk attach.
+  - `src/main.js`:
+    - inspector handlers now route iCloud album preview + selected-asset attach actions through store with success toasts.
+  - `src/render/kanban.js`, `src/render/shared.js`, `src/render/inspector/socialMockups.js`:
+    - added iCloud-aware thumbnail preference to improve tile/mockup rendering for external iCloud media.
+- Validation:
+  - `node --check` passed for all touched backend/frontend modules.
+  - Local runtime endpoint smoke test was blocked by missing secure local `AUTH_SECRET` setup (server exits by design until `.env` is configured).
+
 ## 2026-04-07
 
 ### External Media Attach UX Hardening (Provider Auto-Normalization)

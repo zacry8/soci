@@ -53,6 +53,8 @@ function toMockupPayload(post, options = {}) {
   const isGoogleDriveExternal = media?.storageMode === "external" && String(media?.provider || "") === "google_drive";
   const image = isGoogleDriveExternal
     ? getGoogleDrivePreviewUrl(media?.urlPath || media?.externalUrl || "") || media?.urlPath || ""
+    : (media?.storageMode === "external" && String(media?.provider || "") === "icloud")
+    ? String(media?.thumbnailUrl || media?.urlPath || media?.externalUrl || "")
     : media?.urlPath || "";
 
   const byPlatformText = {

@@ -116,3 +116,108 @@ export function normalizeExternalProvider(value = "", fallbackUrl = "") {
   if (allowed.has(normalized)) return normalized;
   return detectExternalMediaProvider(fallbackUrl);
 }
+
+export function extractIcloudSharedAlbumToken(input = "") {
+  const value = String(input || "").trim();
+  if (!value) return "";
+  const safeToken = (candidate = "") => {
+    const normalized = String(candidate || "").trim();
+    if (!normalized) return "";
+    if (!/^[A-Za-z0-9_-]{6,200}$/.test(normalized)) return "";
+    return normalized;
+  };
+  const direct = safeToken(value);
+  if (direct) return direct;
+  try {
+    const parsed = new URL(value);
+    const hash = String(parsed.hash || "").replace(/^#/, "").trim();
+    if (hash) {
+      const hashToken = safeToken(hash.split("/").pop() || "");
+      if (hashToken) return hashToken;
+    }
+    const pathToken = safeToken(parsed.pathname.split("/").pop() || "");
+    if (pathToken) return pathToken;
+    const queryToken = safeToken(parsed.searchParams.get("token") || "");
+    return queryToken;
+  } catch {
+    return "";
+  }
+}
+
+function buildIcloudDerivativeUrl({ host, token, derivative }) {
+  if (!derivative || typeof derivative !== "object") return "";
+  const directUrl = String(derivative.url || derivative.url_location || derivative.urlLocation || "").trim();
+  if (/^https:\/\//i.test(directUrl)) return directUrl;
+  if (directUrl && host) {
+    const normalizedPath = directUrl.startsWith("/") ? directUrl : `/${directUrl}`;
+    return `https://${host}${normalizedPath}`;
+  }
+  const checksum = String(derivative.checksum || "").trim();
+  if (!checksum || !host || !token) return "";
+  return `https://${host}/${token}/sharedstreams/webserver/${checksum}`;
+}
+
+function pickIcloudDerivative(derivatives = {}, preferredSizes = []) {
+  for (const key of preferredSizes) {
+    const match = derivatives?.[key];
+    if (match && typeof match === "object") return match;
+  }
+  const fallback = Object.values(derivatives || {}).find((value) => value && typeof value === "object");
+  return fallback || null;
+}
+
+export async function fetchIcloudSharedAlbumAssets(token, { timeoutMs = 9000 } = {}) {
+  const normalizedToken = extractIcloudSharedAlbumToken(token);
+  if (!normalizedToken) {
+    const error = new Error("Invalid iCloud shared album token");
+    error.code = "invalid_icloud_token";
+    throw error;
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const appleUrl = `https://p23-sharedstreams.icloud.com/${normalizedToken}/sharedstreams/webserver/get_album_main`;
+
+  try {
+    const response = await fetch(appleUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      const error = new Error(`Apple iCloud request failed (${response.status})`);
+      error.code = "icloud_upstream_failed";
+      error.status = response.status;
+      throw error;
+    }
+    const payload = await response.json();
+    const host = String(payload?.stream_base_url || payload?.streamBaseUrl || "").trim();
+    const photos = Array.isArray(payload?.photos) ? payload.photos : [];
+    const assets = photos.map((photo, index) => {
+      const derivatives = photo?.derivatives && typeof photo.derivatives === "object" ? photo.derivatives : {};
+      const thumbDerivative = pickIcloudDerivative(derivatives, ["640", "1024", "2048"]);
+      const fullDerivative = pickIcloudDerivative(derivatives, ["2048", "1024", "640"]);
+      const thumbUrl = buildIcloudDerivativeUrl({ host, token: normalizedToken, derivative: thumbDerivative });
+      const fullUrl = buildIcloudDerivativeUrl({ host, token: normalizedToken, derivative: fullDerivative });
+      const fallback = fullUrl || thumbUrl;
+      return {
+        id: String(photo?.photoGuid || photo?.guid || `icloud-${index}`),
+        thumbUrl: thumbUrl || fallback,
+        fullUrl: fullUrl || fallback,
+        createdAt: String(photo?.dateCreated || photo?.dateCreatedUTC || photo?.createdAt || "")
+      };
+    }).filter((asset) => asset.fullUrl || asset.thumbUrl);
+
+    return { token: normalizedToken, host, assets };
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      const timeoutError = new Error("Apple iCloud request timed out");
+      timeoutError.code = "icloud_timeout";
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}

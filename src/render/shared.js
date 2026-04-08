@@ -67,8 +67,14 @@ export function renderPreviewMedia(post, mediaMap, className = "") {
     const drivePreviewUrl = String(media.provider || "") === "google_drive"
       ? getGoogleDrivePreviewUrl(rawUrl)
       : "";
+    const iCloudPreviewUrl = String(media.provider || "") === "icloud"
+      ? String(media.thumbnailUrl || rawUrl || "").trim()
+      : "";
     if (drivePreviewUrl) {
       return `<img src="${escapeHtml(drivePreviewUrl)}" referrerpolicy="no-referrer" alt="${escapeHtml(post.title || "External media")}" loading="lazy" class="${className}" />`;
+    }
+    if (iCloudPreviewUrl) {
+      return `<img src="${escapeHtml(iCloudPreviewUrl)}" referrerpolicy="no-referrer" alt="${escapeHtml(post.title || "iCloud media")}" loading="lazy" class="${className}" />`;
     }
     return `
       <div class="tile-fallback">

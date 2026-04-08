@@ -1901,6 +1901,19 @@ function paint(state) {
       await store.attachExternalMedia(activePost.id, payload);
       showToast("Cloud media link attached.", "success");
     },
+    onFetchIcloudAlbum: async ({ albumUrl }) => {
+      const result = await store.fetchIcloudAlbumPreview({ albumUrl });
+      return result;
+    },
+    onAttachIcloudAssets: async ({ assets }) => {
+      if (!activePost) return { attached: 0 };
+      const result = await store.attachIcloudAssets(activePost.id, assets);
+      const attached = Number(result?.attached || 0);
+      if (attached > 0) {
+        showToast(`Attached ${attached} iCloud asset${attached === 1 ? "" : "s"}.`, "success");
+      }
+      return result;
+    },
     onCopyMediaLink: async (mediaId) => {
       const mediaItem = state.media.find((item) => item.id === mediaId);
       const link = String(mediaItem?.externalUrl || mediaItem?.urlPath || "").trim();

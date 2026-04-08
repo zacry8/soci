@@ -279,6 +279,28 @@ export async function createMyExternalMediaReference(token, { postId, externalUr
   });
 }
 
+export async function fetchAdminIcloudAlbum(token, { albumUrl = "", token: albumToken = "" } = {}) {
+  return request("/api/admin/media/icloud/album", {
+    method: "POST",
+    token,
+    body: {
+      ...(albumUrl ? { albumUrl } : {}),
+      ...(albumToken ? { token: albumToken } : {})
+    }
+  });
+}
+
+export async function fetchMyIcloudAlbum(token, { albumUrl = "", token: albumToken = "" } = {}) {
+  return request("/api/me/media/icloud/album", {
+    method: "POST",
+    token,
+    body: {
+      ...(albumUrl ? { albumUrl } : {}),
+      ...(albumToken ? { token: albumToken } : {})
+    }
+  });
+}
+
 export async function createMyClient(token, payload) {
   return request("/api/me/clients", { method: "POST", token, body: payload });
 }

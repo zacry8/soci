@@ -210,9 +210,24 @@
 - **Not yet native:**
   - iOS/macOS `UIDocumentPickerViewController` and security-scoped bookmark resolution remain future native-shell work (outside current web runtime).
 
+#### iCloud shared album stream snapshot (2026-04-08)
+- **Implemented (web app layer):**
+  - Added scoped album handshake endpoints for iCloud shared streams:
+    - `POST /api/admin/media/icloud/album`
+    - `POST /api/me/media/icloud/album`
+  - Added backend token extraction + Apple response normalization utility to return lightweight asset payloads (`id`, `thumbUrl`, `fullUrl`, `createdAt`).
+  - Added inspector iCloud album picker workflow:
+    - paste one iCloud shared album URL,
+    - load live album assets,
+    - select many and bulk attach as external media references.
+  - Added iCloud thumbnail preference in Kanban/shared preview/social mockup rendering so external iCloud items show fast derivative thumbnails when available.
+- **Architectural posture:**
+  - Keeps storage BYOS-first (no binary ingest required for iCloud stream assets), while preserving existing external media audit trail in DB records.
+  - Uses existing zero-dependency backend runtime and current external media model (`storageMode: external`).
+
 ---
 
 ## Last Memory Update
-- **Updated:** 2026-04-07
+- **Updated:** 2026-04-08
 - **By:** Maintainer
-- **Reason:** Completed preview parity fix: Inspector social mockup renderer now uses the same no-proxy Drive thumbnail derivation + no-referrer policy as Kanban/shared renderers, removing cross-view thumbnail inconsistency.
+- **Reason:** Added iCloud shared album stream support end-to-end (backend handshake endpoints + inspector bulk attach picker + iCloud thumbnail-aware rendering in Kanban/shared/mockup surfaces).
