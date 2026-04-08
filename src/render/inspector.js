@@ -633,10 +633,20 @@ export function renderInspector(root, post, handlers) {
     } catch (error) {
       const status = Number(error?.status || 0);
       const hint = String(error?.hint || "").trim();
+      const lowerMessage = String(error?.message || "").toLowerCase();
+      const providerValidationError = lowerMessage.includes("provider must be one of");
+      const urlValidationError = lowerMessage.includes("valid https link")
+        || lowerMessage.includes("https link")
+        || lowerMessage.includes("externalurl")
+        || lowerMessage.includes("external url");
       if (status === 404) {
         mediaStatus.textContent = "Attach failed: endpoint not found. Check deployed API version for /api/*/media/external.";
       } else if (status === 403) {
         mediaStatus.textContent = "Attach failed: you do not have permission to attach media for this post.";
+      } else if (status === 400 && providerValidationError) {
+        mediaStatus.textContent = "Attach failed: we couldn’t recognize that provider. Leave provider on Auto-detect (recommended) or paste a direct https share link.";
+      } else if (status === 400 && urlValidationError) {
+        mediaStatus.textContent = "Attach failed: paste a full https cloud link (example: https://drive.google.com/...).";
       } else if (status === 400 && hint) {
         mediaStatus.textContent = `Attach failed: ${hint}`;
       } else {

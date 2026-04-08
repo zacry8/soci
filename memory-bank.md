@@ -215,4 +215,4 @@
 ## Last Memory Update
 - **Updated:** 2026-04-07
 - **By:** Maintainer
-- **Reason:** Added BYOS attach-by-link reliability hardening details (Drive URL normalization + structured API error contracts and UX surfacing).
+- **Reason:** Hardened attach-by-link UX for external media by adding frontend provider alias normalization, URL-first auto-detect fallback, HTTPS preflight validation, and user-friendly error messaging to reduce provider-related 400 failures.

@@ -45,6 +45,31 @@ const PROFILE_SETTING_KEYS = new Set([
   "linkText",
   "linkUrl"
 ]);
+const EXTERNAL_MEDIA_PROVIDER_ALIASES = new Map([
+  ["google", "google_drive"],
+  ["gdrive", "google_drive"],
+  ["google_drive", "google_drive"],
+  ["google-drive", "google_drive"],
+  ["googledrive", "google_drive"],
+  ["google drive", "google_drive"],
+  ["icloud", "icloud"],
+  ["i_cloud", "icloud"],
+  ["i-cloud", "icloud"],
+  ["i cloud", "icloud"],
+  ["apple", "icloud"],
+  ["dropbox", "dropbox"],
+  ["drop_box", "dropbox"],
+  ["drop-box", "dropbox"],
+  ["one", "onedrive"],
+  ["onedrive", "onedrive"],
+  ["one_drive", "onedrive"],
+  ["one-drive", "onedrive"],
+  ["one drive", "onedrive"],
+  ["sharepoint", "onedrive"],
+  ["direct", "direct"],
+  ["link", "direct"],
+  ["url", "direct"]
+]);
 
 function clone(value) {
   return structuredClone(value);
@@ -134,6 +159,50 @@ function normalizeExternalMediaUrl(input = "") {
     return value;
   } catch {
     return value;
+  }
+}
+
+function detectExternalProviderFromUrl(input = "") {
+  const value = String(input || "").trim();
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    const host = String(url.hostname || "").toLowerCase();
+    if (host.includes("drive.google.com") || host.includes("docs.google.com")) return "google_drive";
+    if (host.includes("icloud.com")) return "icloud";
+    if (host.includes("dropbox.com")) return "dropbox";
+    if (host.includes("onedrive.live.com") || host.includes("sharepoint.com") || host.includes("1drv.ms")) return "onedrive";
+    return "direct";
+  } catch {
+    return "";
+  }
+}
+
+function normalizeExternalProviderInput(providerInput = "", externalUrl = "") {
+  const raw = String(providerInput || "").trim().toLowerCase();
+  if (!raw) return "";
+  if (EXTERNAL_MEDIA_PROVIDER_ALIASES.has(raw)) {
+    return EXTERNAL_MEDIA_PROVIDER_ALIASES.get(raw) || "";
+  }
+  const normalizedKey = raw.replace(/[\s-]+/g, "_");
+  if (EXTERNAL_MEDIA_PROVIDER_ALIASES.has(normalizedKey)) {
+    return EXTERNAL_MEDIA_PROVIDER_ALIASES.get(normalizedKey) || "";
+  }
+  const detected = detectExternalProviderFromUrl(externalUrl);
+  return detected || "";
+}
+
+function validateExternalAttachUrl(urlValue = "") {
+  const value = String(urlValue || "").trim();
+  if (!value) return "Please paste a cloud media link first.";
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") {
+      return "Please paste a full https link (for example: https://drive.google.com/...).";
+    }
+    return "";
+  } catch {
+    return "Please paste a valid https link (for example: https://drive.google.com/...).";
   }
 }
 
@@ -686,16 +755,35 @@ export function createStore() {
       let result;
       try {
         const normalizedExternalUrl = normalizeExternalMediaUrl(payload.externalUrl);
+        const urlValidationError = validateExternalAttachUrl(normalizedExternalUrl);
+        if (urlValidationError) {
+          const urlError = new Error(urlValidationError);
+          urlError.status = 400;
+          throw urlError;
+        }
+        const normalizedProvider = normalizeExternalProviderInput(payload.provider, normalizedExternalUrl);
+        const displayName = String(payload.displayName || "").trim();
+        const nativeBookmarkHint = String(payload.nativeBookmarkHint || "").trim();
         const body = {
           postId,
           externalUrl: normalizedExternalUrl,
-          provider: String(payload.provider || "").trim(),
-          displayName: String(payload.displayName || "").trim(),
-          nativeBookmarkHint: String(payload.nativeBookmarkHint || "").trim()
+          ...(normalizedProvider ? { provider: normalizedProvider } : {}),
+          ...(displayName ? { displayName } : {}),
+          ...(nativeBookmarkHint ? { nativeBookmarkHint } : {})
         };
-        result = canManageAsAdmin()
-          ? await createExternalMediaReference(authToken, body)
-          : await createMyExternalMediaReference(authToken, body);
+        const sendAttachRequest = (requestBody) => (canManageAsAdmin()
+          ? createExternalMediaReference(authToken, requestBody)
+          : createMyExternalMediaReference(authToken, requestBody));
+
+        try {
+          result = await sendAttachRequest(body);
+        } catch (primaryError) {
+          const primaryMessage = String(primaryError?.message || "").toLowerCase();
+          const isProviderValidationError = Number(primaryError?.status || 0) === 400
+            && primaryMessage.includes("provider must be one of");
+          if (!isProviderValidationError) throw primaryError;
+          result = await sendAttachRequest({ ...body, provider: "" });
+        }
       } catch (error) {
         const detailHint = String(error?.hint || "").trim();
         if (detailHint) {

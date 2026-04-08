@@ -2,6 +2,31 @@
 
 ## 2026-04-07
 
+### External Media Attach UX Hardening (Provider Auto-Normalization)
+- Made cloud-link attach flow more forgiving and automatic for provider input.
+  - `src/store.js`:
+    - added provider alias normalization (`google drive`, `gdrive`, `one drive`, etc. → backend-safe enum values)
+    - added URL-based provider inference fallback when provider text is noisy/unknown
+    - added client-side HTTPS preflight validation with user-friendly messages before request
+    - added single automatic retry path for provider-only 400 errors using backend auto-detect mode (`provider: ""`)
+- Improved attach failure messaging in inspector to be more intuitive.
+  - `src/render/inspector.js`:
+    - provider validation failures now explain Auto-detect/direct-link guidance in plain language
+    - invalid URL failures now prompt for full HTTPS cloud links with examples
+
+### Production API Route Drift Diagnosis — External Media Endpoints
+- Investigated `404 Not Found` on external media attach endpoints reported by frontend (`POST /api/admin/media/external`).
+- Production probes confirmed route drift behavior:
+  - `POST /api/admin/media/external` → `404 Not found`
+  - `POST /api/me/media/external` → `404 Not found`
+  - `POST /api/admin/media` → `401 Unauthorized` (route exists)
+- Conclusion: production backend is reachable and admin routes are mounted, but deployed API revision is missing BYOS external media routes.
+- Recommended remediation:
+  - On VPS (`/root/soci`), force deploy latest `main` and rebuild container:
+    - `git pull origin main`
+    - `docker compose -f /root/docker-compose.yml up -d --build soci`
+  - Re-verify endpoint returns non-404 (401/400/403 acceptable without valid auth/payload).
+
 ### UI Polish Pass — Calendar + Workflow Controls + Sidebar Order
 - Reduced visual noise in calendar quick-add interaction.
   - `src/render/calendar.js`: changed day quick-add control from `+ Quick add` label to compact `+` icon-only button with preserved accessibility labels.
