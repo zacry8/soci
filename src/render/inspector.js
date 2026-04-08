@@ -647,6 +647,8 @@ export function renderInspector(root, post, handlers) {
         mediaStatus.textContent = "Attach failed: we couldn’t recognize that provider. Leave provider on Auto-detect (recommended) or paste a direct https share link.";
       } else if (status === 400 && urlValidationError) {
         mediaStatus.textContent = "Attach failed: paste a full https cloud link (example: https://drive.google.com/...).";
+      } else if (status === 400 && hint && hint.toLowerCase().includes("public https")) {
+        mediaStatus.textContent = "Attach failed: that cloud file link is not publicly accessible. Update sharing to ‘Anyone with the link’ or use a direct public URL.";
       } else if (status === 400 && hint) {
         mediaStatus.textContent = `Attach failed: ${hint}`;
       } else {

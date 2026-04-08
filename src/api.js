@@ -246,29 +246,35 @@ export async function uploadMyMedia(token, { postId, file }) {
 }
 
 export async function createExternalMediaReference(token, { postId, externalUrl, provider = "", displayName = "", nativeBookmarkHint = "" }) {
+  const normalizedProvider = String(provider || "").trim();
+  const normalizedDisplayName = String(displayName || "").trim();
+  const normalizedBookmarkHint = String(nativeBookmarkHint || "").trim();
   return request("/api/admin/media/external", {
     method: "POST",
     token,
     body: {
       postId,
       externalUrl,
-      provider,
-      displayName,
-      nativeBookmarkHint
+      ...(normalizedProvider ? { provider: normalizedProvider } : {}),
+      ...(normalizedDisplayName ? { displayName: normalizedDisplayName } : {}),
+      ...(normalizedBookmarkHint ? { nativeBookmarkHint: normalizedBookmarkHint } : {})
     }
   });
 }
 
 export async function createMyExternalMediaReference(token, { postId, externalUrl, provider = "", displayName = "", nativeBookmarkHint = "" }) {
+  const normalizedProvider = String(provider || "").trim();
+  const normalizedDisplayName = String(displayName || "").trim();
+  const normalizedBookmarkHint = String(nativeBookmarkHint || "").trim();
   return request("/api/me/media/external", {
     method: "POST",
     token,
     body: {
       postId,
       externalUrl,
-      provider,
-      displayName,
-      nativeBookmarkHint
+      ...(normalizedProvider ? { provider: normalizedProvider } : {}),
+      ...(normalizedDisplayName ? { displayName: normalizedDisplayName } : {}),
+      ...(normalizedBookmarkHint ? { nativeBookmarkHint: normalizedBookmarkHint } : {})
     }
   });
 }

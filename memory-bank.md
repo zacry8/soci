@@ -215,4 +215,4 @@
 ## Last Memory Update
 - **Updated:** 2026-04-07
 - **By:** Maintainer
-- **Reason:** Hardened attach-by-link UX for external media by adding frontend provider alias normalization, URL-first auto-detect fallback, HTTPS preflight validation, and user-friendly error messaging to reduce provider-related 400 failures.
+- **Reason:** Completed follow-up fix for external attach: API helpers now omit empty optional provider fields (preventing provider enum 400 loops during fallback), plus clearer UI messaging for private/non-public cloud links (e.g., Drive 403/public-sharing requirement).

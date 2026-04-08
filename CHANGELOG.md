@@ -13,6 +13,10 @@
   - `src/render/inspector.js`:
     - provider validation failures now explain Auto-detect/direct-link guidance in plain language
     - invalid URL failures now prompt for full HTTPS cloud links with examples
+  - `src/api.js`:
+    - fixed external-media request serialization to omit empty optional fields (`provider`, `displayName`, `nativeBookmarkHint`) so backend auto-detect fallback is not blocked by empty-string provider values.
+  - `src/render/inspector.js`:
+    - added clearer guidance for non-public cloud links (e.g., private Google Drive URLs) when backend returns public-link hints.
 
 ### Production API Route Drift Diagnosis — External Media Endpoints
 - Investigated `404 Not Found` on external media attach endpoints reported by frontend (`POST /api/admin/media/external`).
