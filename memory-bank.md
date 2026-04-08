@@ -215,4 +215,4 @@
 ## Last Memory Update
 - **Updated:** 2026-04-07
 - **By:** Maintainer
-- **Reason:** Completed follow-up fix for external attach: API helpers now omit empty optional provider fields (preventing provider enum 400 loops during fallback), plus clearer UI messaging for private/non-public cloud links (e.g., Drive 403/public-sharing requirement).
+- **Reason:** Added external preview degradation safeguards: external/BYOS media now renders fallback tiles (with source-open path) in shared preview surfaces to avoid noisy broken-image states from provider-side 403 hotlink restrictions.

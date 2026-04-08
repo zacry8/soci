@@ -25,11 +25,16 @@ function makeCard(cardTpl, post, onOpen, onDropStatus, options = {}) {
     if (primaryMedia?.urlPath) {
       const thumb = document.createElement("div");
       thumb.className = "card-thumb";
-      const mimeType = String(primaryMedia.mimeType || "").toLowerCase();
-      if (mimeType.startsWith("video/")) {
-        thumb.innerHTML = `<video muted playsinline preload="metadata" src="${primaryMedia.urlPath}"></video>`;
+      if (primaryMedia?.storageMode === "external") {
+        const provider = String(primaryMedia.provider || "external").replaceAll("_", " ");
+        thumb.innerHTML = `<div class="tile-fallback">External media (${provider})</div>`;
       } else {
-        thumb.innerHTML = `<img src="${primaryMedia.urlPath}" alt="${post.title || "Post media"}" loading="lazy"/>`;
+        const mimeType = String(primaryMedia.mimeType || "").toLowerCase();
+        if (mimeType.startsWith("video/")) {
+          thumb.innerHTML = `<video muted playsinline preload="metadata" src="${primaryMedia.urlPath}"></video>`;
+        } else {
+          thumb.innerHTML = `<img src="${primaryMedia.urlPath}" alt="${post.title || "Post media"}" loading="lazy"/>`;
+        }
       }
       title.before(thumb);
     }

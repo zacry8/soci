@@ -17,6 +17,8 @@
     - fixed external-media request serialization to omit empty optional fields (`provider`, `displayName`, `nativeBookmarkHint`) so backend auto-detect fallback is not blocked by empty-string provider values.
   - `src/render/inspector.js`:
     - added clearer guidance for non-public cloud links (e.g., private Google Drive URLs) when backend returns public-link hints.
+  - `src/render/shared.js` + `src/render/kanban.js`:
+    - external media now degrades gracefully in board/profile-style previews by rendering an "External media" fallback card with source-open affordance instead of attempting fragile inline provider fetches.
 
 ### Production API Route Drift Diagnosis — External Media Endpoints
 - Investigated `404 Not Found` on external media attach endpoints reported by frontend (`POST /api/admin/media/external`).

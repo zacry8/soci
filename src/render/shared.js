@@ -42,6 +42,16 @@ export function renderPreviewMedia(post, mediaMap, className = "") {
   const media = getPrimaryMedia(post, mediaMap);
   const fallback = `<div class="tile-fallback">${escapeHtml((post.title || "Untitled").slice(0, 28))}</div>`;
   if (!media?.urlPath) return fallback;
+  if (media?.storageMode === "external") {
+    const externalUrl = escapeHtml(media.urlPath || media.externalUrl || "");
+    const provider = escapeHtml(String(media.provider || "external").replaceAll("_", " "));
+    return `
+      <div class="tile-fallback">
+        <span>External media (${provider})</span>
+        ${externalUrl ? `<a href="${externalUrl}" target="_blank" rel="noreferrer noopener">Open source</a>` : ""}
+      </div>
+    `;
+  }
   const url = escapeHtml(media.urlPath);
   const mime = String(media.mimeType || "").toLowerCase();
   const alt = escapeHtml(media.fileName || post.title || "Post media");
